@@ -71,6 +71,10 @@ export class AuthService {
   }
 
   async authenticate(email: string, password: string): Promise<User> {
+    if (typeof email !== "string" || typeof password !== "string") {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
     const user = await this.db
       .selectFrom("users")
       .selectAll()

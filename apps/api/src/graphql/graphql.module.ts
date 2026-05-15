@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { AuthModule } from "../auth/auth.module.js";
 import { AuthService } from "../auth/auth.service.js";
 import type { GqlContext } from "../auth/gql-context.js";
+import { formatGraphqlClientError } from "./format-graphql-error.js";
 
 const schemaDir = dirname(fileURLToPath(import.meta.url));
 
@@ -24,7 +25,8 @@ const schemaDir = dirname(fileURLToPath(import.meta.url));
         context: async ({ req, res }: { req: Request; res: Response }): Promise<GqlContext> => {
           const currentUser = await authService.getCurrentUser(req, res);
           return { req, res, currentUser };
-        }
+        },
+        formatError: formatGraphqlClientError
       })
     })
   ]

@@ -1,4 +1,5 @@
 import { Field, InputType, ObjectType, registerEnumType } from "@nestjs/graphql";
+import { IsEmail, IsString, MinLength } from "class-validator";
 
 export enum Role {
   ADMIN = "admin",
@@ -32,9 +33,12 @@ export class UserModel {
 @InputType()
 export class LoginInput {
   @Field()
+  @IsEmail()
   email!: string;
 
   @Field()
+  @IsString()
+  @MinLength(1)
   password!: string;
 }
 
