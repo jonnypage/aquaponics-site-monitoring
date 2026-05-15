@@ -10,9 +10,9 @@ Concise context for AI coding agents and developers who need orientation before 
 
 ## Current baseline (update when you ship work)
 
-- **Active phase:** Phase 3 milestone 1 (dashboard shell + GraphQL reads); Phase 2 ingestion remains the device path.
-- **Implemented:** Phase 1 complete (monorepo, `packages/db` migrations + seed, Nest `DatabaseModule`, `HealthModule`, GraphQL `/graphql`, cookie JWT auth, `getMe`, RBAC + `adminUsers`, sanitized GraphQL errors, Railway build scripts). Phase 2: `sensor_catalog` / `devices` / `measurements`, seed device + API key, **`POST /ingest`**. Phase 3 M1: GraphQL **`getSites`**, **`getSite`**, **`getMeasurements`**, **`getSensorMeasurements`** + **`apps/web`** (TanStack Start, login, `/sites` placeholder, Codegen from `apps/api/schema.graphql`).
-- **Not implemented yet:** `POST /ingest/snapshot`, Phase 3 M2+ dashboard UI (site grid, charts), alerts/scheduler/email, full admin CRUD, firmware/snapshots/object storage.
+- **Active phase:** Phase 3 milestone 2 (dashboard UI) — **complete** (site list + detail + charts, shell, i18n en/es, theme toggle, mobile nav transitions). Next: Phase 4 (alerts / email / scheduler).
+- **Implemented:** Phase 1 complete (monorepo, `packages/db` migrations + seed, Nest `DatabaseModule`, `HealthModule`, GraphQL `/graphql`, cookie JWT auth, `getMe`, RBAC + `adminUsers`, sanitized GraphQL errors, Railway build scripts). Phase 2: `sensor_catalog` / `devices` / `measurements`, seed device + API key, **`POST /ingest`**. Phase 3 M1: GraphQL **`getSites`**, **`getSite`**, **`getMeasurements`**, **`getSensorMeasurements`** + **`apps/web`** (TanStack Start, login, Codegen from `apps/api/schema.graphql`). Phase 3 M2: shadcn/ui (Tailwind 3 + `tailwindcss-animate` + `lucide-react` + `recharts`), pathless `_authed` layout with `DashboardShell` (sidebar + topbar + user menu / logout), `/sites` list + `/sites/$siteId` charts + `TimeRange` tabs, **`i18next`** (`en` / `es`, header language + appearance menus), **`ThemeProvider`** (light / dark / system, class-based `dark:` + `localStorage`, inline bootstrap in root `head`), mobile nav (slide-in drawer + backdrop fade, closes on route change). Hooks: `useSites`, `useSite`, `useSensorMeasurements`, `useLogoutMutate`.
+- **Not implemented yet:** `POST /ingest/snapshot`, alerts/scheduler/email (Phase 4), full admin CRUD (Phase 5), firmware/snapshots/object storage (Phase 6).
 - **Env contract:** use **`DATABASE_PUBLIC_URL`** for Postgres (see `README.md`). Do not reintroduce `DATABASE_URL` as the primary app variable without an explicit project decision.
 
 ## Key paths
@@ -26,6 +26,13 @@ Concise context for AI coding agents and developers who need orientation before 
 | `apps/web/src/utils/`              | Generic non-hook utilities (e.g. `~/utils/graphql.ts` with `graphqlRequest`). |
 | `apps/web/src/query-client.ts`     | TanStack Query `queryClient` singleton (wired into `QueryClientProvider` in `app.tsx`). |
 | `apps/web/src/gql/`                | GraphQL operations (`*.graphql`); codegen output in `~/gql/generated/`. |
+| `apps/web/src/i18n/`               | `i18next` init (`i18n.ts`), `supported-languages.ts` (codes for UI + `supportedLngs`); `I18nextProvider` in `app.tsx`. |
+| `apps/web/src/theme/`              | `ThemeProvider`, `dashboard-theme-storage.ts`, inline head bootstrap for FOUC. |
+| `apps/web/src/locales/`            | Bundled locale JSON (`en.json`, `es.json`, …); same nested keys in every file. |
+| `apps/web/src/components/ui/`      | shadcn/ui primitives (`button`, `card`, `badge`, `tabs`, `chart`, etc.). Add new ones here, never edit Radix usage directly in pages. |
+| `apps/web/src/components/layout/`  | `DashboardShell`, `AppSidebar`, `AppHeader`, `PageHeader` — the chrome shared by every `_authed` route. |
+| `apps/web/src/components/sites/`   | Domain components: `SiteCard`, `SiteStatusBadge`, `SensorChart`, `TimeRangeTabs`. |
+| `apps/web/src/routes/_authed.tsx`  | Pathless layout route; calls `requireAuth` + renders `DashboardShell`. All authenticated pages live under `_authed.*.tsx`. |
 | `apps/web/`                        | TanStack Start dashboard; `pnpm dev:web` / `pnpm build:web` / `pnpm start:web` |
 | `packages/db/src/migrations/`      | SQL migrations via Kysely Migrator                                    |
 | `packages/db/src/scripts/`         | `migrate.ts`, `seed.ts`                                               |

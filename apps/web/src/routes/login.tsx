@@ -1,5 +1,12 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
+
+import { SiteLogo } from "~/components/branding/site-logo";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { requireGuest } from "~/api/session";
 import { useLoginMutate } from "~/hooks/useAPI";
 
@@ -9,6 +16,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { mutateAsync: mutateLogin, isPending: isLoginPending } = useLoginMutate();
   const [email, setEmail] = useState("");
@@ -22,53 +30,55 @@ function LoginPage() {
       await mutateLogin({ email, password });
       await navigate({ to: "/sites" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : t("login.loginFailed"));
     }
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-12">
-      <h1 className="mb-6 text-2xl font-semibold text-slate-800">Sign in</h1>
-      <form onSubmit={onSubmit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(ev) => setEmail(ev.target.value)}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(ev) => setPassword(ev.target.value)}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={isLoginPending}
-          className="w-full rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-        >
-          {isLoginPending ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="space-y-3 text-center">
+          <div className="mx-auto flex justify-center">
+            <SiteLogo variant="login" />
+          </div>
+          <div className="space-y-1">
+            <CardTitle className="text-xl">{t("login.title")}</CardTitle>
+            <CardDescription>{t("login.subtitle")}</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-4">
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <div className="space-y-2">
+              <Label htmlFor="email">{t("login.email")}</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(ev) => setEmail(ev.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">{t("login.password")}</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(ev) => setPassword(ev.target.value)}
+              />
+            </div>
+            <Button type="submit" disabled={isLoginPending} className="w-full">
+              {isLoginPending ? t("login.signingIn") : t("login.submit")}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

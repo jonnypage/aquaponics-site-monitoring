@@ -1,0 +1,84 @@
+import { Link, useLocation } from "@tanstack/react-router";
+import { LayoutDashboard, type LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+import { SiteLogo } from "~/components/branding/site-logo";
+import { cn } from "~/utils/cn";
+
+type NavItem = {
+  labelKey: string;
+  to: string;
+  icon: LucideIcon;
+};
+
+type NavSection = {
+  sectionKey: string;
+  items: NavItem[];
+};
+
+const navSections: NavSection[] = [
+  {
+    sectionKey: "appSidebar.sections.monitoring",
+    items: [{ labelKey: "appSidebar.links.sites", to: "/sites", icon: LayoutDashboard }]
+  }
+];
+
+interface AppSidebarProps {
+  className?: string;
+  /** When true, removes the subtree from the accessibility tree and focus (e.g. closed mobile drawer). */
+  inert?: boolean;
+}
+
+export function AppSidebar({ className, inert }: AppSidebarProps) {
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+
+  return (
+    <aside
+      inert={inert === true ? true : undefined}
+      className={cn(
+        "flex h-full w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
+        className
+      )}
+    >
+      <div className="flex h-16 items-center border-b border-sidebar-border px-4">
+        <Link
+          to="/sites"
+          aria-label={t("appSidebar.homeAria")}
+          className="flex shrink-0 items-center rounded-md outline-none ring-sidebar-ring focus-visible:ring-2"
+        >
+          <SiteLogo variant="sidebar" />
+        </Link>
+      </div>
+
+      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-6">
+        {navSections.map((section) => (
+          <div key={section.sectionKey} className="space-y-1">
+            <p className="px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              {t(section.sectionKey)}
+            </p>
+            {section.items.map((item) => {
+              const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {t(item.labelKey)}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}

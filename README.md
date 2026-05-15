@@ -21,7 +21,7 @@ The MVP is being built in phases toward a practical operator dashboard: site lis
 | ----- | ---------- |
 | API | NestJS, GraphQL, REST ingest |
 | Database | PostgreSQL, Kysely migrations and types |
-| Web | TanStack Start, TanStack Router, TanStack Query, Tailwind CSS |
+| Web | TanStack Start, TanStack Router, TanStack Query, Tailwind CSS, `i18next` / `react-i18next` (en + es), light/dark/system theme |
 | Auth | HTTP-only JWT cookies, bcrypt |
 
 ## Quick Start

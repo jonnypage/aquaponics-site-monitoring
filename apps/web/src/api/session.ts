@@ -25,10 +25,13 @@ export async function loadRootContext(): Promise<RouterContext> {
 
 /**
  * Protected route guard. Call from `beforeLoad: ({ context }) => requireAuth(context)`.
- * Redirects to /login if unauthenticated.
+ * Redirects to /login if unauthenticated; otherwise narrows `context.user` to non-null
+ * for code that runs after the call.
  */
-export function requireAuth({ user }: RouterContext): void {
-  if (!user) throw redirect({ to: "/login" });
+export function requireAuth(
+  context: RouterContext
+): asserts context is RouterContext & { user: NonNullable<RouterContext["user"]> } {
+  if (!context.user) throw redirect({ to: "/login" });
 }
 
 /**

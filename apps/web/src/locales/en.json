@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "title": "Aquaponics monitoring"
+  },
+  "shared": {
+    "unknownError": "unknown error"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Site monitoring dashboard",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "signingIn": "Signing in…",
+    "loginFailed": "Login failed"
+  },
+  "appHeader": {
+    "signOut": "Sign out",
+    "signingOut": "Signing out…",
+    "toggleNavAria": "Toggle navigation",
+    "languages": {
+      "section": "Language",
+      "en": "English",
+      "es": "Español"
+    },
+    "theme": {
+      "section": "Appearance",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
+  },
+  "appSidebar": {
+    "sections": {
+      "monitoring": "Monitoring"
+    },
+    "links": {
+      "sites": "Sites"
+    },
+    "homeAria": "Home"
+  },
+  "siteCard": {
+    "noReadingsYet": "No readings yet",
+    "idLabel": "ID: {{id}}"
+  },
+  "siteStatusBadge": {
+    "ok": "OK",
+    "unknown": "Unknown"
+  },
+  "sitesPage": {
+    "title": "Sites",
+    "description": "Active aquaponics sites and their most recent reading.",
+    "loadError": "Failed to load sites: {{message}}",
+    "empty": "No sites yet. Once a device starts reporting, sites will show up here."
+  },
+  "siteDetailPage": {
+    "back": "All sites",
+    "loadError": "Failed to load site: {{message}}",
+    "lastReading": "Last reading {{time}}",
+    "notFound": "not found",
+    "sensorLabels": {
+      "temperature": "Temperature",
+      "ph": "pH",
+      "waterLevel": "Water level",
+      "waterFlow": "Water flow"
+    }
+  },
+  "timeRangeTabs": {
+    "last24h": "24h",
+    "last7d": "7d",
+    "last30d": "30d"
+  },
+  "sensorChart": {
+    "range": "range {{min}} – {{max}}",
+    "noReadings": "No readings",
+    "loadError": "Failed to load: {{message}}",
+    "noReadingsInRange": "No readings in this range"
+  }
+}

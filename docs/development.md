@@ -91,10 +91,30 @@ Always add from the **monorepo root** with `--filter` so the dependency lands on
 | ---- | ---- |
 | `src/hooks/` | React hooks only (`useQuery` / `useMutation` wrappers) |
 | `src/api/` | Non-hook data access for route `beforeLoad` |
-| `src/utils/` | Generic non-hook utilities (e.g. `graphqlRequest`) |
+| `src/utils/` | Generic non-hook utilities (`graphqlRequest`, `cn`, `format` helpers) |
 | `src/query-client.ts` | Shared TanStack `queryClient` singleton |
 | `src/gql/` | GraphQL operations (`*.graphql`) + codegen output (`src/gql/generated/`) |
-| `src/routes/` | TanStack Router file-based routes |
+| `src/i18n/` | `i18next` bootstrap (`i18n.ts`), **`supported-languages.ts`** (codes + `normalizeToSupportedLanguage` — keep in sync with locale files) |
+| `src/theme/` | `ThemeProvider` + `dashboard-theme-storage.ts` + head inline script (`theme-inline-bootstrap.ts`); `useDashboardTheme()` in layout/header only after `ThemeProvider` wraps the tree |
+| `src/locales/` | Bundled locale JSON per language (`en.json`, `es.json`, …); same nested shape in every file. |
+| `src/components/i18n/` | `I18nDocumentSync` — syncs `document.title` and `<html lang>` with the active locale on the client. |
+| `src/components/ui/` | shadcn/ui primitives (`button`, `card`, `tabs`, `chart`, …) — add new ones here, do not inline Radix usage in pages |
+| `src/components/layout/` | App shell components: `DashboardShell`, `AppSidebar`, `AppHeader`, `PageHeader` |
+| `src/components/sites/` | Domain components for the site list / detail (`SiteCard`, `SiteStatusBadge`, `SensorChart`, `TimeRangeTabs`) |
+| `src/routes/` | TanStack Router file-based routes; `_authed.tsx` is a pathless layout that calls `requireAuth` and wraps every authed page in `DashboardShell` |
+
+### Internationalization (`i18next` + `react-i18next`)
+
+- **Languages:** `en` (default) and `es`, each in **`src/locales/<lng>.json`**. Top-level keys group copy by screen or component (`meta`, `login`, `sitesPage`, …); use `shared` for strings reused in several places. Keep keys and nesting identical across locale files.
+- **Components:** call `useTranslation()` (default namespace `translation`) and dotted paths, e.g. `t("login.title")`.
+- **Choosing a language:** `i18next-browser-languagedetector` uses **`localStorage`** (key `i18nextLng`) then **`navigator`**. The authenticated **header** menu also exposes English / Español. Unknown browser languages fall back to `en` via `supportedLngs`.
+- **Document `<title>` and `<html lang>`:** the root route still seeds `<title>` from **`en.json`** for the first paint; **`I18nDocumentSync`** (in `app.tsx`) updates title and `lang` on the client when i18n resolves. `<html>` uses `suppressHydrationWarning` so a Spanish `localStorage` choice does not warn on hydration.
+- **TanStack Start:** `I18nextProvider` wraps the app in `src/app.tsx`; `react.useSuspense` is disabled on i18n so routes do not require a Suspense boundary for copy.
+- **Adding another locale:** add `src/locales/<lng>.json`, import it in `src/i18n/i18n.ts`, add it to `resources` and `supportedLngs`, and extend `I18nDocumentSync` if you need a non-`en`/`es` BCP-47 tag on `<html>`.
+
+### Session and GraphQL (SSR)
+
+- **`graphqlRequest`** (`src/utils/graphql.ts`) uses `credentials: "include"` in the browser. During **SSR / server render**, the session cookie is not sent automatically on `fetch` to a different origin, so the helper forwards the incoming **`Cookie`** header from **`getRequest()`** (`@tanstack/react-start/server`) when `document` is undefined. Without that, full reloads look logged out while client-side navigations can still work.
 
 ### Hook rules (`src/hooks/`)
 
@@ -123,6 +143,15 @@ beforeLoad: ({ context }) => requireGuest(context)
 ```
 
 Never call `fetchSessionUser` directly from route files.
+
+### UI components and theming
+
+- **Foundation:** Tailwind 3 + `tailwindcss-animate`. Theme tokens are CSS variables in `src/styles/tailwind.css` (`--background`, `--primary`, `--chart-1…5`, etc.); the Tailwind config exposes them as colour utilities.
+- **Light / dark:** `tailwind.config.ts` uses **`darkMode: "class"`**. Light tokens live on `:root`; dark overrides on **`html.dark`**. `ThemeProvider` (`src/theme/theme-provider.tsx`, outer wrapper in `app.tsx`) sets **`light` / `dark` / `system`** (`localStorage` key `dashboard-theme`); **system** follows `prefers-color-scheme` and updates when the OS preference changes. A small inline script in the root route `head` runs before paint to limit theme flash. `document.documentElement.style.colorScheme` is set for native form controls. Charts (`ChartStyle` in `~/components/ui/chart`) use **`html.dark`** for dark chart CSS variables.
+- **shadcn primitives** live in `src/components/ui/`. Build new screens out of these — do not import Radix or recharts directly in pages.
+- **Reusable app components** group by domain: `src/components/layout/` for the shell, `src/components/sites/` for site-list and site-detail building blocks (cards, badges, charts, time-range tabs). Pages stay thin and compose these.
+- **Icons:** `lucide-react`. **Charts:** `recharts` via the `Chart*` primitives in `~/components/ui/chart`.
+- **`cn(...)`** from `~/utils/cn` is the canonical class-name merger (`clsx` + `tailwind-merge`).
 
 ### GraphQL codegen
 

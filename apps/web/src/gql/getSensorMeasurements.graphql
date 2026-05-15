@@ -1,0 +1,8 @@
+query GetSensorMeasurements($siteId: String!, $sensorKey: String!, $range: TimeRange!) {
+  getSensorMeasurements(siteId: $siteId, sensorKey: $sensorKey, range: $range) {
+    id
+    sensor
+    value
+    takenAt
+  }
+}
