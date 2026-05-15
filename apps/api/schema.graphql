@@ -27,6 +27,75 @@ type AuthPayload {
   user: UserModel!
 }
 
+type SensorCatalogEntryModel {
+  key: String!
+  displayName: String!
+  unit: String!
+  physicalMin: Float
+  physicalMax: Float
+  sortOrder: Int!
+  icon: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type AdminUserModel {
+  id: String!
+  email: String!
+  name: String!
+  role: Role!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  assignedSiteIds: [String!]!
+}
+
+type SiteSensorReportingModel {
+  sensorKey: String!
+  enabled: Boolean!
+  displayName: String!
+  unit: String!
+  sortOrder: Int!
+  icon: String
+}
+
+type SiteSensorThresholdModel {
+  sensorKey: String!
+  normalMin: Float
+  normalMax: Float
+  warningDelta: Float
+  criticalDelta: Float
+}
+
+type AdminSiteModel {
+  id: String!
+  name: String!
+  latitude: Float
+  longitude: Float
+  sensorReporting: [SiteSensorReportingModel!]!
+  sensorThresholds: [SiteSensorThresholdModel!]!
+}
+
+type AdminDeviceModel {
+  deviceId: String!
+  siteId: String!
+  lastSeenAt: DateTime
+  expectedIntervalSeconds: Int!
+  reportIntervalSeconds: Int!
+  snapshotIntervalSeconds: Int!
+  hasCamera: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CreateAdminDevicePayload {
+  device: AdminDeviceModel!
+  plainApiKey: String!
+}
+
+type RotateAdminDeviceApiKeyPayload {
+  plainApiKey: String!
+}
+
 type AlertModel {
   id: String!
   siteId: String!
@@ -56,6 +125,9 @@ type SiteModel {
   role: Role!
   status: SiteStatus!
   lastUpdate: DateTime
+  sensorReporting: [SiteSensorReportingModel!]!
+  latitude: Float
+  longitude: Float
 }
 
 enum SiteStatus {
@@ -74,12 +146,16 @@ type MeasurementModel {
 
 type Query {
   getMe: UserModel!
+  sensorCatalog: [SensorCatalogEntryModel!]!
+  adminUsers: [AdminUserModel!]!
+  adminSites: [AdminSiteModel!]!
+  adminDevices(siteId: String): [AdminDeviceModel!]!
+  adminDevice(id: String!): AdminDeviceModel!
   getSites: [SiteModel!]!
   getSite(id: String!): SiteModel!
   getMeasurements(siteId: String!, range: TimeRange!): [MeasurementModel!]!
   getSensorMeasurements(siteId: String!, sensorKey: String!, range: TimeRange!): [MeasurementModel!]!
   getAlerts(siteId: String, type: String, status: AlertStatus): [AlertModel!]!
-  adminUsers: [UserModel!]!
 }
 
 enum TimeRange {
@@ -91,10 +167,115 @@ enum TimeRange {
 type Mutation {
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
+  updateMe(input: UpdateMeInput!): UserModel!
+  createSensorCatalogEntry(input: CreateSensorCatalogEntryInput!): SensorCatalogEntryModel!
+  updateSensorCatalogEntry(input: UpdateSensorCatalogEntryInput!): SensorCatalogEntryModel!
+  deleteSensorCatalogEntry(key: String!): Boolean!
+  createAdminUser(input: CreateAdminUserInput!): AdminUserModel!
+  updateAdminUser(input: UpdateAdminUserInput!): AdminUserModel!
+  resetAdminUserPassword(id: String!, newPassword: String!): Boolean!
+  createAdminSite(input: CreateAdminSiteInput!): AdminSiteModel!
+  updateAdminSite(input: UpdateAdminSiteInput!): AdminSiteModel!
+  createAdminDevice(input: CreateAdminDeviceInput!): CreateAdminDevicePayload!
+  updateAdminDevice(input: UpdateAdminDeviceInput!): AdminDeviceModel!
+  rotateAdminDeviceApiKey(deviceId: String!): RotateAdminDeviceApiKeyPayload!
+  deleteAdminDevice(deviceId: String!): Boolean!
   resolveAlert(id: String!): Boolean!
 }
 
 input LoginInput {
   email: String!
   password: String!
+}
+
+input UpdateMeInput {
+  currentPassword: String!
+  name: String
+  email: String
+  newPassword: String
+}
+
+input CreateSensorCatalogEntryInput {
+  key: String!
+  displayName: String!
+  unit: String!
+  physicalMin: Float
+  physicalMax: Float
+  sortOrder: Int
+  icon: String
+}
+
+input UpdateSensorCatalogEntryInput {
+  key: String!
+  displayName: String
+  unit: String
+  physicalMin: Float
+  physicalMax: Float
+  sortOrder: Int
+  icon: String
+}
+
+input CreateAdminUserInput {
+  email: String!
+  name: String!
+  password: String!
+  role: Role!
+  assignedSiteIds: [String!]!
+}
+
+input UpdateAdminUserInput {
+  id: String!
+  email: String
+  name: String
+  role: Role
+  assignedSiteIds: [String!]
+}
+
+input CreateAdminSiteInput {
+  name: String!
+  latitude: Float
+  longitude: Float
+  sensorReporting: [SiteSensorReportingInput!]!
+  sensorThresholds: [SiteSensorThresholdInput!]!
+  attachDeviceId: String
+}
+
+input SiteSensorReportingInput {
+  sensorKey: String!
+  enabled: Boolean!
+}
+
+input SiteSensorThresholdInput {
+  sensorKey: String!
+  normalMin: Float
+  normalMax: Float
+  warningDelta: Float
+  criticalDelta: Float
+}
+
+input UpdateAdminSiteInput {
+  id: String!
+  name: String
+  latitude: Float
+  longitude: Float
+  sensorReporting: [SiteSensorReportingInput!]
+  sensorThresholds: [SiteSensorThresholdInput!]
+  attachDeviceId: String
+}
+
+input CreateAdminDeviceInput {
+  siteId: String!
+  expectedIntervalSeconds: Int
+  reportIntervalSeconds: Int
+  snapshotIntervalSeconds: Int
+  hasCamera: Boolean
+}
+
+input UpdateAdminDeviceInput {
+  deviceId: String!
+  siteId: String
+  expectedIntervalSeconds: Int
+  reportIntervalSeconds: Int
+  snapshotIntervalSeconds: Int
+  hasCamera: Boolean
 }

@@ -8,10 +8,11 @@ import { cn } from "~/utils/cn";
 interface DashboardShellProps {
   userName: string;
   userEmail: string;
+  showAdminNav?: boolean;
   children: ReactNode;
 }
 
-export function DashboardShell({ userName, userEmail, children }: DashboardShellProps) {
+export function DashboardShell({ userName, userEmail, showAdminNav, children }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
 
@@ -21,7 +22,7 @@ export function DashboardShell({ userName, userEmail, children }: DashboardShell
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <AppSidebar className="hidden md:flex" />
+      <AppSidebar className="hidden md:flex" showAdminNav={showAdminNav} />
 
       <div
         className={cn(
@@ -34,6 +35,7 @@ export function DashboardShell({ userName, userEmail, children }: DashboardShell
 
       <AppSidebar
         inert={!mobileOpen}
+        showAdminNav={showAdminNav}
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex h-full w-60 shrink-0 border-r border-sidebar-border bg-sidebar transition-transform duration-300 ease-out md:hidden",
           mobileOpen ? "translate-x-0 shadow-xl" : "-translate-x-full pointer-events-none"

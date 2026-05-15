@@ -1,5 +1,5 @@
-import { useNavigate } from '@tanstack/react-router';
-import { LogOut, Menu, Palette } from 'lucide-react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { LogOut, Menu, Palette, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Avatar, AvatarFallback } from '~/components/ui/avatar';
@@ -104,6 +104,13 @@ export function AppHeader({
               <p className='mt-1 text-xs text-muted-foreground'>{userEmail}</p>
             </div>
           </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link to="/settings" className="flex cursor-default items-center">
+              <Settings className="mr-2 h-4 w-4" />
+              {t('appHeader.settings')}
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel className='text-xs font-normal text-muted-foreground'>
             {t('appHeader.languages.section')}

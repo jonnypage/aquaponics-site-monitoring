@@ -4,7 +4,7 @@ import type { User } from "@aquaponics/db";
 import { CurrentUser } from "./current-user.decorator.js";
 import type { GqlContext } from "./gql-context.js";
 import { GqlAuthGuard } from "./gql-auth.guard.js";
-import { AuthPayload, LoginInput, Role, UserModel } from "./auth.types.js";
+import { AuthPayload, LoginInput, Role, UpdateMeInput, UserModel } from "./auth.types.js";
 import { AuthService } from "./auth.service.js";
 
 function toUserModel(user: User): UserModel {
@@ -45,5 +45,16 @@ export class AuthResolver {
   @Query(() => UserModel)
   async getMe(@CurrentUser() user: User): Promise<UserModel> {
     return toUserModel(user);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation(() => UserModel)
+  async updateMe(
+    @Args("input", { type: () => UpdateMeInput }) input: UpdateMeInput,
+    @CurrentUser() user: User,
+    @Context() ctx: GqlContext
+  ): Promise<UserModel> {
+    const updated = await this.authService.updateMe(user.id, input, ctx.res);
+    return toUserModel(updated);
   }
 }

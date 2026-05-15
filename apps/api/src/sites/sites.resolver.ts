@@ -9,6 +9,7 @@ import { Role } from "../auth/auth.types.js";
 import { DB_TOKEN } from "../database/database.constants.js";
 import { filterAlertsForEnabledSensorsOnly, loadDisabledSensorsBySite } from "./site-sensor-filter.util.js";
 import { SiteModel, SiteStatus } from "./dashboard.types.js";
+import { loadSiteSensorReporting } from "./site-sensor-reporting.util.js";
 
 function userRoleToGql(role: User["role"]): Role {
   return role as Role;
@@ -26,18 +27,29 @@ export class SitesResolver {
   async getSites(@CurrentUser() user: User): Promise<SiteModel[]> {
     const rows =
       user.role === "admin"
-        ? await this.db.selectFrom("sites").select(["id", "name"]).orderBy("name", "asc").execute()
+        ? await this.db
+            .selectFrom("sites")
+            .select(["id", "name", "latitude", "longitude"])
+            .orderBy("name", "asc")
+            .execute()
         : await this.db
             .selectFrom("user_sites")
             .innerJoin("sites", "sites.id", "user_sites.site_id")
-            .select(["sites.id as id", "sites.name as name"])
+            .select([
+              "sites.id as id",
+              "sites.name as name",
+              "sites.latitude as latitude",
+              "sites.longitude as longitude"
+            ])
             .where("user_sites.user_id", "=", user.id)
             .orderBy("sites.name", "asc")
             .execute();
 
     const out: SiteModel[] = [];
     for (const row of rows) {
-      out.push(await this.buildSiteModel(user, row.id, row.name));
+      out.push(
+        await this.buildSiteModel(user, row.id, row.name, row.latitude ?? null, row.longitude ?? null)
+      );
     }
     return out;
   }
@@ -48,14 +60,24 @@ export class SitesResolver {
     if (!(await this.authService.requireSiteAccess(user, id))) {
       throw new ForbiddenException("No access to this site");
     }
-    const site = await this.db.selectFrom("sites").select(["id", "name"]).where("id", "=", id).executeTakeFirst();
+    const site = await this.db
+      .selectFrom("sites")
+      .select(["id", "name", "latitude", "longitude"])
+      .where("id", "=", id)
+      .executeTakeFirst();
     if (!site) {
       throw new NotFoundException("Site not found");
     }
-    return this.buildSiteModel(user, site.id, site.name);
+    return this.buildSiteModel(user, site.id, site.name, site.latitude ?? null, site.longitude ?? null);
   }
 
-  private async buildSiteModel(user: User, siteId: string, name: string): Promise<SiteModel> {
+  private async buildSiteModel(
+    user: User,
+    siteId: string,
+    name: string,
+    latitude: number | null,
+    longitude: number | null
+  ): Promise<SiteModel> {
     const agg = await this.db
       .selectFrom("measurements")
       .select((eb) => eb.fn.max("taken_at").as("last_taken"))
@@ -81,6 +103,8 @@ export class SitesResolver {
       disabledBySite
     );
 
+    const sensorReporting = await loadSiteSensorReporting(this.db, siteId);
+
     const hasCritical = filteredActive.some((a) => a.severity === "critical");
     const hasWarning = filteredActive.some((a) => a.severity === "warning");
 
@@ -100,7 +124,10 @@ export class SitesResolver {
       name,
       role: userRoleToGql(user.role),
       status,
-      lastUpdate: lastTaken
+      lastUpdate: lastTaken,
+      sensorReporting,
+      latitude,
+      longitude
     };
   }
 }

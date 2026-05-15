@@ -14,9 +14,23 @@
     "signingIn": "Iniciando sesión…",
     "loginFailed": "Error al iniciar sesión"
   },
+  "settingsPage": {
+    "title": "Ajustes de la cuenta",
+    "description": "Al guardar cambios de perfil o contraseña se cerrará la sesión en todos los sitios; vuelve a iniciar sesión con tus credenciales actualizadas.",
+    "name": "Nombre para mostrar",
+    "email": "Correo electrónico",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña (opcional)",
+    "confirmPassword": "Confirmar nueva contraseña",
+    "save": "Guardar cambios",
+    "passwordMismatch": "La nueva contraseña y la confirmación no coinciden.",
+    "passwordTooShort": "La nueva contraseña debe tener al menos 8 caracteres.",
+    "nothingToUpdate": "Cambia el nombre, el correo o la contraseña antes de guardar."
+  },
   "appHeader": {
     "signOut": "Cerrar sesión",
     "signingOut": "Cerrando sesión…",
+    "settings": "Ajustes",
     "toggleNavAria": "Mostrar u ocultar navegación",
     "languages": {
       "section": "Idioma",
@@ -32,11 +46,14 @@
   },
   "appSidebar": {
     "sections": {
-      "monitoring": "Monitorización"
+      "monitoring": "Monitorización",
+      "admin": "Administración"
     },
     "links": {
       "sites": "Sitios",
-      "alerts": "Alertas"
+      "alerts": "Alertas",
+      "settings": "Ajustes",
+      "admin": "Admin"
     },
     "homeAria": "Inicio"
   },
@@ -91,6 +108,7 @@
     "loadError": "No se pudo cargar el sitio: {{message}}",
     "lastReading": "Última lectura {{time}}",
     "notFound": "no encontrado",
+    "noEnabledSensors": "No hay sensores activos en este sitio. Pide a un administrador que active sensores en la configuración del sitio.",
     "sensorLabels": {
       "temperature": "Temperatura",
       "ph": "pH",
@@ -108,5 +126,89 @@
     "noReadings": "Sin lecturas",
     "loadError": "Error al cargar: {{message}}",
     "noReadingsInRange": "Sin lecturas en este intervalo"
+  },
+  "admin": {
+    "hub": {
+      "title": "Administración",
+      "description": "Gestión de usuarios, sitios, dispositivos y catálogo global de sensores.",
+      "usersTitle": "Usuarios",
+      "usersDesc": "Cuentas del panel y asignación de sitios.",
+      "sitesTitle": "Sitios",
+      "sitesDesc": "Ubicación, coordenadas y sensores por sitio.",
+      "devicesTitle": "Dispositivos",
+      "devicesDesc": "Credenciales de ingesta e intervalos.",
+      "sensorsTitle": "Catálogo de sensores",
+      "sensorsDesc": "Claves globales y límites físicos."
+    },
+    "shared": {
+      "backToAdmin": "Volver al admin",
+      "save": "Guardar",
+      "create": "Crear",
+      "delete": "Eliminar",
+      "cancel": "Cancelar",
+      "copyKey": "Copiar clave API",
+      "loadError": "Error al cargar: {{message}}",
+      "submitError": "No se pudo guardar: {{message}}"
+    },
+    "users": {
+      "newTitle": "Nuevo usuario",
+      "editTitle": "Editar usuario",
+      "email": "Correo",
+      "name": "Nombre",
+      "password": "Contraseña",
+      "role": "Rol",
+      "sites": "Sitios asignados",
+      "resetPassword": "Nueva contraseña (admin)",
+      "newPassword": "Nueva contraseña"
+    },
+    "sites": {
+      "newTitle": "Nuevo sitio",
+      "editTitle": "Editar sitio",
+      "name": "Nombre del sitio",
+      "latitude": "Latitud",
+      "longitude": "Longitud",
+      "sensorEnabled": "Activo",
+      "thresholds": "Umbrales (opcional)",
+      "normalMin": "Normal mín",
+      "normalMax": "Normal máx",
+      "warningDelta": "Delta advertencia",
+      "criticalDelta": "Delta crítico",
+      "mapHint": "Haz clic o arrastra el marcador para fijar coordenadas (requiere VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY).",
+      "mapLoadError": "No se pudo cargar Google Maps."
+    },
+    "devices": {
+      "listTitle": "Dispositivos",
+      "newTitle": "Nuevo dispositivo",
+      "editTitle": "Editar dispositivo",
+      "site": "Sitio",
+      "expectedInterval": "Intervalo esperado (s)",
+      "reportInterval": "Intervalo de informe (s)",
+      "snapshotInterval": "Intervalo de instantánea (s)",
+      "hasCamera": "Tiene cámara",
+      "rotateKey": "Rotar clave API",
+      "deleteConfirm": "¿Eliminar este dispositivo?",
+      "plainKeyTitle": "Clave API (cópiala ahora; solo se muestra una vez)",
+      "openInstaller": "Instalación de firmware",
+      "installTitle": "Instalador del dispositivo",
+      "installDescription": "La programación en el navegador está prevista para una fase posterior.",
+      "installBody": "La programación con esp-web-tools y la configuración del dispositivo están previstas para la fase 6. Mientras tanto, usa la clave API y la asignación de sitio en la página de edición.",
+      "backToEdit": "Volver al dispositivo"
+    },
+    "sensors": {
+      "listTitle": "Catálogo de sensores",
+      "newTitle": "Nuevo sensor",
+      "editTitle": "Editar sensor",
+      "key": "Clave",
+      "displayName": "Nombre visible",
+      "unit": "Unidad",
+      "physicalMin": "Físico mín",
+      "physicalMax": "Físico máx",
+      "sortOrder": "Orden",
+      "icon": "Icono Lucide",
+      "iconPlaceholder": "Thermometer",
+      "iconHelp": "Usa el nombre de exportación de Lucide React (PascalCase), igual que en el import de lucide-react. Lista en",
+      "iconPreview": "Vista previa",
+      "deleteConfirm": "¿Eliminar esta entrada del catálogo? (Bloqueado si hay mediciones.)"
+    }
   }
 }

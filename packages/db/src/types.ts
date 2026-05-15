@@ -17,6 +17,8 @@ export interface UsersTable {
 export interface SitesTable {
   id: Generated<string>;
   name: string;
+  latitude: number | null;
+  longitude: number | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 }

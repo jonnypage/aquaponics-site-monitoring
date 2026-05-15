@@ -1,5 +1,6 @@
 import { Field, Float, ObjectType, registerEnumType } from "@nestjs/graphql";
 import { Role } from "../auth/auth.types.js";
+import { SiteSensorReportingModel } from "../admin/admin.types.js";
 
 export enum TimeRange {
   LAST_24H = "LAST_24H",
@@ -35,6 +36,15 @@ export class SiteModel {
 
   @Field(() => Date, { nullable: true })
   lastUpdate?: Date | null;
+
+  @Field(() => [SiteSensorReportingModel])
+  sensorReporting!: SiteSensorReportingModel[];
+
+  @Field(() => Float, { nullable: true })
+  latitude?: number | null;
+
+  @Field(() => Float, { nullable: true })
+  longitude?: number | null;
 }
 
 @ObjectType()

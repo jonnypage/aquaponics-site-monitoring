@@ -7,6 +7,7 @@ import {
   LoginDocument,
   LogoutDocument,
   ResolveAlertDocument,
+  UpdateMeDocument,
   type GetAlertsQuery,
   type GetAlertsQueryVariables,
   type GetSensorMeasurementsQuery,
@@ -18,13 +19,15 @@ import {
   type LogoutMutation,
   type ResolveAlertMutation,
   type ResolveAlertMutationVariables,
-  type TimeRange
+  type TimeRange,
+  type UpdateMeMutation,
+  type UpdateMeMutationVariables
 } from "~/gql/generated/graphql";
 import { loadSessionUser, sessionUserQueryKey } from "~/api/session";
 import { graphqlRequest } from "~/utils/graphql";
 
-const sitesQueryKey = ["sites"] as const;
-const siteQueryKey = (id: string) => ["site", id] as const;
+export const sitesQueryKey = ["sites"] as const;
+export const siteQueryKey = (id: string) => ["site", id] as const;
 const sensorMeasurementsQueryKey = (siteId: string, sensorKey: string, range: TimeRange) =>
   ["sensorMeasurements", siteId, sensorKey, range] as const;
 
@@ -128,6 +131,23 @@ export function useLogoutMutate() {
     },
     onSuccess: () => {
       queryClient.clear();
+    }
+  });
+}
+
+export function useUpdateMeMutate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateMeMutationVariables["input"]) => {
+      const variables: UpdateMeMutationVariables = { input };
+      const r = await graphqlRequest<UpdateMeMutation>(UpdateMeDocument, variables);
+      return unwrap("updateMe", r).updateMe;
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      if (typeof window !== "undefined") {
+        window.location.assign("/login");
+      }
     }
   });
 }

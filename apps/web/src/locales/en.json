@@ -14,9 +14,23 @@
     "signingIn": "Signing in…",
     "loginFailed": "Login failed"
   },
+  "settingsPage": {
+    "title": "Account settings",
+    "description": "Saving profile or password changes signs you out everywhere; sign in again with your updated credentials.",
+    "name": "Display name",
+    "email": "Email",
+    "currentPassword": "Current password",
+    "newPassword": "New password (optional)",
+    "confirmPassword": "Confirm new password",
+    "save": "Save changes",
+    "passwordMismatch": "New password and confirmation do not match.",
+    "passwordTooShort": "New password must be at least 8 characters.",
+    "nothingToUpdate": "Change your name, email, or password before saving."
+  },
   "appHeader": {
     "signOut": "Sign out",
     "signingOut": "Signing out…",
+    "settings": "Settings",
     "toggleNavAria": "Toggle navigation",
     "languages": {
       "section": "Language",
@@ -32,11 +46,14 @@
   },
   "appSidebar": {
     "sections": {
-      "monitoring": "Monitoring"
+      "monitoring": "Monitoring",
+      "admin": "Administration"
     },
     "links": {
       "sites": "Sites",
-      "alerts": "Alerts"
+      "alerts": "Alerts",
+      "settings": "User Settings",
+      "admin": "Admin"
     },
     "homeAria": "Home"
   },
@@ -91,6 +108,14 @@
     "loadError": "Failed to load site: {{message}}",
     "lastReading": "Last reading {{time}}",
     "notFound": "not found",
+    "noEnabledSensors": "No enabled sensors for this site. Ask an admin to enable sensors in the site settings.",
+    "mapTitle": "Location",
+    "mapNoCoords": "No coordinates are set for this site yet.",
+    "mapSetApiKey": "Add your Google Maps browser key to apps/web/.env as VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY to enable maps.",
+    "mapLoadError": "Could not load Google Maps.",
+    "mapLoading": "Loading map…",
+    "mapCoords": "Coordinates:",
+    "mapOpenExternal": "Open in Google Maps",
     "sensorLabels": {
       "temperature": "Temperature",
       "ph": "pH",
@@ -108,5 +133,90 @@
     "noReadings": "No readings",
     "loadError": "Failed to load: {{message}}",
     "noReadingsInRange": "No readings in this range"
+  },
+  "admin": {
+    "hub": {
+      "title": "Administration",
+      "description": "Manage users, sites, devices, and the global sensor catalog.",
+      "usersTitle": "Users",
+      "usersDesc": "Create dashboard accounts and assign sites.",
+      "sitesTitle": "Sites",
+      "sitesDesc": "Locations, coordinates, and per-sensor reporting.",
+      "devicesTitle": "Devices",
+      "devicesDesc": "Ingest credentials and reporting intervals.",
+      "sensorsTitle": "Sensor catalog",
+      "sensorsDesc": "Global sensor keys and physical bounds."
+    },
+    "shared": {
+      "backToAdmin": "Back to admin",
+      "save": "Save",
+      "create": "Create",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "copyKey": "Copy API key",
+      "loadError": "Failed to load: {{message}}",
+      "submitError": "Could not save: {{message}}"
+    },
+    "users": {
+      "newTitle": "New user",
+      "editTitle": "Edit user",
+      "email": "Email",
+      "name": "Name",
+      "password": "Password",
+      "role": "Role",
+      "sites": "Assigned sites",
+      "resetPassword": "Set new password (admin)",
+      "newPassword": "New password"
+    },
+    "sites": {
+      "backToSites": "Back to sites",
+      "newTitle": "New site",
+      "editTitle": "Edit site",
+      "name": "Site name",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "sensorEnabled": "Enabled",
+      "thresholds": "Threshold overrides (optional)",
+      "normalMin": "Normal min",
+      "normalMax": "Normal max",
+      "warningDelta": "Warning delta",
+      "criticalDelta": "Critical delta",
+      "mapHint": "Click the map or drag the marker to set coordinates. ",
+      "mapLoadError": "Could not load Google Maps."
+    },
+    "devices": {
+      "listTitle": "Devices",
+      "newTitle": "New device",
+      "editTitle": "Edit device",
+      "site": "Site",
+      "expectedInterval": "Expected interval (s)",
+      "reportInterval": "Report interval (s)",
+      "snapshotInterval": "Snapshot interval (s)",
+      "hasCamera": "Has camera",
+      "rotateKey": "Rotate API key",
+      "deleteConfirm": "Delete this device?",
+      "plainKeyTitle": "API key (copy now; shown once)",
+      "openInstaller": "Firmware install",
+      "installTitle": "Device installer",
+      "installDescription": "Browser-based flashing is planned for a later phase.",
+      "installBody": "esp-web-tools based flashing and device configuration are planned for Phase 6. Use the API key and site assignment on the edit page until then.",
+      "backToEdit": "Back to device"
+    },
+    "sensors": {
+      "listTitle": "Sensor catalog",
+      "newTitle": "New sensor",
+      "editTitle": "Edit sensor",
+      "key": "Key",
+      "displayName": "Display name",
+      "unit": "Unit",
+      "physicalMin": "Physical min",
+      "physicalMax": "Physical max",
+      "sortOrder": "Sort order",
+      "icon": "Lucide icon",
+      "iconPlaceholder": "Thermometer",
+      "iconHelp": "Use the Lucide React export name (PascalCase), same as in the import from lucide-react. Browse names at",
+      "iconPreview": "Preview",
+      "deleteConfirm": "Delete this catalog entry? (Blocked if measurements exist.)"
+    }
   }
 }

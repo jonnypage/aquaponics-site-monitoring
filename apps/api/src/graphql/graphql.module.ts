@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AuthModule } from "../auth/auth.module.js";
 import { AuthService } from "../auth/auth.service.js";
+import { AdminModule } from "../admin/admin.module.js";
 import { AlertsModule } from "../alerts/alerts.module.js";
 import { MeasurementsModule } from "../measurements/measurements.module.js";
 import { SitesModule } from "../sites/sites.module.js";
@@ -17,6 +18,7 @@ const schemaDir = dirname(fileURLToPath(import.meta.url));
 @Module({
   imports: [
     AuthModule,
+    AdminModule,
     SitesModule,
     MeasurementsModule,
     AlertsModule,
