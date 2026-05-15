@@ -3,8 +3,16 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "main": "src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "migrate:dev": "tsx src/scripts/migrate.ts latest",
     "migrate:deploy": "tsx src/scripts/migrate.ts latest",
     "migrate:down": "tsx src/scripts/migrate.ts down",

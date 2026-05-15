@@ -77,6 +77,8 @@ pnpm seed
 pnpm start:api
 ```
 
+`pnpm dev:api` compiles `packages/db` to `dist/` first, then runs the API with `nest start --watch`. That is intentional: Nest GraphQL reads TypeScript decorator metadata (`design:paramtypes`), and `tsx` does not emit that metadata the same way `tsc` does, which breaks schema generation at startup. If you change only `packages/db`, either restart `pnpm dev:api` or run `pnpm --filter @aquaponics/db build` yourself.
+
 `pnpm migrate:deploy` and `pnpm seed` need `DATABASE_PUBLIC_URL` available in the environment.
 
 ## Current API Surface
@@ -122,6 +124,9 @@ For the API service:
 - Build command: `pnpm install --frozen-lockfile && pnpm build:api`
 - Start command: `pnpm start:api`
 - Optional release command: `pnpm migrate:deploy`
+- Watch paths: `apps/api/**`, `packages/db/**`, `pnpm-lock.yaml`
+
+`pnpm build:api` builds `@aquaponics/db` first and then `@aquaponics/api`, so a change to either package picks up correctly on redeploy. Node 20 is pinned via the root `engines.node` field.
 
 Set these API variables on Railway:
 

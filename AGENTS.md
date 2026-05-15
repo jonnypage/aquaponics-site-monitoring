@@ -36,6 +36,8 @@ pnpm migrate:deploy
 pnpm seed
 ```
 
+`pnpm dev:api` builds `@aquaponics/db` first, then runs `nest start --watch` (not `tsx`) so GraphQL decorator metadata is emitted correctly.
+
 Use **Node 20** when running tooling.
 
 ## Implementation constraints (from spec)

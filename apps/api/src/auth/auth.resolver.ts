@@ -23,7 +23,10 @@ export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
 
   @Mutation(() => AuthPayload)
-  async login(@Args("input") input: LoginInput, @Context() ctx: GqlContext): Promise<AuthPayload> {
+  async login(
+    @Args("input", { type: () => LoginInput }) input: LoginInput,
+    @Context() ctx: GqlContext
+  ): Promise<AuthPayload> {
     const user = await this.authService.authenticate(input.email, input.password);
     this.authService.setSessionCookie(ctx.res, user.id);
     return {
