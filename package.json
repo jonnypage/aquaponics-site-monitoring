@@ -6,6 +6,8 @@
     "node": "20.x"
   },
   "scripts": {
+    "build": "pnpm build:api",
+    "start": "pnpm start:api",
     "build:api": "pnpm --filter @aquaponics/db build && pnpm --filter @aquaponics/api build",
     "start:api": "pnpm --filter @aquaponics/api start",
     "dev:api": "pnpm --filter @aquaponics/db build && pnpm --filter @aquaponics/api dev",

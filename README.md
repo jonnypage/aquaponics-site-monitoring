@@ -121,12 +121,12 @@ Current seed:
 For the API service:
 
 - Root directory: repo root
-- Build command: `pnpm install --frozen-lockfile && pnpm build:api`
-- Start command: `pnpm start:api`
+- Build command: leave empty to use the root `build` script, or set explicitly to `pnpm build:api`
+- Start command: `pnpm start:api` (or leave empty to use the root `start` script)
 - Optional release command: `pnpm migrate:deploy`
 - Watch paths: `apps/api/**`, `packages/db/**`, `pnpm-lock.yaml`
 
-`pnpm build:api` builds `@aquaponics/db` first and then `@aquaponics/api`, so a change to either package picks up correctly on redeploy. Node 20 is pinned via the root `engines.node` field.
+If the Build command is empty, Railway/Nixpacks runs the root `build` script (which calls `pnpm build:api`). That builds `@aquaponics/db` first, then `@aquaponics/api`, so a change to either package picks up correctly on redeploy. Node 20 is pinned via the root `engines.node` field.
 
 Set these API variables on Railway:
 
