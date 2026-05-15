@@ -1,157 +1,86 @@
-# Aquaponics site monitoring
+# Aquaponics Site Monitoring
 
-This is a greenfield rebuild of an aquaponics monitoring MVP. The end goal is a small Railway-hosted system that can receive sensor readings from field devices, show site health in a web dashboard, and alert operators when something looks wrong.
+A small monitoring platform for aquaponics sites, built to collect field sensor data, give operators a clear dashboard, and surface problems before they turn into emergencies.
 
-The product spec lives in [`docs/greenfield-agent-handoff.md`](docs/greenfield-agent-handoff.md). This README is the day-to-day guide: what exists right now, how to run it, and what to update as the project moves forward.
+ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and site data, and a TanStack Start dashboard gives users a place to log in and inspect site health.
 
-## Where Things Stand
+## What Is Working
 
-**Phase 1 (backend foundation) is complete.** We are now in **Phase 2: device ingestion** — REST `POST /ingest`, `devices` / `measurements` / `sensor_catalog`, and related plumbing per the handoff.
+- **Device telemetry ingest:** devices can `POST /ingest` with an API key and submit readings for temperature, pH, water level, and flow.
+- **Database foundation:** migrations, seed data, users, sites, devices, sensor catalog, and measurements are managed through `packages/db`.
+- **Authenticated API:** the dashboard API uses GraphQL, HTTP-only JWT cookies, bcrypt password hashing, and role-aware access checks.
+- **Web dashboard shell:** TanStack Start is wired up with login, session loading, protected routes, and early site/measurement GraphQL reads.
 
-The repo has a pnpm monorepo with:
+## Where It Is Headed
 
-- `apps/api` — NestJS API with GraphQL at `/graphql`, `GET /health`, cookie auth, admin-only `adminUsers`, and **`POST /ingest`** (device API key, not GraphQL).
-- `packages/db` — Kysely database package with migrations and seed scripts.
-- `docs` — product/spec docs. The handoff doc is intentionally detailed; use it when planning future phases.
+The MVP is being built in phases toward a practical operator dashboard: site lists, per-sensor charts, active alerts, admin tools, and eventually firmware/camera support for field devices.
 
-Implemented so far:
+## Tech Stack
 
-- Database migrations for core auth tables (`users`, `sites`, `user_sites`) and Phase 2 tables (`sensor_catalog`, `devices`, `measurements` with Timescale-friendly PK).
-- Seed: admin + viewer + demo site, MVP `sensor_catalog` rows, and a **seeded device** with a **one-time-printed API key** for ingest testing.
-- JWT session cookie auth with bcrypt password hashing.
-- GraphQL `login`, `logout`, `getMe`, and admin-only `adminUsers`.
-- RBAC guards; GraphQL errors sanitized (no stack traces in client payloads).
-- Railway-oriented environment examples and root `build` / `start` scripts for deploy.
+| Layer | Technology |
+| ----- | ---------- |
+| API | NestJS, GraphQL, REST ingest |
+| Database | PostgreSQL, Kysely migrations and types |
+| Web | TanStack Start, TanStack Router, TanStack Query, Tailwind CSS |
+| Auth | HTTP-only JWT cookies, bcrypt |
 
-Not built yet (later phases):
+## Quick Start
 
-- TanStack web dashboard
-- Alerts, scheduler, email, anomaly pipeline on ingest
-- Full admin CRUD, `POST /ingest/snapshot`, object storage / firmware installer
-
-## Requirements
-
-Use **Node 20** when running tooling. Older Node versions can trip over pnpm/Corepack behavior.
-
-Install dependencies from the repo root:
+You will need Node 22.12+, pnpm, and a PostgreSQL database.
 
 ```bash
 pnpm install
+
+cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+cp packages/db/.env.example packages/db/.env
+
+pnpm db:setup
 ```
 
-## Environment
+`pnpm db:setup` runs the migrations and seeds an admin user, a demo site, and a demo device. The seed script prints the demo device's plaintext API key once; save it if you want to test device ingestion.
 
-The app uses **`DATABASE_PUBLIC_URL`** for Postgres. Do not use `DATABASE_PUBLIC_URL` as the primary variable in this repo; on Railway that name can refer to internal connection details and we want one clear app-level contract.
+Start the API and web app in separate terminals:
 
-Useful examples:
+```bash
+pnpm dev:api
+pnpm dev:web
+```
 
-- [`.env.example`](.env.example) — full list with Railway notes.
-- [`apps/api/.env.example`](apps/api/.env.example) — local API defaults.
-- [`packages/db/.env.example`](packages/db/.env.example) — local DB script defaults.
+The API runs on `http://localhost:4000`, and the web app runs on `http://localhost:3333`.
 
-For local API development, `apps/api/.env` needs at least:
+## Local Environment
+
+See [`.env.example`](.env.example) for the full environment contract. For local development, these are the important values:
+
+**`apps/api/.env`**
 
 ```bash
 DATABASE_PUBLIC_URL=postgres://postgres:postgres@localhost:5432/aquaponics
 AUTH_SECRET=local-dev-secret
+WEB_ORIGIN=http://localhost:3333
 ```
 
-Optional local values include `WEB_ORIGIN`, `NODE_ENV`, `PORT`, and `PG_POOL_MAX`.
+**`apps/web/.env`**
 
-Do not commit real `.env` files.
+```bash
+VITE_PUBLIC_API_URL=http://localhost:4000
+```
 
-## Common Commands
+Migration and seed commands read `DATABASE_PUBLIC_URL` from `packages/db/.env` when run through pnpm filters, so keep that file populated too.
 
-Run these from the repo root:
+## Useful Commands
 
 ```bash
 pnpm typecheck
 pnpm build:api
-pnpm dev:api
-
-pnpm migrate:deploy   # run before seed on a new / empty database
+pnpm build:web
+pnpm migrate:deploy
 pnpm seed
-pnpm db:setup         # migrate + seed in one shot (same env as below)
-
-pnpm start:api
+pnpm db:setup
 ```
 
-`pnpm dev:api` compiles `packages/db` to `dist/` first, then runs the API with `nest start --watch`. That is intentional: Nest GraphQL reads TypeScript decorator metadata (`design:paramtypes`), and `tsx` does not emit that metadata the same way `tsc` does, which breaks schema generation at startup. If you change only `packages/db`, either restart `pnpm dev:api` or run `pnpm --filter @aquaponics/db build` yourself.
+## Documentation
 
-`pnpm migrate:deploy`, `pnpm seed`, and `pnpm db:setup` need **`DATABASE_PUBLIC_URL`** in the environment. The migrate/seed scripts load **`.env` from `packages/db/`** (that package’s working directory when pnpm runs the script). If you only keep a repo-root `.env`, either copy the DB URL into `packages/db/.env` or export `DATABASE_PUBLIC_URL` in your shell before running those commands.
-
-If `pnpm seed` errors with **relation "sites" does not exist**, migrations have not been applied to that database yet — run **`pnpm migrate:deploy`** first (or `pnpm db:setup`).
-
-## Current API Surface
-
-| Method | Path       | Notes                                        |
-| ------ | ---------- | -------------------------------------------- |
-| `GET`  | `/health`  | Returns `{ ok: true }`                       |
-| `POST` | `/graphql` | GraphQL endpoint; auth uses HTTP-only cookie |
-| `POST` | `/ingest`  | Device telemetry JSON; header `x-api-key`  |
-
-Current GraphQL subset:
-
-- `login(input)`
-- `logout`
-- `getMe`
-- `adminUsers` (admin only)
-
-The GraphQL schema is generated by Nest at runtime into `apps/api/schema.graphql`; that file is ignored by git.
-
-### Device ingest (`POST /ingest`)
-
-Uses header **`x-api-key`** (plaintext; DB stores SHA-256). Body JSON: `deviceId`, `timestamp` (ISO UTC with `Z`), `readings` object with catalog keys only.
-
-Example (after `pnpm seed` and `pnpm migrate:deploy`):
-
-```bash
-curl -sS -X POST "$API/ingest" \
-  -H "content-type: application/json" \
-  -H "x-api-key: YOUR_SEED_DEVICE_API_KEY" \
-  -d '{"deviceId":"seed-device-1","timestamp":"2026-05-15T16:00:00.000Z","readings":{"temperature":22.1}}'
-```
-
-## Database
-
-Migrations live under `packages/db/src/migrations/` (run `pnpm migrate:deploy`).
-
-Core tables:
-
-- `users`, `sites`, `user_sites`
-
-Phase 2 tables:
-
-- `sensor_catalog` — MVP keys: `temperature`, `ph`, `waterLevel`, `waterFlow`
-- `devices` — `device_id` (text PK), `api_key_hash` (SHA-256 hex), `site_id`, `last_seen_at`, `expected_interval_seconds`, command-related columns for firmware responses
-- `measurements` — composite PK `(taken_at, id)`; indexes for site/sensor history and device history
-
-Seed creates users, demo site, catalog rows (if missing), and one **demo device**; it prints the device **plaintext API key once** (only the hash is stored).
-
-## Railway Notes
-
-For the API service:
-
-- Root directory: repo root
-- Build command: leave empty to use the root `build` script, or set explicitly to `pnpm build:api`
-- Start command: `pnpm start:api` (or leave empty to use the root `start` script)
-- Optional release command: `pnpm migrate:deploy`
-- Watch paths: `apps/api/**`, `packages/db/**`, `pnpm-lock.yaml`
-
-If the Build command is empty, Railway/Nixpacks runs the root `build` script (which calls `pnpm build:api`). That builds `@aquaponics/db` first, then `@aquaponics/api`, so a change to either package picks up correctly on redeploy. **Node 20** is required by the root `engines.node` field (match this on Railway and locally).
-
-Set these API variables on Railway:
-
-- `DATABASE_PUBLIC_URL`
-- `AUTH_SECRET`
-- `NODE_ENV=production`
-- `WEB_ORIGIN` once the web app exists
-- `PG_POOL_MAX=3`
-
-Railway sets `PORT` automatically.
-
-## Keeping This Updated
-
-When a phase changes, update this README and [`AGENTS.md`](AGENTS.md). The README should stay useful for humans; `AGENTS.md` should stay concise for coding agents.
-
-The handoff doc should only change when product behavior, contracts, or implementation constraints change.
+- [`docs/development.md`](docs/development.md) covers day-to-day development, commands, and web conventions.

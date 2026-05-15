@@ -1,0 +1,73 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type UserModel {
+  id: String!
+  email: String!
+  name: String!
+  role: Role!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum Role {
+  ADMIN
+  SITE_MANAGER
+  SITE_VIEWER
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type AuthPayload {
+  ok: Boolean!
+  user: UserModel!
+}
+
+type SiteModel {
+  id: String!
+  name: String!
+  role: Role!
+  status: SiteStatus!
+  lastUpdate: DateTime
+}
+
+enum SiteStatus {
+  UNKNOWN
+  OK
+}
+
+type MeasurementModel {
+  id: String!
+  sensor: String!
+  value: Float!
+  takenAt: DateTime!
+}
+
+type Query {
+  getMe: UserModel!
+  getSites: [SiteModel!]!
+  getSite(id: String!): SiteModel!
+  getMeasurements(siteId: String!, range: TimeRange!): [MeasurementModel!]!
+  getSensorMeasurements(siteId: String!, sensorKey: String!, range: TimeRange!): [MeasurementModel!]!
+  adminUsers: [UserModel!]!
+}
+
+enum TimeRange {
+  LAST_24H
+  LAST_7D
+  LAST_30D
+}
+
+type Mutation {
+  login(input: LoginInput!): AuthPayload!
+  logout: Boolean!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}

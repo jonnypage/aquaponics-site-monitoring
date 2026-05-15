@@ -4,4 +4,5 @@ dist
 .env
 .env.*
 !.env.example
-apps/api/schema.graphql
+apps/web/.output
+**/node_modules/.nitro
