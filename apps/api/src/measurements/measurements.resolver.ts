@@ -6,6 +6,7 @@ import { CurrentUser } from "../auth/current-user.decorator.js";
 import { GqlAuthGuard } from "../auth/gql-auth.guard.js";
 import { AuthService } from "../auth/auth.service.js";
 import { DB_TOKEN } from "../database/database.constants.js";
+import { isSensorDisabledForSite, loadDisabledSensorsBySite } from "../sites/site-sensor-filter.util.js";
 import { MeasurementModel, TimeRange } from "../sites/dashboard.types.js";
 
 function rangeToSinceMs(range: TimeRange): number {
@@ -54,14 +55,22 @@ export class MeasurementsResolver {
     }
     const since = new Date(rangeToSinceMs(range));
     const limit = rangeToLimit(range);
-    const rows = await this.db
+    const disabledBySite = await loadDisabledSensorsBySite(this.db, [siteId]);
+    const disabledKeys = [...(disabledBySite.get(siteId) ?? [])];
+
+    let q = this.db
       .selectFrom("measurements")
       .select(["id", "sensor", "value", "taken_at"])
       .where("site_id", "=", siteId)
       .where("taken_at", ">=", since)
       .orderBy("taken_at", "desc")
-      .limit(limit)
-      .execute();
+      .limit(limit);
+
+    if (disabledKeys.length > 0) {
+      q = q.where("sensor", "not in", disabledKeys);
+    }
+
+    const rows = await q.execute();
 
     return rows.map((r) => ({
       id: r.id,
@@ -82,6 +91,12 @@ export class MeasurementsResolver {
     if (!(await this.authService.requireSiteAccess(user, siteId))) {
       throw new ForbiddenException("No access to this site");
     }
+
+    const disabledBySite = await loadDisabledSensorsBySite(this.db, [siteId]);
+    if (isSensorDisabledForSite(siteId, sensorKey, disabledBySite)) {
+      return [];
+    }
+
     const since = new Date(rangeToSinceMs(range));
     const limit = rangeToLimit(range);
     const rows = await this.db

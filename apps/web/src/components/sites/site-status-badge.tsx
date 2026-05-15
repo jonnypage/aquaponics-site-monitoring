@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleHelp } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleHelp } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Badge } from "~/components/ui/badge";
@@ -10,6 +10,7 @@ interface SiteStatusBadgeProps {
 
 export function SiteStatusBadge({ status }: SiteStatusBadgeProps) {
   const { t } = useTranslation();
+
   if (status === SiteStatus.Ok) {
     return (
       <Badge variant="success" className="gap-1">
@@ -18,6 +19,25 @@ export function SiteStatusBadge({ status }: SiteStatusBadgeProps) {
       </Badge>
     );
   }
+
+  if (status === SiteStatus.Warning) {
+    return (
+      <Badge variant="warning" className="gap-1">
+        <AlertTriangle className="h-3 w-3" />
+        {t("siteStatusBadge.warning")}
+      </Badge>
+    );
+  }
+
+  if (status === SiteStatus.Critical) {
+    return (
+      <Badge variant="destructive" className="gap-1">
+        <AlertTriangle className="h-3 w-3" />
+        {t("siteStatusBadge.critical")}
+      </Badge>
+    );
+  }
+
   return (
     <Badge variant="secondary" className="gap-1">
       <CircleHelp className="h-3 w-3" />

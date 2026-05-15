@@ -9,10 +9,12 @@ export enum TimeRange {
 
 registerEnumType(TimeRange, { name: "TimeRange" });
 
-/** Simplified until Phase 4 alerts drive real health. */
+/** Site health: telemetry freshness + active alerts (after Phase 4). */
 export enum SiteStatus {
   UNKNOWN = "UNKNOWN",
-  OK = "OK"
+  OK = "OK",
+  WARNING = "WARNING",
+  CRITICAL = "CRITICAL"
 }
 
 registerEnumType(SiteStatus, { name: "SiteStatus" });

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutDashboard, type LucideIcon } from "lucide-react";
+import { Bell, LayoutDashboard, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { SiteLogo } from "~/components/branding/site-logo";
@@ -19,7 +19,10 @@ type NavSection = {
 const navSections: NavSection[] = [
   {
     sectionKey: "appSidebar.sections.monitoring",
-    items: [{ labelKey: "appSidebar.links.sites", to: "/sites", icon: LayoutDashboard }]
+    items: [
+      { labelKey: "appSidebar.links.sites", to: "/sites", icon: LayoutDashboard },
+      { labelKey: "appSidebar.links.alerts", to: "/alerts", icon: Bell }
+    ]
   }
 ];
 

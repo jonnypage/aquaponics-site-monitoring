@@ -35,7 +35,8 @@
       "monitoring": "Monitoring"
     },
     "links": {
-      "sites": "Sites"
+      "sites": "Sites",
+      "alerts": "Alerts"
     },
     "homeAria": "Home"
   },
@@ -45,13 +46,45 @@
   },
   "siteStatusBadge": {
     "ok": "OK",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "warning": "Attention",
+    "critical": "Critical"
+  },
+  "alertsPage": {
+    "title": "Alerts",
+    "description": "Active and historical alerts for sites you can access.",
+    "tabs": {
+      "active": "Active",
+      "all": "All"
+    },
+    "loadError": "Failed to load alerts: {{message}}",
+    "empty": "No alerts match this view.",
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning"
+    },
+    "status": {
+      "active": "Active",
+      "resolved": "Resolved"
+    },
+    "site": "Site",
+    "device": "Device",
+    "updated": "Updated",
+    "resolve": "Resolve"
   },
   "sitesPage": {
     "title": "Sites",
     "description": "Active aquaponics sites and their most recent reading.",
     "loadError": "Failed to load sites: {{message}}",
     "empty": "No sites yet. Once a device starts reporting, sites will show up here."
+  },
+  "siteAlertsSection": {
+    "title": "Active alerts",
+    "description": "Open issues for this site. Resolving marks an alert as cleared.",
+    "viewAll": "All alerts",
+    "empty": "No active alerts for this site.",
+    "loadError": "Could not load alerts: {{message}}",
+    "updated": "Updated {{time}}"
   },
   "siteDetailPage": {
     "back": "All sites",

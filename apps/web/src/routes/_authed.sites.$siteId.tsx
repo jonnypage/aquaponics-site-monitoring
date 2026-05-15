@@ -4,6 +4,7 @@ import { AlertTriangle, ChevronLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "~/components/layout/page-header";
+import { SiteAlertsSection } from "~/components/sites/site-alerts-section";
 import { SensorChart } from "~/components/sites/sensor-chart";
 import { SiteStatusBadge } from "~/components/sites/site-status-badge";
 import { TimeRangeTabs } from "~/components/sites/time-range-tabs";
@@ -103,6 +104,8 @@ function SiteDetailPage() {
           />
         ))}
       </div>
+
+      <SiteAlertsSection siteId={site.id} />
     </>
   );
 }

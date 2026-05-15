@@ -4,7 +4,7 @@ import { cn } from '~/utils/cn';
 export const SITE_LOGO_SRC = '/org/UILogo.webp';
 
 const variantClass: Record<'sidebar' | 'login', string> = {
-  sidebar: 'h-10 w-auto max-w-[200px]',
+  sidebar: 'h-14 w-auto max-w-[200px]',
   login: 'h-14 w-auto max-w-[240px]',
 };
 

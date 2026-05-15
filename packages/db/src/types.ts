@@ -62,6 +62,41 @@ export interface MeasurementsTable {
   ingested_at: Timestamp;
 }
 
+export interface SiteSensorCatalogTable {
+  site_id: string;
+  sensor: string;
+  enabled: boolean;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface SensorThresholdsTable {
+  site_id: string;
+  sensor: string;
+  normal_min: number | null;
+  normal_max: number | null;
+  warning_delta: number | null;
+  critical_delta: number | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export type AlertSeverity = "warning" | "critical";
+export type AlertStatus = "active" | "resolved";
+
+export interface AlertsTable {
+  id: Generated<string>;
+  site_id: string;
+  device_id: string | null;
+  type: string;
+  severity: AlertSeverity;
+  status: AlertStatus;
+  message: string;
+  last_notified_at: Timestamp | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
 export interface Database {
   users: UsersTable;
   sites: SitesTable;
@@ -69,6 +104,9 @@ export interface Database {
   sensor_catalog: SensorCatalogTable;
   devices: DevicesTable;
   measurements: MeasurementsTable;
+  site_sensor_catalog: SiteSensorCatalogTable;
+  sensor_thresholds: SensorThresholdsTable;
+  alerts: AlertsTable;
 }
 
 export type User = Selectable<UsersTable>;

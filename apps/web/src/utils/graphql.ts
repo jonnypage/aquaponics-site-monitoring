@@ -1,3 +1,4 @@
+import { createIsomorphicFn } from "@tanstack/react-start";
 import { print, type DocumentNode } from "graphql";
 
 function apiBase(): string {
@@ -9,17 +10,12 @@ function apiBase(): string {
 }
 
 /** On the server, forward the browser cookie so SSR `fetch` to the API is authenticated. */
-async function forwardedCookieHeader(): Promise<string | undefined> {
-  if (typeof document !== "undefined") {
-    return undefined;
-  }
-  try {
+const getForwardedCookieHeader = createIsomorphicFn()
+  .server(async (): Promise<string | undefined> => {
     const { getRequest } = await import("@tanstack/react-start/server");
     return getRequest().headers.get("cookie") ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
+  })
+  .client(async (): Promise<string | undefined> => undefined);
 
 export type GraphqlResponse<T> = { data?: T; errors?: { message: string }[] };
 
@@ -28,7 +24,7 @@ export async function graphqlRequest<TData>(
   variables?: object
 ): Promise<GraphqlResponse<TData>> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const cookie = await forwardedCookieHeader();
+  const cookie = await getForwardedCookieHeader();
   if (cookie) {
     headers.Cookie = cookie;
   }

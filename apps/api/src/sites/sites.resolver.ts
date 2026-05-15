@@ -7,7 +7,8 @@ import { GqlAuthGuard } from "../auth/gql-auth.guard.js";
 import { AuthService } from "../auth/auth.service.js";
 import { Role } from "../auth/auth.types.js";
 import { DB_TOKEN } from "../database/database.constants.js";
-import { SiteModel, SiteStatus, TimeRange } from "./dashboard.types.js";
+import { filterAlertsForEnabledSensorsOnly, loadDisabledSensorsBySite } from "./site-sensor-filter.util.js";
+import { SiteModel, SiteStatus } from "./dashboard.types.js";
 
 function userRoleToGql(role: User["role"]): Role {
   return role as Role;
@@ -65,8 +66,34 @@ export class SitesResolver {
     const lastTaken = raw != null ? new Date(raw as string | Date) : null;
     const now = Date.now();
     const twentyFourHoursMs = 24 * 60 * 60 * 1000;
-    const status =
-      lastTaken && now - lastTaken.getTime() < twentyFourHoursMs ? SiteStatus.OK : SiteStatus.UNKNOWN;
+    const recent = lastTaken != null && now - lastTaken.getTime() < twentyFourHoursMs;
+
+    const activeRows = await this.db
+      .selectFrom("alerts")
+      .select(["type", "severity"])
+      .where("site_id", "=", siteId)
+      .where("status", "=", "active")
+      .execute();
+
+    const disabledBySite = await loadDisabledSensorsBySite(this.db, [siteId]);
+    const filteredActive = filterAlertsForEnabledSensorsOnly(
+      activeRows.map((a) => ({ site_id: siteId, type: a.type, severity: a.severity })),
+      disabledBySite
+    );
+
+    const hasCritical = filteredActive.some((a) => a.severity === "critical");
+    const hasWarning = filteredActive.some((a) => a.severity === "warning");
+
+    let status: SiteStatus;
+    if (hasCritical) {
+      status = SiteStatus.CRITICAL;
+    } else if (hasWarning) {
+      status = SiteStatus.WARNING;
+    } else if (recent) {
+      status = SiteStatus.OK;
+    } else {
+      status = SiteStatus.UNKNOWN;
+    }
 
     return {
       id: siteId,

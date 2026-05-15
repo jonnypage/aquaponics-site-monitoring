@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedSitesRouteImport } from './routes/_authed.sites'
+import { Route as AuthedAlertsRouteImport } from './routes/_authed.alerts'
 import { Route as AuthedSitesSiteIdRouteImport } from './routes/_authed.sites.$siteId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -34,6 +35,11 @@ const AuthedSitesRoute = AuthedSitesRouteImport.update({
   path: '/sites',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedAlertsRoute = AuthedAlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedSitesSiteIdRoute = AuthedSitesSiteIdRouteImport.update({
   id: '/$siteId',
   path: '/$siteId',
@@ -43,12 +49,14 @@ const AuthedSitesSiteIdRoute = AuthedSitesSiteIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/alerts': typeof AuthedAlertsRoute
   '/sites': typeof AuthedSitesRouteWithChildren
   '/sites/$siteId': typeof AuthedSitesSiteIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/alerts': typeof AuthedAlertsRoute
   '/sites': typeof AuthedSitesRouteWithChildren
   '/sites/$siteId': typeof AuthedSitesSiteIdRoute
 }
@@ -57,19 +65,21 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authed/alerts': typeof AuthedAlertsRoute
   '/_authed/sites': typeof AuthedSitesRouteWithChildren
   '/_authed/sites/$siteId': typeof AuthedSitesSiteIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/sites' | '/sites/$siteId'
+  fullPaths: '/' | '/login' | '/alerts' | '/sites' | '/sites/$siteId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/sites' | '/sites/$siteId'
+  to: '/' | '/login' | '/alerts' | '/sites' | '/sites/$siteId'
   id:
     | '__root__'
     | '/'
     | '/_authed'
     | '/login'
+    | '/_authed/alerts'
     | '/_authed/sites'
     | '/_authed/sites/$siteId'
   fileRoutesById: FileRoutesById
@@ -110,6 +120,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSitesRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/alerts': {
+      id: '/_authed/alerts'
+      path: '/alerts'
+      fullPath: '/alerts'
+      preLoaderRoute: typeof AuthedAlertsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/sites/$siteId': {
       id: '/_authed/sites/$siteId'
       path: '/$siteId'
@@ -133,10 +150,12 @@ const AuthedSitesRouteWithChildren = AuthedSitesRoute._addFileChildren(
 )
 
 interface AuthedRouteChildren {
+  AuthedAlertsRoute: typeof AuthedAlertsRoute
   AuthedSitesRoute: typeof AuthedSitesRouteWithChildren
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedAlertsRoute: AuthedAlertsRoute,
   AuthedSitesRoute: AuthedSitesRouteWithChildren,
 }
 
