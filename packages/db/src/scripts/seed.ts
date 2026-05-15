@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { getDb } from "./shared.js";
 import type { UserRole } from "../types.js";
@@ -13,6 +14,10 @@ const VIEWER_NAME = process.env.SEED_VIEWER_NAME ?? "Seed Viewer";
 const VIEWER_ROLE: UserRole = "site_viewer";
 
 const DEFAULT_SITE_NAME = process.env.SEED_SITE_NAME ?? "Demo Site";
+
+const SEED_DEVICE_ID = process.env.SEED_DEVICE_ID ?? "seed-device-1";
+const SEED_DEVICE_API_KEY =
+  process.env.SEED_DEVICE_API_KEY ?? "local-dev-ingest-key-change-in-prod-32chars";
 
 async function upsertUser(params: {
   email: string;
@@ -93,10 +98,36 @@ async function main(): Promise<void> {
       .onConflict((oc) => oc.columns(["user_id", "site_id"]).doNothing())
       .execute();
 
+    const deviceApiKeyHash = createHash("sha256").update(SEED_DEVICE_API_KEY, "utf8").digest("hex");
+    await db
+      .insertInto("devices")
+      .values({
+        device_id: SEED_DEVICE_ID,
+        api_key_hash: deviceApiKeyHash,
+        site_id: site.id,
+        expected_interval_seconds: 300,
+        report_interval_seconds: 300,
+        snapshot_interval_seconds: 900,
+        has_camera: false
+      })
+      .onConflict((oc) =>
+        oc.column("device_id").doUpdateSet({
+          api_key_hash: deviceApiKeyHash,
+          site_id: site.id,
+          expected_interval_seconds: 300,
+          report_interval_seconds: 300,
+          snapshot_interval_seconds: 900,
+          has_camera: false,
+          updated_at: new Date()
+        })
+      )
+      .execute();
+
     console.log("Seed complete");
     console.log(`Site: ${site.name}`);
     console.log(`Admin: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
     console.log(`Viewer: ${VIEWER_EMAIL} / ${VIEWER_PASSWORD}`);
+    console.log(`Device ingest: deviceId=${SEED_DEVICE_ID}  x-api-key=${SEED_DEVICE_API_KEY}`);
   } finally {
     await db.destroy();
   }
