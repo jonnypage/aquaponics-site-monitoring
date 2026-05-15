@@ -27,10 +27,48 @@ export interface UserSitesTable {
   created_at: Timestamp;
 }
 
+export interface SensorCatalogTable {
+  key: string;
+  display_name: string;
+  unit: string;
+  physical_min: number | null;
+  physical_max: number | null;
+  sort_order: number;
+  icon: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface DevicesTable {
+  device_id: string;
+  api_key_hash: string;
+  site_id: string;
+  last_seen_at: Timestamp | null;
+  expected_interval_seconds: number;
+  report_interval_seconds: number;
+  snapshot_interval_seconds: number;
+  has_camera: boolean;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface MeasurementsTable {
+  taken_at: Timestamp;
+  id: Generated<string>;
+  site_id: string;
+  device_id: string | null;
+  sensor: string;
+  value: number;
+  ingested_at: Timestamp;
+}
+
 export interface Database {
   users: UsersTable;
   sites: SitesTable;
   user_sites: UserSitesTable;
+  sensor_catalog: SensorCatalogTable;
+  devices: DevicesTable;
+  measurements: MeasurementsTable;
 }
 
 export type User = Selectable<UsersTable>;
