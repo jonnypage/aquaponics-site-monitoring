@@ -25,13 +25,14 @@ This document is the **primary bootstrap spec** for rebuilding the aquaponics mo
 
 ## Read order for the implementing agent
 
-1. This file (scope, architecture, contracts, Railway).
-2. Follow **Build phases** in order; do not skip ahead unless a phase’s exit criteria are met.
-3. Recreate `packages/db` types and migrations from the **Database** and **Migrations** sections (reference: `packages/db/src/types.ts` and `packages/db/src/migrations/` in the legacy repo).
-4. Implement Nest GraphQL schema to match **GraphQL contract** below (reference SDL: `apps/api/src/graphql/schema.graphql`).
-5. Implement `POST /ingest` per **Device ingestion** (legacy `docs/esp-device-ingest.md` is reference only for shape).
-6. Scaffold TanStack Start routes per **Web routes**; wire TanStack Query to GraphQL.
-7. Run **Definition of done** after **Phase 6**.
+1. **[AGENTS.md](../AGENTS.md)** (repo root) and **[README.md](../README.md)** — current implementation status and repo conventions.
+2. This file (scope, architecture, contracts, Railway).
+3. Follow **Build phases** in order; do not skip ahead unless a phase’s exit criteria are met.
+4. Recreate `packages/db` types and migrations from the **Database** and **Migrations** sections (reference: `packages/db/src/types.ts` and `packages/db/src/migrations/` in the legacy repo).
+5. Implement Nest GraphQL schema to match **GraphQL contract** below (reference SDL: `apps/api/src/graphql/schema.graphql`).
+6. Implement `POST /ingest` per **Device ingestion** (legacy `docs/esp-device-ingest.md` is reference only for shape).
+7. Scaffold TanStack Start routes per **Web routes**; wire TanStack Query to GraphQL.
+8. Run **Definition of done** after **Phase 6**.
 
 ---
 
