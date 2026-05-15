@@ -42,7 +42,7 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 ### Phase 1 — Backend foundation
 
 - pnpm monorepo: `apps/api` (NestJS), `packages/db`, root scripts.
-- Railway PostgreSQL (or local Postgres); `DATABASE_URL`.
+- Railway PostgreSQL (or local Postgres); `DATABASE_PUBLIC_URL` (public URL; Railway’s `DATABASE_URL` is often internal-only).
 - Kysely client in `packages/db`; migration CLI; initial migrations for `users`, roles, `user_sites`, `sites` (minimal columns OK until later phases).
 - Nest bootstrap: `DatabaseModule`, `HealthModule` (`GET /health`), GraphQL module shell, CORS, production logging.
 - **Auth:** signed **JWT session cookie** only (HTTP-only); password hashing (bcrypt). See **Auth (greenfield)**.
@@ -592,7 +592,7 @@ Copy pattern: per-package `.env` for local dev (`packages/db`, `apps/api`, `apps
 
 | Variable                                 | API      | Web      | Notes                                                                                                        |
 | ---------------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                           | yes      | yes\*    | \*Web only if login verifies passwords in-process; prefer API-only DB access                                 |
+| `DATABASE_PUBLIC_URL`                    | yes      | yes\*    | Postgres connection string; on Railway prefer the **public** URL variable, not internal-only `DATABASE_URL`. \*Web only if login verifies passwords in-process; prefer API-only DB access |
 | `AUTH_SECRET`                            | yes      | yes      | Signs JWT session cookies (30-day rolling lifetime)                                                          |
 | `WEB_ORIGIN`                             | yes      | —        | CORS production                                                                                              |
 | `PUBLIC_API_URL` / `VITE_PUBLIC_API_URL` | —        | yes      | Browser GraphQL base                                                                                         |

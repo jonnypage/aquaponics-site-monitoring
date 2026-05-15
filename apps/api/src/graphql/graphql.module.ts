@@ -2,10 +2,13 @@ import { Module } from "@nestjs/common";
 import { ApolloDriver, type ApolloDriverConfig } from "@nestjs/apollo";
 import { GraphQLModule } from "@nestjs/graphql";
 import type { Request, Response } from "express";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { AuthModule } from "../auth/auth.module.js";
 import { AuthService } from "../auth/auth.service.js";
 import type { GqlContext } from "../auth/gql-context.js";
+
+const schemaDir = dirname(fileURLToPath(import.meta.url));
 
 @Module({
   imports: [
@@ -16,7 +19,8 @@ import type { GqlContext } from "../auth/gql-context.js";
       inject: [AuthService],
       useFactory: (authService: AuthService) => ({
         path: "/graphql",
-        autoSchemaFile: join(process.cwd(), "apps/api/schema.graphql"),
+        // Resolved from compiled file: dist/graphql → repo apps/api/schema.graphql
+        autoSchemaFile: join(schemaDir, "..", "..", "schema.graphql"),
         context: async ({ req, res }: { req: Request; res: Response }): Promise<GqlContext> => {
           const currentUser = await authService.getCurrentUser(req, res);
           return { req, res, currentUser };

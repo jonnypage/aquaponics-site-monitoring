@@ -10,9 +10,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export function getDatabaseUrl(): string {
-  const url = process.env.DATABASE_URL;
+  const url = process.env.DATABASE_PUBLIC_URL;
   if (!url) {
-    throw new Error("DATABASE_URL is required");
+    throw new Error("DATABASE_PUBLIC_URL is required");
   }
   return url;
 }
