@@ -1,0 +1,14 @@
+{
+  "name": "aquaponics-site-monitoring",
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
+  "scripts": {
+    "build:api": "pnpm --filter @aquaponics/api build",
+    "start:api": "pnpm --filter @aquaponics/api start",
+    "dev:api": "pnpm --filter @aquaponics/api dev",
+    "typecheck": "pnpm -r typecheck",
+    "migrate:deploy": "pnpm --filter @aquaponics/db migrate:deploy",
+    "migrate:dev": "pnpm --filter @aquaponics/db migrate:dev",
+    "seed": "pnpm --filter @aquaponics/db seed"
+  }
+}
