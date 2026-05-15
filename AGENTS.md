@@ -13,17 +13,17 @@ Concise context for AI coding agents and developers who need orientation before 
 - **Active phase:** Phase 1 (backend foundation), near completion of exit criteria.
 - **Implemented:** pnpm monorepo; `packages/db` (Kysely, migration `0001` for `users` / `sites` / `user_sites`, migrate + seed scripts); `apps/api` Nest app with `DatabaseModule`, `HealthModule`, GraphQL (`/graphql`), JWT HTTP-only cookie auth (`login`, `logout`, `getMe`), RBAC decorators/guards, admin-only `adminUsers`; `GET /health`.
 - **Not implemented yet:** `POST /ingest`, measurements/devices tables, TanStack web app, alerts/scheduler/email, full admin CRUD per handoff, firmware/snapshots.
-- **Env contract:** use **`DATABASE_PUBLIC_URL`** for Postgres (see `README.md`). Do not reintroduce `DATABASE_URL` as the primary app variable without an explicit project decision.
+- **Env contract:** use **`DATABASE_PUBLIC_URL`** for Postgres (see `README.md`). Do not reintroduce `DATABASE_PUBLIC_URL` as the primary app variable without an explicit project decision.
 
 ## Key paths
 
-| Path | Role |
-|------|------|
-| `apps/api/src/` | Nest modules, resolvers, guards, `main.ts` |
-| `packages/db/src/migrations/` | SQL migrations via Kysely Migrator |
-| `packages/db/src/scripts/` | `migrate.ts`, `seed.ts` |
-| `README.md` | **Update** when behavior, commands, env vars, or phase status changes |
-| `docs/greenfield-agent-handoff.md` | Spec; edit only when product/contracts change |
+| Path                               | Role                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `apps/api/src/`                    | Nest modules, resolvers, guards, `main.ts`                            |
+| `packages/db/src/migrations/`      | SQL migrations via Kysely Migrator                                    |
+| `packages/db/src/scripts/`         | `migrate.ts`, `seed.ts`                                               |
+| `README.md`                        | **Update** when behavior, commands, env vars, or phase status changes |
+| `docs/greenfield-agent-handoff.md` | Spec; edit only when product/contracts change                         |
 
 ## Commands (root)
 
@@ -34,9 +34,12 @@ pnpm build:api
 pnpm dev:api
 pnpm migrate:deploy
 pnpm seed
+pnpm db:setup
 ```
 
 `pnpm dev:api` builds `@aquaponics/db` first, then runs `nest start --watch` (not `tsx`) so GraphQL decorator metadata is emitted correctly.
+
+Run **`pnpm migrate:deploy` before `pnpm seed`** on an empty database (or use **`pnpm db:setup`**). Migrate/seed read `DATABASE_PUBLIC_URL` from **`packages/db/.env`** when run via pnpm filter (see `README.md`).
 
 Use **Node 20** when running tooling.
 

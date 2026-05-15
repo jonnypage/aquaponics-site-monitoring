@@ -44,7 +44,7 @@ pnpm install
 
 ## Environment
 
-The app uses **`DATABASE_PUBLIC_URL`** for Postgres. Do not use `DATABASE_URL` as the primary variable in this repo; on Railway that name can refer to internal connection details and we want one clear app-level contract.
+The app uses **`DATABASE_PUBLIC_URL`** for Postgres. Do not use `DATABASE_PUBLIC_URL` as the primary variable in this repo; on Railway that name can refer to internal connection details and we want one clear app-level contract.
 
 Useful examples:
 
@@ -72,20 +72,24 @@ pnpm typecheck
 pnpm build:api
 pnpm dev:api
 
-pnpm migrate:deploy
+pnpm migrate:deploy   # run before seed on a new / empty database
 pnpm seed
+pnpm db:setup         # migrate + seed in one shot (same env as below)
+
 pnpm start:api
 ```
 
 `pnpm dev:api` compiles `packages/db` to `dist/` first, then runs the API with `nest start --watch`. That is intentional: Nest GraphQL reads TypeScript decorator metadata (`design:paramtypes`), and `tsx` does not emit that metadata the same way `tsc` does, which breaks schema generation at startup. If you change only `packages/db`, either restart `pnpm dev:api` or run `pnpm --filter @aquaponics/db build` yourself.
 
-`pnpm migrate:deploy` and `pnpm seed` need `DATABASE_PUBLIC_URL` available in the environment.
+`pnpm migrate:deploy`, `pnpm seed`, and `pnpm db:setup` need **`DATABASE_PUBLIC_URL`** in the environment. The migrate/seed scripts load **`.env` from `packages/db/`** (that package’s working directory when pnpm runs the script). If you only keep a repo-root `.env`, either copy the DB URL into `packages/db/.env` or export `DATABASE_PUBLIC_URL` in your shell before running those commands.
+
+If `pnpm seed` errors with **relation "sites" does not exist**, migrations have not been applied to that database yet — run **`pnpm migrate:deploy`** first (or `pnpm db:setup`).
 
 ## Current API Surface
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/health` | Returns `{ ok: true }` |
+| Method | Path       | Notes                                        |
+| ------ | ---------- | -------------------------------------------- |
+| `GET`  | `/health`  | Returns `{ ok: true }`                       |
 | `POST` | `/graphql` | GraphQL endpoint; auth uses HTTP-only cookie |
 
 Current GraphQL subset:
@@ -126,7 +130,7 @@ For the API service:
 - Optional release command: `pnpm migrate:deploy`
 - Watch paths: `apps/api/**`, `packages/db/**`, `pnpm-lock.yaml`
 
-If the Build command is empty, Railway/Nixpacks runs the root `build` script (which calls `pnpm build:api`). That builds `@aquaponics/db` first, then `@aquaponics/api`, so a change to either package picks up correctly on redeploy. Node 20 is pinned via the root `engines.node` field.
+If the Build command is empty, Railway/Nixpacks runs the root `build` script (which calls `pnpm build:api`). That builds `@aquaponics/db` first, then `@aquaponics/api`, so a change to either package picks up correctly on redeploy. **Node 20** is required by the root `engines.node` field (match this on Railway and locally).
 
 Set these API variables on Railway:
 
