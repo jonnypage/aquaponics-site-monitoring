@@ -123,6 +123,15 @@ async function main(): Promise<void> {
       )
       .execute();
 
+    const sensors = await db.selectFrom("sensor_catalog").select("key").execute();
+    for (const { key } of sensors) {
+      await db
+        .insertInto("site_sensor_catalog")
+        .values({ site_id: site.id, sensor: key, enabled: true })
+        .onConflict((oc) => oc.columns(["site_id", "sensor"]).doNothing())
+        .execute();
+    }
+
     console.log("Seed complete");
     console.log(`Site: ${site.name}`);
     console.log(`Admin: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);

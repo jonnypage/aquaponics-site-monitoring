@@ -1,0 +1,14 @@
+query GetAlerts($siteId: String, $type: String, $status: AlertStatus) {
+  getAlerts(siteId: $siteId, type: $type, status: $status) {
+    id
+    siteId
+    deviceId
+    type
+    severity
+    status
+    message
+    lastNotifiedAt
+    createdAt
+    updatedAt
+  }
+}

@@ -6,10 +6,11 @@ ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and
 
 ## What Is Working
 
-- **Device telemetry ingest:** devices can `POST /ingest` with an API key and submit readings for temperature, pH, water level, and flow.
-- **Database foundation:** migrations, seed data, users, sites, devices, sensor catalog, and measurements are managed through `packages/db`.
+- **Device telemetry ingest:** devices can `POST /ingest` with an API key and submit readings for temperature, pH, water level, and flow. After migration `0003`, ingest evaluates **out-of-range** readings, **MVP heuristics** (spikes, flatlines, pH drift, level/flow step issues — see `ingest-heuristics.util.ts`), upserts matching alerts for **enabled** site sensors, **recomputes `device_offline` per site** from all devices’ `last_seen_at`, and sets **`captureImageNow`** when the site has any **active** alert.
+- **Alerts API & UI:** GraphQL **`getAlerts`** (optional `siteId`, `type`, `status`; site RBAC) and **`resolveAlert`**; dashboard **`/alerts`** (active/all tabs) plus **active alerts** on each **`/sites/$siteId`** page with a link to the global list. In-process **`@nestjs/schedule`** (~60s) keeps **`device_offline`** in sync and emails **critical** alerts via **Resend** when `RESEND_API_KEY` and `ALERT_FROM_EMAIL` are set (`COOLDOWN_MINUTES`, default 45).
+- **Database foundation:** migrations, seed data, users, sites, devices, sensor catalog, measurements, and **Phase 4 alert tables** (`site_sensor_catalog`, `sensor_thresholds`, `alerts` — migrate to `0003` to enable) are managed through `packages/db`.
 - **Authenticated API:** the dashboard API uses GraphQL, HTTP-only JWT cookies, bcrypt password hashing, and role-aware access checks.
-- **Web dashboard shell:** TanStack Start is wired up with login, session loading, protected routes, and early site/measurement GraphQL reads.
+- **Web dashboard shell:** TanStack Start is wired up with login, session loading, protected routes, site/measurement GraphQL reads, **site status** (OK / unknown / warning / critical from alerts + telemetry), and an **alerts** page linked from the sidebar.
 
 ## Where It Is Headed
 

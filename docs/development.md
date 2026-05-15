@@ -32,6 +32,8 @@ AUTH_SECRET=local-dev-secret
 WEB_ORIGIN=http://localhost:3333   # enables CORS for local web app
 ```
 
+Optional on the API (Phase 4 email): `RESEND_API_KEY`, `ALERT_FROM_EMAIL`, and `COOLDOWN_MINUTES` (defaults to 45). Without Resend env vars, device-offline and critical-alert scheduler jobs still run; email sends are skipped with a warning in logs.
+
 Minimum `apps/web/.env`:
 
 ```bash

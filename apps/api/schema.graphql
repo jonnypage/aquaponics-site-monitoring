@@ -27,6 +27,29 @@ type AuthPayload {
   user: UserModel!
 }
 
+type AlertModel {
+  id: String!
+  siteId: String!
+  deviceId: String
+  type: String!
+  severity: AlertSeverity!
+  status: AlertStatus!
+  message: String!
+  lastNotifiedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum AlertSeverity {
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  ACTIVE
+  RESOLVED
+}
+
 type SiteModel {
   id: String!
   name: String!
@@ -38,6 +61,8 @@ type SiteModel {
 enum SiteStatus {
   UNKNOWN
   OK
+  WARNING
+  CRITICAL
 }
 
 type MeasurementModel {
@@ -53,6 +78,7 @@ type Query {
   getSite(id: String!): SiteModel!
   getMeasurements(siteId: String!, range: TimeRange!): [MeasurementModel!]!
   getSensorMeasurements(siteId: String!, sensorKey: String!, range: TimeRange!): [MeasurementModel!]!
+  getAlerts(siteId: String, type: String, status: AlertStatus): [AlertModel!]!
   adminUsers: [UserModel!]!
 }
 
@@ -65,6 +91,7 @@ enum TimeRange {
 type Mutation {
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
+  resolveAlert(id: String!): Boolean!
 }
 
 input LoginInput {

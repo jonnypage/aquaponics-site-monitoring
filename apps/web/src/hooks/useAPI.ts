@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  GetAlertsDocument,
   GetSensorMeasurementsDocument,
   GetSiteDocument,
   GetSitesDocument,
   LoginDocument,
   LogoutDocument,
+  ResolveAlertDocument,
+  type GetAlertsQuery,
+  type GetAlertsQueryVariables,
   type GetSensorMeasurementsQuery,
   type GetSensorMeasurementsQueryVariables,
   type GetSiteQuery,
@@ -12,6 +16,8 @@ import {
   type LoginMutation,
   type LoginMutationVariables,
   type LogoutMutation,
+  type ResolveAlertMutation,
+  type ResolveAlertMutationVariables,
   type TimeRange
 } from "~/gql/generated/graphql";
 import { loadSessionUser, sessionUserQueryKey } from "~/api/session";
@@ -21,6 +27,9 @@ const sitesQueryKey = ["sites"] as const;
 const siteQueryKey = (id: string) => ["site", id] as const;
 const sensorMeasurementsQueryKey = (siteId: string, sensorKey: string, range: TimeRange) =>
   ["sensorMeasurements", siteId, sensorKey, range] as const;
+
+const alertsQueryKey = (vars: Pick<GetAlertsQueryVariables, "siteId" | "type" | "status">) =>
+  ["alerts", vars.siteId ?? null, vars.type ?? null, vars.status ?? null] as const;
 
 function unwrap<T>(label: string, payload: { data?: T; errors?: { message: string }[] }): T {
   if (payload.errors?.length) {
@@ -69,6 +78,30 @@ export function useSensorMeasurements(siteId: string, sensorKey: string, range: 
       return unwrap("getSensorMeasurements", r).getSensorMeasurements;
     },
     enabled: Boolean(siteId && sensorKey)
+  });
+}
+
+export function useAlerts(variables: GetAlertsQueryVariables) {
+  return useQuery({
+    queryKey: alertsQueryKey(variables),
+    queryFn: async () => {
+      const r = await graphqlRequest<GetAlertsQuery>(GetAlertsDocument, variables);
+      return unwrap("getAlerts", r).getAlerts;
+    }
+  });
+}
+
+export function useResolveAlertMutate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const variables: ResolveAlertMutationVariables = { id };
+      const r = await graphqlRequest<ResolveAlertMutation>(ResolveAlertDocument, variables);
+      return unwrap("resolveAlert", r).resolveAlert;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alerts"] });
+    }
   });
 }
 

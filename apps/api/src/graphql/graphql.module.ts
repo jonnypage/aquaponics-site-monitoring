@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AuthModule } from "../auth/auth.module.js";
 import { AuthService } from "../auth/auth.service.js";
+import { AlertsModule } from "../alerts/alerts.module.js";
 import { MeasurementsModule } from "../measurements/measurements.module.js";
 import { SitesModule } from "../sites/sites.module.js";
 import type { GqlContext } from "../auth/gql-context.js";
@@ -18,6 +19,7 @@ const schemaDir = dirname(fileURLToPath(import.meta.url));
     AuthModule,
     SitesModule,
     MeasurementsModule,
+    AlertsModule,
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
       imports: [AuthModule],

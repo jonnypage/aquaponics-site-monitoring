@@ -35,7 +35,8 @@
       "monitoring": "Monitorización"
     },
     "links": {
-      "sites": "Sitios"
+      "sites": "Sitios",
+      "alerts": "Alertas"
     },
     "homeAria": "Inicio"
   },
@@ -45,13 +46,45 @@
   },
   "siteStatusBadge": {
     "ok": "OK",
-    "unknown": "Desconocido"
+    "unknown": "Desconocido",
+    "warning": "Atención",
+    "critical": "Crítico"
+  },
+  "alertsPage": {
+    "title": "Alertas",
+    "description": "Alertas activas e histórico para los sitios a los que tienes acceso.",
+    "tabs": {
+      "active": "Activas",
+      "all": "Todas"
+    },
+    "loadError": "No se pudieron cargar las alertas: {{message}}",
+    "empty": "No hay alertas en esta vista.",
+    "severity": {
+      "critical": "Crítica",
+      "warning": "Advertencia"
+    },
+    "status": {
+      "active": "Activa",
+      "resolved": "Resuelta"
+    },
+    "site": "Sitio",
+    "device": "Dispositivo",
+    "updated": "Actualizada",
+    "resolve": "Resolver"
   },
   "sitesPage": {
     "title": "Sitios",
     "description": "Instalaciones de acuaponía activas y su lectura más reciente.",
     "loadError": "No se pudieron cargar los sitios: {{message}}",
     "empty": "Aún no hay sitios. Cuando un dispositivo empiece a enviar datos, aparecerán aquí."
+  },
+  "siteAlertsSection": {
+    "title": "Alertas activas",
+    "description": "Incidencias abiertas de este sitio. Al resolver se marca la alerta como cerrada.",
+    "viewAll": "Todas las alertas",
+    "empty": "No hay alertas activas para este sitio.",
+    "loadError": "No se pudieron cargar las alertas: {{message}}",
+    "updated": "Actualizada {{time}}"
   },
   "siteDetailPage": {
     "back": "Todos los sitios",

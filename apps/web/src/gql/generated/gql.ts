@@ -14,20 +14,24 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
+    "query GetAlerts($siteId: String, $type: String, $status: AlertStatus) {\n  getAlerts(siteId: $siteId, type: $type, status: $status) {\n    id\n    siteId\n    deviceId\n    type\n    severity\n    status\n    message\n    lastNotifiedAt\n    createdAt\n    updatedAt\n  }\n}": typeof types.GetAlertsDocument,
     "query GetMe {\n  getMe {\n    id\n    email\n    name\n    role\n  }\n}": typeof types.GetMeDocument,
     "query GetSensorMeasurements($siteId: String!, $sensorKey: String!, $range: TimeRange!) {\n  getSensorMeasurements(siteId: $siteId, sensorKey: $sensorKey, range: $range) {\n    id\n    sensor\n    value\n    takenAt\n  }\n}": typeof types.GetSensorMeasurementsDocument,
     "query GetSite($id: String!) {\n  getSite(id: $id) {\n    id\n    name\n    role\n    status\n    lastUpdate\n  }\n}": typeof types.GetSiteDocument,
     "query GetSites {\n  getSites {\n    id\n    name\n    role\n    status\n    lastUpdate\n  }\n}": typeof types.GetSitesDocument,
     "mutation Login($input: LoginInput!) {\n  login(input: $input) {\n    ok\n    user {\n      id\n      email\n      name\n      role\n    }\n  }\n}": typeof types.LoginDocument,
     "mutation Logout {\n  logout\n}": typeof types.LogoutDocument,
+    "mutation ResolveAlert($id: String!) {\n  resolveAlert(id: $id)\n}": typeof types.ResolveAlertDocument,
 };
 const documents: Documents = {
+    "query GetAlerts($siteId: String, $type: String, $status: AlertStatus) {\n  getAlerts(siteId: $siteId, type: $type, status: $status) {\n    id\n    siteId\n    deviceId\n    type\n    severity\n    status\n    message\n    lastNotifiedAt\n    createdAt\n    updatedAt\n  }\n}": types.GetAlertsDocument,
     "query GetMe {\n  getMe {\n    id\n    email\n    name\n    role\n  }\n}": types.GetMeDocument,
     "query GetSensorMeasurements($siteId: String!, $sensorKey: String!, $range: TimeRange!) {\n  getSensorMeasurements(siteId: $siteId, sensorKey: $sensorKey, range: $range) {\n    id\n    sensor\n    value\n    takenAt\n  }\n}": types.GetSensorMeasurementsDocument,
     "query GetSite($id: String!) {\n  getSite(id: $id) {\n    id\n    name\n    role\n    status\n    lastUpdate\n  }\n}": types.GetSiteDocument,
     "query GetSites {\n  getSites {\n    id\n    name\n    role\n    status\n    lastUpdate\n  }\n}": types.GetSitesDocument,
     "mutation Login($input: LoginInput!) {\n  login(input: $input) {\n    ok\n    user {\n      id\n      email\n      name\n      role\n    }\n  }\n}": types.LoginDocument,
     "mutation Logout {\n  logout\n}": types.LogoutDocument,
+    "mutation ResolveAlert($id: String!) {\n  resolveAlert(id: $id)\n}": types.ResolveAlertDocument,
 };
 
 /**
@@ -44,6 +48,10 @@ const documents: Documents = {
  */
 export function graphql(source: string): unknown;
 
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query GetAlerts($siteId: String, $type: String, $status: AlertStatus) {\n  getAlerts(siteId: $siteId, type: $type, status: $status) {\n    id\n    siteId\n    deviceId\n    type\n    severity\n    status\n    message\n    lastNotifiedAt\n    createdAt\n    updatedAt\n  }\n}"): (typeof documents)["query GetAlerts($siteId: String, $type: String, $status: AlertStatus) {\n  getAlerts(siteId: $siteId, type: $type, status: $status) {\n    id\n    siteId\n    deviceId\n    type\n    severity\n    status\n    message\n    lastNotifiedAt\n    createdAt\n    updatedAt\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -68,6 +76,10 @@ export function graphql(source: "mutation Login($input: LoginInput!) {\n  login(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation Logout {\n  logout\n}"): (typeof documents)["mutation Logout {\n  logout\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation ResolveAlert($id: String!) {\n  resolveAlert(id: $id)\n}"): (typeof documents)["mutation ResolveAlert($id: String!) {\n  resolveAlert(id: $id)\n}"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};
