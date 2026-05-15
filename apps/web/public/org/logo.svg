@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+  <title>Logo placeholder — replace with your brand asset</title>
+  <rect width="48" height="48" rx="10" fill="hsl(142 71% 36%)" />
+  <path
+    d="M24 12c-4 6-8 10-8 16a8 8 0 1 0 16 0c0-6-4-10-8-16Z"
+    fill="white"
+    fill-opacity="0.92"
+  />
+  <path d="M24 22v10" stroke="hsl(142 71% 28%)" stroke-width="2" stroke-linecap="round" />
+</svg>

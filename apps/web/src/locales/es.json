@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "title": "Monitoreo de acuaponía"
+  },
+  "shared": {
+    "unknownError": "error desconocido"
+  },
+  "login": {
+    "title": "Iniciar sesión",
+    "subtitle": "Panel de monitorización de instalaciones",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Iniciar sesión",
+    "signingIn": "Iniciando sesión…",
+    "loginFailed": "Error al iniciar sesión"
+  },
+  "appHeader": {
+    "signOut": "Cerrar sesión",
+    "signingOut": "Cerrando sesión…",
+    "toggleNavAria": "Mostrar u ocultar navegación",
+    "languages": {
+      "section": "Idioma",
+      "en": "English",
+      "es": "Español"
+    },
+    "theme": {
+      "section": "Apariencia",
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    }
+  },
+  "appSidebar": {
+    "sections": {
+      "monitoring": "Monitorización"
+    },
+    "links": {
+      "sites": "Sitios"
+    },
+    "homeAria": "Inicio"
+  },
+  "siteCard": {
+    "noReadingsYet": "Sin lecturas aún",
+    "idLabel": "ID: {{id}}"
+  },
+  "siteStatusBadge": {
+    "ok": "OK",
+    "unknown": "Desconocido"
+  },
+  "sitesPage": {
+    "title": "Sitios",
+    "description": "Instalaciones de acuaponía activas y su lectura más reciente.",
+    "loadError": "No se pudieron cargar los sitios: {{message}}",
+    "empty": "Aún no hay sitios. Cuando un dispositivo empiece a enviar datos, aparecerán aquí."
+  },
+  "siteDetailPage": {
+    "back": "Todos los sitios",
+    "loadError": "No se pudo cargar el sitio: {{message}}",
+    "lastReading": "Última lectura {{time}}",
+    "notFound": "no encontrado",
+    "sensorLabels": {
+      "temperature": "Temperatura",
+      "ph": "pH",
+      "waterLevel": "Nivel de agua",
+      "waterFlow": "Caudal de agua"
+    }
+  },
+  "timeRangeTabs": {
+    "last24h": "24 h",
+    "last7d": "7 d",
+    "last30d": "30 d"
+  },
+  "sensorChart": {
+    "range": "rango {{min}} – {{max}}",
+    "noReadings": "Sin lecturas",
+    "loadError": "Error al cargar: {{message}}",
+    "noReadingsInRange": "Sin lecturas en este intervalo"
+  }
+}

@@ -1,0 +1,9 @@
+query GetSites {
+  getSites {
+    id
+    name
+    role
+    status
+    lastUpdate
+  }
+}

@@ -1,0 +1,9 @@
+query GetSite($id: String!) {
+  getSite(id: $id) {
+    id
+    name
+    role
+    status
+    lastUpdate
+  }
+}

@@ -4,4 +4,6 @@ dist
 .env
 .env.*
 !.env.example
-apps/api/schema.graphql
+apps/web/.output
+apps/web/.tanstack/tmp/*
+**/node_modules/.nitro
