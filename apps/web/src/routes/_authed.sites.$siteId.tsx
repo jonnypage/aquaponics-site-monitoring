@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { AlertTriangle, ChevronLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -53,9 +53,9 @@ function SiteDetailPage() {
     return (
       <>
         <Skeleton className='mb-6 h-10 w-64' />
-        <div className='grid gap-4 md:grid-cols-2'>
+        <div className="grid w-full grid-cols-1 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className='h-[260px] w-full' />
+            <Skeleton key={i} className="h-[260px] w-full min-w-0" />
           ))}
         </div>
       </>
@@ -102,35 +102,41 @@ function SiteDetailPage() {
         }
       />
 
-      <SiteAlertsSection
-        siteId={site.id}
-        sensorReporting={site.sensorReporting}
-      />
-
-      {chartSensors.length === 0 ? (
-        <p className='text-sm text-muted-foreground'>
-          {t('siteDetailPage.noEnabledSensors')}
-        </p>
-      ) : (
-        <div className='grid gap-4 md:grid-cols-2'>
-          {chartSensors.map((s) => (
-            <SensorChart
-              key={s.sensorKey}
-              siteId={site.id}
-              sensorKey={s.sensorKey}
-              label={s.label}
-              unit={s.unit}
-              range={range}
-              colorVar={s.colorVar}
-              lucideIcon={s.icon}
-            />
-          ))}
-        </div>
-      )}
-
-      <div className='mb-6'>
-        <SiteLocationMap latitude={site.latitude} longitude={site.longitude} />
+      <div className="mb-6">
+        <SiteAlertsSection
+          siteId={site.id}
+          sensorReporting={site.sensorReporting}
+        />
       </div>
+
+      <div className="mb-6">
+        {chartSensors.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("siteDetailPage.noEnabledSensors")}
+          </p>
+        ) : (
+          <div
+            className="grid w-full grid-cols-1 gap-4 md:[grid-template-columns:repeat(var(--sensor-cols),minmax(0,1fr))]"
+            style={{ "--sensor-cols": chartSensors.length } as CSSProperties}
+          >
+            {chartSensors.map((s) => (
+              <div key={s.sensorKey} className="min-w-0">
+                <SensorChart
+                  siteId={site.id}
+                  sensorKey={s.sensorKey}
+                  label={s.label}
+                  unit={s.unit}
+                  range={range}
+                  colorVar={s.colorVar}
+                  lucideIcon={s.icon}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <SiteLocationMap latitude={site.latitude} longitude={site.longitude} />
     </>
   );
 }

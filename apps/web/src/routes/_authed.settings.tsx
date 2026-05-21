@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
+import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
 import { Card, CardContent } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -78,7 +79,7 @@ function SettingsPage() {
   }
 
   if (isLoading || !user) {
-    return <p className="text-sm text-muted-foreground">…</p>;
+    return <LoadingIndicator className="py-12" />;
   }
 
   return (
@@ -134,7 +135,7 @@ function SettingsPage() {
             </div>
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             <Button type="submit" disabled={isPending}>
-              {isPending ? "…" : t("settingsPage.save")}
+              <ButtonPendingLabel pending={isPending}>{t("settingsPage.save")}</ButtonPendingLabel>
             </Button>
           </form>
         </CardContent>

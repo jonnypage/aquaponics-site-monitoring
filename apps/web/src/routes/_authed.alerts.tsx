@@ -7,6 +7,7 @@ import { PageHeader } from "~/components/layout/page-header";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
+import { ButtonPendingLabel } from "~/components/ui/loading-indicator";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { AlertSeverity, AlertStatus, type GetAlertsQueryVariables } from "~/gql/generated/graphql";
@@ -110,7 +111,7 @@ function AlertsPage() {
                     disabled={isResolving}
                     onClick={() => void resolveAlert(a.id)}
                   >
-                    {t("alertsPage.resolve")}
+                    <ButtonPendingLabel pending={isResolving}>{t("alertsPage.resolve")}</ButtonPendingLabel>
                   </Button>
                 ) : null}
               </CardContent>

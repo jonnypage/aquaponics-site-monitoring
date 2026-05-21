@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Avatar, AvatarFallback } from '~/components/ui/avatar';
 import { Button } from '~/components/ui/button';
+import { ButtonPendingLabel } from '~/components/ui/loading-indicator';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,7 +68,7 @@ export function AppHeader({
   }
 
   return (
-    <header className='flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4 md:px-6'>
+    <header className='flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4 text-foreground md:px-6'>
       <div className='flex items-center gap-3'>
         <Button
           variant='ghost'
@@ -149,7 +150,9 @@ export function AppHeader({
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onLogout} disabled={isLoggingOut}>
             <LogOut className='mr-2 h-4 w-4' />
-            {isLoggingOut ? t('appHeader.signingOut') : t('appHeader.signOut')}
+            <ButtonPendingLabel pending={isLoggingOut}>
+              {isLoggingOut ? t('appHeader.signingOut') : t('appHeader.signOut')}
+            </ButtonPendingLabel>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

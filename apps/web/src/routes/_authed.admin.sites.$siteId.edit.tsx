@@ -8,6 +8,7 @@ import { SiteAlertsSection } from '~/components/sites/site-alerts-section';
 
 import { PageHeader } from '~/components/layout/page-header';
 import { Button } from '~/components/ui/button';
+import { ButtonPendingLabel, LoadingIndicator } from '~/components/ui/loading-indicator';
 import { Card, CardContent } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
@@ -125,7 +126,7 @@ function AdminSiteEditPage() {
   }
 
   if (isLoading || !sites) {
-    return <p className='text-sm text-muted-foreground'>…</p>;
+    return <LoadingIndicator className='py-12' />;
   }
   if (!site) {
     return (
@@ -286,7 +287,7 @@ function AdminSiteEditPage() {
               <p className='text-sm text-destructive'>{formError}</p>
             ) : null}
             <Button type='submit' disabled={isPending}>
-              {isPending ? '…' : t('admin.shared.save')}
+              <ButtonPendingLabel pending={isPending}>{t('admin.shared.save')}</ButtonPendingLabel>
             </Button>
           </form>
         </CardContent>

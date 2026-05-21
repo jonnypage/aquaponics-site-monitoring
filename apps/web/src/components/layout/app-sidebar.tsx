@@ -32,11 +32,11 @@ const navSections: NavSection[] = [
         icon: LayoutDashboard,
       },
       { labelKey: 'appSidebar.links.alerts', to: '/alerts', icon: Bell },
-      {
-        labelKey: 'appSidebar.links.settings',
-        to: '/settings',
-        icon: Settings,
-      },
+      // {
+      //   labelKey: 'appSidebar.links.settings',
+      //   to: '/settings',
+      //   icon: Settings,
+      // },
     ],
   },
 ];
@@ -68,15 +68,15 @@ export function AppSidebar({
     <aside
       inert={inert === true ? true : undefined}
       className={cn(
-        'flex h-full w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground',
+        'flex h-full w-60 shrink-0 flex-col border-r border-border bg-background text-foreground',
         className,
       )}
     >
-      <div className='flex h-16 items-center  border-sidebar-border px-4'>
+      <div className='flex h-16 items-center border-border px-4'>
         <Link
           to='/sites'
           aria-label={t('appSidebar.homeAria')}
-          className='flex shrink-0 items-center rounded-md outline-none ring-sidebar-ring focus-visible:ring-2'
+          className='flex shrink-0 items-center rounded-md outline-none ring-ring focus-visible:ring-2'
         >
           <SiteLogo variant='sidebar' />
         </Link>
@@ -101,8 +101,8 @@ export function AppSidebar({
                   className={cn(
                     'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                     active
-                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                      : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-foreground/80 hover:bg-accent hover:text-accent-foreground',
                   )}
                 >
                   <Icon className='h-4 w-4' />

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { SiteLogo } from "~/components/branding/site-logo";
 import { Button } from "~/components/ui/button";
+import { ButtonPendingLabel } from "~/components/ui/loading-indicator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -74,7 +75,9 @@ function LoginPage() {
               />
             </div>
             <Button type="submit" disabled={isLoginPending} className="w-full">
-              {isLoginPending ? t("login.signingIn") : t("login.submit")}
+              <ButtonPendingLabel pending={isLoginPending}>
+                {isLoginPending ? t("login.signingIn") : t("login.submit")}
+              </ButtonPendingLabel>
             </Button>
           </form>
         </CardContent>

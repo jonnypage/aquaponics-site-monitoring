@@ -3,7 +3,8 @@
     "title": "Aquaponics monitoring"
   },
   "shared": {
-    "unknownError": "unknown error"
+    "unknownError": "unknown error",
+    "loading": "Loading…"
   },
   "login": {
     "title": "Sign in",
@@ -30,7 +31,7 @@
   "appHeader": {
     "signOut": "Sign out",
     "signingOut": "Signing out…",
-    "settings": "Settings",
+    "settings": "Account Settings",
     "toggleNavAria": "Toggle navigation",
     "languages": {
       "section": "Language",
@@ -91,9 +92,17 @@
   },
   "sitesPage": {
     "title": "Sites",
-    "description": "Active aquaponics sites and their most recent reading.",
+    "description": "Health across all your assigned sites.",
     "loadError": "Failed to load sites: {{message}}",
-    "empty": "No sites yet. Once a device starts reporting, sites will show up here."
+    "empty": "No sites yet. Once a device starts reporting, sites will show up here.",
+    "mapTitle": "Site map",
+    "mapDescription": "Click a pin to open the dashboard for that site.",
+    "mapSetApiKey": "Add VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY in apps/web/.env with the Maps JavaScript API enabled to show all sites on a map.",
+    "mapNoCoords": "No sites have GPS coordinates yet. Add latitude and longitude under Admin → Sites to see them on the map.",
+    "mapLoadError": "Could not load Google Maps.",
+    "mapLoading": "Loading map…",
+    "mapHint": "Click a pin or site name to open the site.",
+    "mapHiddenWithoutCoords": "| {{count}} site(s) have no coordinates and are not shown."
   },
   "siteAlertsSection": {
     "title": "Active alerts",
@@ -165,6 +174,7 @@
       "password": "Password",
       "role": "Role",
       "sites": "Assigned sites",
+      "sitesAdminHint": "Admins can access every site. This list is fixed while the role is Admin.",
       "resetPassword": "Set new password (admin)",
       "newPassword": "New password"
     },

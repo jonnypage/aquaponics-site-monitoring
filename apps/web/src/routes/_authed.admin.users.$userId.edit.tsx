@@ -4,12 +4,15 @@ import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
+import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
 import { Card, CardContent } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Role } from "~/gql/generated/graphql";
 import { useAdminSites, useAdminUsers } from "~/hooks/useAdmin";
 import { useResetAdminUserPasswordMutate, useUpdateAdminUserMutate } from "~/hooks/useAdmin";
+import { allSiteIdSet, assignedSiteIdsForSave } from "~/utils/admin-user-sites";
+import { cn } from "~/utils/cn";
 
 export const Route = createFileRoute("/_authed/admin/users/$userId/edit")({
   component: AdminUserEditPage
@@ -33,6 +36,8 @@ function AdminUserEditPage() {
   const [newPassword, setNewPassword] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
+  const isAdminRole = role === Role.Admin;
+
   useEffect(() => {
     if (!user) {
       return;
@@ -40,10 +45,24 @@ function AdminUserEditPage() {
     setEmail(user.email);
     setName(user.name);
     setRole(user.role);
-    setSelectedSites(new Set(user.assignedSiteIds));
-  }, [user]);
+    if (user.role === Role.Admin && sites?.length) {
+      setSelectedSites(allSiteIdSet(sites));
+    } else {
+      setSelectedSites(new Set(user.assignedSiteIds));
+    }
+  }, [user, sites]);
+
+  function onRoleChange(next: Role) {
+    setRole(next);
+    if (next === Role.Admin && sites?.length) {
+      setSelectedSites(allSiteIdSet(sites));
+    }
+  }
 
   function toggleSite(id: string) {
+    if (isAdminRole) {
+      return;
+    }
     setSelectedSites((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -67,7 +86,7 @@ function AdminUserEditPage() {
         email,
         name,
         role,
-        assignedSiteIds: Array.from(selectedSites)
+        assignedSiteIds: assignedSiteIdsForSave(role, sites ?? [], selectedSites)
       });
       if (newPassword.length >= 8) {
         await resetPassword({ id: user.id, newPassword });
@@ -80,7 +99,7 @@ function AdminUserEditPage() {
   }
 
   if (isLoading || !users) {
-    return <p className="text-sm text-muted-foreground">…</p>;
+    return <LoadingIndicator className="py-12" />;
   }
   if (!user) {
     return (
@@ -101,7 +120,7 @@ function AdminUserEditPage() {
           <Link to="/admin/users">{t("admin.hub.usersTitle")}</Link>
         </Button>
       </div>
-      <Card className="max-w-lg">
+      <Card className="w-full">
         <CardContent className="pt-6">
           <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
             <div className="space-y-2">
@@ -118,7 +137,7 @@ function AdminUserEditPage() {
                 id="role"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={role}
-                onChange={(e) => setRole(e.target.value as Role)}
+                onChange={(e) => onRoleChange(e.target.value as Role)}
               >
                 <option value={Role.Admin}>Admin</option>
                 <option value={Role.SiteManager}>Site manager</option>
@@ -127,10 +146,29 @@ function AdminUserEditPage() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">{t("admin.users.sites")}</p>
-              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
+              {isAdminRole ? (
+                <p className="text-sm text-muted-foreground">{t("admin.users.sitesAdminHint")}</p>
+              ) : null}
+              <div
+                className={cn(
+                  "max-h-48 space-y-2 overflow-y-auto rounded-md border p-3",
+                  isAdminRole && "bg-muted/40 opacity-80"
+                )}
+              >
                 {(sites ?? []).map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={selectedSites.has(s.id)} onChange={() => toggleSite(s.id)} />
+                  <label
+                    key={s.id}
+                    className={cn(
+                      "flex items-center gap-2 text-sm",
+                      isAdminRole && "cursor-not-allowed text-muted-foreground"
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isAdminRole || selectedSites.has(s.id)}
+                      disabled={isAdminRole}
+                      onChange={() => toggleSite(s.id)}
+                    />
                     {s.name}
                   </label>
                 ))}
@@ -151,7 +189,7 @@ function AdminUserEditPage() {
             </div>
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             <Button type="submit" disabled={isSaving || isResetting}>
-              {isSaving || isResetting ? "…" : t("admin.shared.save")}
+              <ButtonPendingLabel pending={isSaving || isResetting}>{t("admin.shared.save")}</ButtonPendingLabel>
             </Button>
           </form>
         </CardContent>

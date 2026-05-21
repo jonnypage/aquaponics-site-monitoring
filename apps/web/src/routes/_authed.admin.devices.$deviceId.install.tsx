@@ -26,7 +26,7 @@ function AdminDeviceInstallStubPage() {
           <Link to="/admin/devices">{t("admin.devices.listTitle")}</Link>
         </Button>
       </div>
-      <Card className="max-w-xl">
+      <Card className="w-full">
         <CardContent className="space-y-2 pt-6 text-sm text-muted-foreground">
           <p className="font-mono text-xs text-foreground/80">{deviceId}</p>
           <p>{t("admin.devices.installBody")}</p>

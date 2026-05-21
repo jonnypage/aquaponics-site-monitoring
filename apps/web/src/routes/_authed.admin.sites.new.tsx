@@ -6,6 +6,7 @@ import { SiteLocationMapPicker } from "~/components/admin/site-location-map-pick
 
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
+import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
 import { Card, CardContent } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -104,7 +105,7 @@ function AdminSiteNewPage() {
   }
 
   if (catLoading || !catalog) {
-    return <p className="text-sm text-muted-foreground">…</p>;
+    return <LoadingIndicator className="py-12" />;
   }
 
   return (
@@ -115,7 +116,7 @@ function AdminSiteNewPage() {
           <Link to="/admin/sites">{t("admin.hub.sitesTitle")}</Link>
         </Button>
       </div>
-      <Card className="max-w-2xl">
+      <Card className="w-full">
         <CardContent className="pt-6">
           <form className="space-y-6" onSubmit={(e) => void onSubmit(e)}>
             <div className="space-y-2">
@@ -187,7 +188,7 @@ function AdminSiteNewPage() {
             </div>
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             <Button type="submit" disabled={isPending}>
-              {isPending ? "…" : t("admin.shared.create")}
+              <ButtonPendingLabel pending={isPending}>{t("admin.shared.create")}</ButtonPendingLabel>
             </Button>
           </form>
         </CardContent>

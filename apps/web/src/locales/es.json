@@ -3,7 +3,8 @@
     "title": "Monitoreo de acuaponía"
   },
   "shared": {
-    "unknownError": "error desconocido"
+    "unknownError": "error desconocido",
+    "loading": "Cargando…"
   },
   "login": {
     "title": "Iniciar sesión",
@@ -93,7 +94,15 @@
     "title": "Sitios",
     "description": "Instalaciones de acuaponía activas y su lectura más reciente.",
     "loadError": "No se pudieron cargar los sitios: {{message}}",
-    "empty": "Aún no hay sitios. Cuando un dispositivo empiece a enviar datos, aparecerán aquí."
+    "empty": "Aún no hay sitios. Cuando un dispositivo empiece a enviar datos, aparecerán aquí.",
+    "mapTitle": "Mapa de sitios",
+    "mapDescription": "Ubicaciones de los sitios con coordenadas GPS.",
+    "mapSetApiKey": "Añade VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY en apps/web/.env con la API de Maps JavaScript habilitada para ver todos los sitios en el mapa.",
+    "mapNoCoords": "Ningún sitio tiene coordenadas GPS. Añade latitud y longitud en Admin → Sitios para verlos en el mapa.",
+    "mapLoadError": "No se pudo cargar Google Maps.",
+    "mapLoading": "Cargando mapa…",
+    "mapHint": "Haz clic en un pin o en el nombre del sitio para abrirlo.",
+    "mapHiddenWithoutCoords": "| {{count}} sitio(s) no tienen coordenadas y no se muestran."
   },
   "siteAlertsSection": {
     "title": "Alertas activas",
@@ -158,6 +167,7 @@
       "password": "Contraseña",
       "role": "Rol",
       "sites": "Sitios asignados",
+      "sitesAdminHint": "Los administradores pueden acceder a todos los sitios. Esta lista no se puede editar mientras el rol sea Admin.",
       "resetPassword": "Nueva contraseña (admin)",
       "newPassword": "Nueva contraseña"
     },

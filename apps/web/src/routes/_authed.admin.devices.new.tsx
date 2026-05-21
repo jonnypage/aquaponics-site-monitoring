@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
+import { ButtonPendingLabel } from "~/components/ui/loading-indicator";
 import { Card, CardContent } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -41,7 +42,7 @@ function AdminDeviceNewPage() {
           <Link to="/admin/devices">{t("admin.devices.listTitle")}</Link>
         </Button>
       </div>
-      <Card className="max-w-lg">
+      <Card className="w-full">
         <CardContent className="pt-6">
           {plainKey ? (
             <div className="space-y-3">
@@ -81,7 +82,7 @@ function AdminDeviceNewPage() {
               </div>
               {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
               <Button type="submit" disabled={isPending || !siteId}>
-                {isPending ? "…" : t("admin.shared.create")}
+                <ButtonPendingLabel pending={isPending}>{t("admin.shared.create")}</ButtonPendingLabel>
               </Button>
             </form>
           )}

@@ -5,5 +5,7 @@ query GetSites {
     role
     status
     lastUpdate
+    latitude
+    longitude
   }
 }

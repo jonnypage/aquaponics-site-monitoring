@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
+import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
 import { Card, CardContent } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -107,7 +108,7 @@ function AdminDeviceEditPage() {
   }
 
   if (isLoading || !device) {
-    return <p className="text-sm text-muted-foreground">…</p>;
+    return <LoadingIndicator className="py-12" />;
   }
 
   return (
@@ -123,7 +124,7 @@ function AdminDeviceEditPage() {
           </Link>
         </Button>
       </div>
-      <Card className="max-w-lg">
+      <Card className="w-full">
         <CardContent className="space-y-4 pt-6">
           <p className="font-mono text-xs text-muted-foreground">{device.deviceId}</p>
           {plainKey ? (
@@ -170,13 +171,13 @@ function AdminDeviceEditPage() {
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? "…" : t("admin.shared.save")}
+                <ButtonPendingLabel pending={isSaving}>{t("admin.shared.save")}</ButtonPendingLabel>
               </Button>
               <Button type="button" variant="secondary" disabled={isRotating} onClick={() => void onRotate()}>
-                {t("admin.devices.rotateKey")}
+                <ButtonPendingLabel pending={isRotating}>{t("admin.devices.rotateKey")}</ButtonPendingLabel>
               </Button>
               <Button type="button" variant="destructive" disabled={isDeleting} onClick={() => void onDelete()}>
-                {t("admin.shared.delete")}
+                <ButtonPendingLabel pending={isDeleting}>{t("admin.shared.delete")}</ButtonPendingLabel>
               </Button>
             </div>
           </form>

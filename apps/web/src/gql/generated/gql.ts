@@ -19,7 +19,7 @@ type Documents = {
     "query GetMe {\n  getMe {\n    id\n    email\n    name\n    role\n  }\n}": typeof types.GetMeDocument,
     "query GetSensorMeasurements($siteId: String!, $sensorKey: String!, $range: TimeRange!) {\n  getSensorMeasurements(siteId: $siteId, sensorKey: $sensorKey, range: $range) {\n    id\n    sensor\n    value\n    takenAt\n  }\n}": typeof types.GetSensorMeasurementsDocument,
     "query GetSite($id: String!) {\n  getSite(id: $id) {\n    id\n    name\n    role\n    status\n    lastUpdate\n    latitude\n    longitude\n    sensorReporting {\n      sensorKey\n      enabled\n      displayName\n      unit\n      sortOrder\n      icon\n    }\n  }\n}": typeof types.GetSiteDocument,
-    "query GetSites {\n  getSites {\n    id\n    name\n    role\n    status\n    lastUpdate\n  }\n}": typeof types.GetSitesDocument,
+    "query GetSites {\n  getSites {\n    id\n    name\n    role\n    status\n    lastUpdate\n    latitude\n    longitude\n  }\n}": typeof types.GetSitesDocument,
     "mutation Login($input: LoginInput!) {\n  login(input: $input) {\n    ok\n    user {\n      id\n      email\n      name\n      role\n    }\n  }\n}": typeof types.LoginDocument,
     "mutation Logout {\n  logout\n}": typeof types.LogoutDocument,
     "mutation ResolveAlert($id: String!) {\n  resolveAlert(id: $id)\n}": typeof types.ResolveAlertDocument,
@@ -31,7 +31,7 @@ const documents: Documents = {
     "query GetMe {\n  getMe {\n    id\n    email\n    name\n    role\n  }\n}": types.GetMeDocument,
     "query GetSensorMeasurements($siteId: String!, $sensorKey: String!, $range: TimeRange!) {\n  getSensorMeasurements(siteId: $siteId, sensorKey: $sensorKey, range: $range) {\n    id\n    sensor\n    value\n    takenAt\n  }\n}": types.GetSensorMeasurementsDocument,
     "query GetSite($id: String!) {\n  getSite(id: $id) {\n    id\n    name\n    role\n    status\n    lastUpdate\n    latitude\n    longitude\n    sensorReporting {\n      sensorKey\n      enabled\n      displayName\n      unit\n      sortOrder\n      icon\n    }\n  }\n}": types.GetSiteDocument,
-    "query GetSites {\n  getSites {\n    id\n    name\n    role\n    status\n    lastUpdate\n  }\n}": types.GetSitesDocument,
+    "query GetSites {\n  getSites {\n    id\n    name\n    role\n    status\n    lastUpdate\n    latitude\n    longitude\n  }\n}": types.GetSitesDocument,
     "mutation Login($input: LoginInput!) {\n  login(input: $input) {\n    ok\n    user {\n      id\n      email\n      name\n      role\n    }\n  }\n}": types.LoginDocument,
     "mutation Logout {\n  logout\n}": types.LogoutDocument,
     "mutation ResolveAlert($id: String!) {\n  resolveAlert(id: $id)\n}": types.ResolveAlertDocument,
@@ -75,7 +75,7 @@ export function graphql(source: "query GetSite($id: String!) {\n  getSite(id: $i
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query GetSites {\n  getSites {\n    id\n    name\n    role\n    status\n    lastUpdate\n  }\n}"): (typeof documents)["query GetSites {\n  getSites {\n    id\n    name\n    role\n    status\n    lastUpdate\n  }\n}"];
+export function graphql(source: "query GetSites {\n  getSites {\n    id\n    name\n    role\n    status\n    lastUpdate\n    latitude\n    longitude\n  }\n}"): (typeof documents)["query GetSites {\n  getSites {\n    id\n    name\n    role\n    status\n    lastUpdate\n    latitude\n    longitude\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

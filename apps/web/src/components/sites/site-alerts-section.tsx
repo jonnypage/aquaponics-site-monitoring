@@ -8,6 +8,7 @@ import { SensorIcon } from "~/components/sensor-icon";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { ButtonPendingLabel } from "~/components/ui/loading-indicator";
 import { Skeleton } from "~/components/ui/skeleton";
 import { AlertSeverity, AlertStatus } from "~/gql/generated/graphql";
 import { useAlerts, useResolveAlertMutate } from "~/hooks/useAPI";
@@ -128,7 +129,7 @@ export function SiteAlertsSection({ siteId, sensorReporting }: SiteAlertsSection
                     disabled={isResolving}
                     onClick={() => void resolveAlert(a.id)}
                   >
-                    {t("alertsPage.resolve")}
+                    <ButtonPendingLabel pending={isResolving}>{t("alertsPage.resolve")}</ButtonPendingLabel>
                   </Button>
                 ) : null}
               </li>

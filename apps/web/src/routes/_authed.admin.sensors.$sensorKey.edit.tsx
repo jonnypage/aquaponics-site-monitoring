@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
+import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
 import { Card, CardContent } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -79,7 +80,7 @@ function AdminSensorEditPage() {
   }
 
   if (isLoading || !catalog) {
-    return <p className="text-sm text-muted-foreground">…</p>;
+    return <LoadingIndicator className="py-12" />;
   }
   if (!row) {
     return (
@@ -100,7 +101,7 @@ function AdminSensorEditPage() {
           <Link to="/admin/sensors">{t("admin.sensors.listTitle")}</Link>
         </Button>
       </div>
-      <Card className="max-w-lg">
+      <Card className="w-full">
         <CardContent className="pt-6">
           <p className="mb-4 font-mono text-sm text-muted-foreground">{row.key}</p>
           <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
@@ -132,10 +133,10 @@ function AdminSensorEditPage() {
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? "…" : t("admin.shared.save")}
+                <ButtonPendingLabel pending={isSaving}>{t("admin.shared.save")}</ButtonPendingLabel>
               </Button>
               <Button type="button" variant="destructive" disabled={isDeleting} onClick={() => void onDelete()}>
-                {t("admin.shared.delete")}
+                <ButtonPendingLabel pending={isDeleting}>{t("admin.shared.delete")}</ButtonPendingLabel>
               </Button>
             </div>
           </form>

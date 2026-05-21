@@ -37,14 +37,14 @@ export function DashboardShell({ userName, userEmail, showAdminNav, children }: 
         inert={!mobileOpen}
         showAdminNav={showAdminNav}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-full w-60 shrink-0 border-r border-sidebar-border bg-sidebar transition-transform duration-300 ease-out md:hidden",
+          "fixed inset-y-0 left-0 z-50 flex h-full w-60 shrink-0 border-r border-border bg-background transition-transform duration-300 ease-out md:hidden",
           mobileOpen ? "translate-x-0 shadow-xl" : "-translate-x-full pointer-events-none"
         )}
       />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-muted/30">
         <AppHeader userName={userName} userEmail={userEmail} onMobileMenuToggle={() => setMobileOpen((v) => !v)} />
-        <main className={cn("flex-1 overflow-y-auto")}>
+        <main className="flex-1 overflow-y-auto bg-muted/30">
           <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8">{children}</div>
         </main>
       </div>

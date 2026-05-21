@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
+import { ButtonPendingLabel } from "~/components/ui/loading-indicator";
 import { Card, CardContent } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -64,7 +65,7 @@ function AdminSensorNewPage() {
           <Link to="/admin/sensors">{t("admin.sensors.listTitle")}</Link>
         </Button>
       </div>
-      <Card className="max-w-lg">
+      <Card className="w-full">
         <CardContent className="pt-6">
           <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
             <div className="space-y-2">
@@ -98,7 +99,7 @@ function AdminSensorNewPage() {
             <AdminSensorIconField id="ic" value={icon} onChange={setIcon} />
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             <Button type="submit" disabled={isPending}>
-              {isPending ? "…" : t("admin.shared.create")}
+              <ButtonPendingLabel pending={isPending}>{t("admin.shared.create")}</ButtonPendingLabel>
             </Button>
           </form>
         </CardContent>
