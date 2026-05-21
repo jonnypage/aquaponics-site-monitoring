@@ -4,13 +4,14 @@ Concise context for AI coding agents and developers who need orientation before 
 
 ## Read first (order)
 
-1. **[docs/development.md](docs/development.md)** — commands, env vars, web conventions, dev server notes, Railway deployment.
+1. **[docs/development.md](docs/development.md)** — commands, env vars, web conventions (routing, UI patterns), dev server notes, Railway deployment.
 2. **[docs/greenfield-agent-handoff.md](docs/greenfield-agent-handoff.md)** — authoritative product/spec: phases, GraphQL contract, ingest, RBAC, Railway constraints.
-3. This file — pointers and rules only; duplicate as little spec prose as possible here.
+3. **[docs/phase6-agent-prompt.md](docs/phase6-agent-prompt.md)** — Phase 6 implementing-agent brief (firmware + snapshots).
+4. This file — pointers and rules only; duplicate as little spec prose as possible here.
 
 ## Current baseline (update when you ship work)
 
-- **Active phase:** Phase 5 (admin tooling) — **`updateMe`**, **`/settings`**, optional **Maps** picker for site geo, and **device installer stub** shipped alongside prior admin work. Phase 4 alert stack remains as documented in README.
+- **Active phase:** **Phase 6** (firmware installer + camera support). See **[docs/phase6-agent-prompt.md](docs/phase6-agent-prompt.md)**. Phases 1–5 complete: ingest, alerts, dashboard, admin CRUD, **`updateMe`**, **`/settings`**, Maps picker, device installer **stub** at `/admin/devices/$deviceId/install`.
 - **Implemented:** Phase 1 complete (monorepo, `packages/db` migrations + seed, Nest `DatabaseModule`, `HealthModule`, GraphQL `/graphql`, cookie JWT auth, `getMe`, RBAC + **`adminUsers`** (**`AdminUserModel`** + `assignedSiteIds`), sanitized GraphQL errors, Railway build scripts). Phase 2: `sensor_catalog` / `devices` / `measurements`, seed device + API key, **`POST /ingest`**. Phase 3 M1: GraphQL **`getSites`**, **`getSite`**, **`getMeasurements`**, **`getSensorMeasurements`** + **`apps/web`** (TanStack Start, login, Codegen from `apps/api/schema.graphql`). Phase 3 M2: shadcn/ui (Tailwind 3 + `tailwindcss-animate` + `lucide-react` + `recharts`), pathless `_authed` layout with `DashboardShell` (sidebar + topbar + user menu / logout), `/sites` list + `/sites/$siteId` charts + `TimeRange` tabs, **`i18next`** (`en` / `es`, header language + appearance menus), **`ThemeProvider`** (light / dark / system, class-based `dark:` + `localStorage`, inline bootstrap in root `head`), mobile nav (slide-in drawer + backdrop fade, closes on route change). Hooks: `useSites`, `useSite`, `useSensorMeasurements`, `useLogoutMutate`, **`useUpdateMeMutate`**, **`useAlerts`**, **`useResolveAlertMutate`**. Phase 4: **`IngestAlertService`** — range bands + **MVP heuristics** (`ingest-heuristics.util.ts`); **`syncDeviceOfflineStateForSite`** + **`syncAllDeviceOfflineStates`** (~60s **`@nestjs/schedule`**); GraphQL **`getAlerts`** / **`resolveAlert`** (resolve only **active** rows); **`AlertsModule`** + **`ResendMailerService`** + critical **`COOLDOWN_MINUTES`** re-notify; web **`/alerts`** + **`SiteAlertsSection`**; **`captureImageNow`** from active alerts; **`site-sensor-filter.util.ts`** + **`alert-sensor-key.util.ts`** omit **disabled** `site_sensor_catalog` sensors from **getAlerts**, **getMeasurements**, **getSensorMeasurements**, **`SiteStatus`** derivation, **`captureImageNow`**, and critical-email selection; **`SiteStatus`**: **OK** / **UNKNOWN** / **WARNING** / **CRITICAL** (from active alerts + telemetry freshness). **Phase 5 (MVP admin):** **`AdminService`** / **`AdminResolver`** — **`sensorCatalog`**, **`adminSites`**, **`adminDevices`**, **`adminDevice`**, catalog + user + site + device mutations (**`resetAdminUserPassword`**, **`rotateAdminDeviceApiKey`**, plaintext key on create/rotate); **`AuthResolver`** **`updateMe`** (clears session cookie); migration **`0004_phase5_sites_geo`**; web **`/admin/*`** with **`requireAdmin`**, **`useAdmin`** hooks, **`admin.graphql`**; **`/settings`**; optional **`SiteLocationMapPicker`**; **`/admin/devices/$deviceId/install`** stub.
 - **Not implemented yet:** `POST /ingest/snapshot`, esp-web-tools **installer implementation** (Phase 6), firmware/snapshots/object storage (Phase 6).
 - **Env contract:** use **`DATABASE_PUBLIC_URL`** for Postgres (see `README.md`). Do not reintroduce `DATABASE_URL` as the primary app variable without an explicit project decision.
@@ -32,7 +33,8 @@ Concise context for AI coding agents and developers who need orientation before 
 | `apps/web/src/theme/`              | `ThemeProvider`, `dashboard-theme-storage.ts`, inline head bootstrap for FOUC. |
 | `apps/web/src/locales/`            | Bundled locale JSON (`en.json`, `es.json`, …); same nested keys in every file. |
 | `apps/web/src/components/ui/`      | shadcn/ui primitives (`button`, `card`, `badge`, `tabs`, `chart`, etc.). Add new ones here, never edit Radix usage directly in pages. |
-| `apps/web/src/components/layout/`  | `DashboardShell`, `AppSidebar`, `AppHeader`, `PageHeader` — the chrome shared by every `_authed` route. |
+| `apps/web/src/components/layout/`  | `DashboardShell`, `AppSidebar`, `AppHeader`, `PageHeader`, **`PageBackLink`** (outline + chevron back links) |
+| `apps/web/src/components/ui/loading-indicator.tsx` | **`LoadingIndicator`**, **`ButtonPendingLabel`** — spinners; use with skeleton-only pages, not both |
 | `apps/web/src/components/sites/`   | `SiteCard`, `SiteStatusBadge` (OK / unknown / **warning** / **critical**), `SensorChart`, `TimeRangeTabs`, `SiteAlertsSection` |
 | `apps/web/src/components/admin/`   | Admin-only UI such as **`SiteLocationMapPicker`** (optional Maps env). |
 | `apps/web/src/features/`           | Route-mounted **`*PageContent`** modules (`sites/`, `alerts/`, `admin/`, `auth/`). Page UI and hooks live here — **not** in `src/routes/` (avoids `routeTree.gen.ts` regen on every edit). Param routes use **`getRouteApi('/exact/route/id')`**. |
@@ -45,6 +47,7 @@ Concise context for AI coding agents and developers who need orientation before 
 | `packages/db/src/scripts/`         | `migrate.ts`, `seed.ts`                                               |
 | `README.md`                        | **Update** when behavior, commands, env vars, or phase status changes |
 | `docs/greenfield-agent-handoff.md` | Spec; edit only when product/contracts change                         |
+| `docs/phase6-agent-prompt.md`      | Phase 6 agent bootstrap (snapshots, storage, esp-web-tools)           |
 
 ## Commands (root)
 

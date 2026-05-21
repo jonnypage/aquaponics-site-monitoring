@@ -14,7 +14,9 @@ ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and
 
 ## Where It Is Headed
 
-The MVP is being built in phases toward a practical operator dashboard: site lists, per-sensor charts, active alerts, admin tools, and eventually firmware/camera support for field devices.
+**Active phase: Phase 6** — firmware installer (esp-web-tools), `POST /ingest/snapshot`, object storage, and dashboard snapshot display. Phases 1–5 (ingest, alerts, admin CRUD, dashboard shell) are complete. See [`docs/phase6-agent-prompt.md`](docs/phase6-agent-prompt.md) for the implementing-agent brief.
+
+The web app uses **directory-based routes** under `apps/web/src/routes/_authed/` with page UI in `apps/web/src/features/` so day-to-day edits hot-reload without regenerating `routeTree.gen.ts`.
 
 ## Tech Stack
 
@@ -86,4 +88,6 @@ pnpm db:setup
 
 ## Documentation
 
-- [`docs/development.md`](docs/development.md) covers day-to-day development, commands, and web conventions.
+- [`docs/development.md`](docs/development.md) — development commands, **folder-based routing** (`routes/_authed/…` + `features/*PageContent`), UI patterns (`PageBackLink`, loading)
+- [`docs/greenfield-agent-handoff.md`](docs/greenfield-agent-handoff.md) — product spec and build phases
+- [`docs/phase6-agent-prompt.md`](docs/phase6-agent-prompt.md) — agent bootstrap for **Phase 6** (firmware installer + camera snapshots)

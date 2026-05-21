@@ -101,7 +101,7 @@ Always add from the **monorepo root** with `--filter` so the dependency lands on
 | `src/locales/` | Bundled locale JSON per language (`en.json`, `es.json`, …); same nested shape in every file. |
 | `src/components/i18n/` | `I18nDocumentSync` — syncs `document.title` and `<html lang>` with the active locale on the client. |
 | `src/components/ui/` | shadcn/ui primitives (`button`, `card`, `tabs`, `chart`, …) — add new ones here, do not inline Radix usage in pages |
-| `src/components/layout/` | App shell components: `DashboardShell`, `AppSidebar`, `AppHeader`, `PageHeader` |
+| `src/components/layout/` | App shell: `DashboardShell`, `AppSidebar`, `AppHeader`, `PageHeader`, **`PageBackLink`** |
 | `src/components/sites/` | Domain components for the site list / detail (`SiteCard`, `SiteStatusBadge`, `SensorChart`, `TimeRangeTabs`) |
 | `src/routes/` | **Thin** TanStack Router wiring only (`createFileRoute`, `beforeLoad`, `component` import). Directory layout under `_authed/` mirrors URLs — see below. |
 | `src/features/` | Route-mounted page roots (`*PageContent`). Mirror URL areas (`sites/`, `admin/users/`, `auth/`). Daily UI work happens here for stable Vite HMR. |
@@ -143,6 +143,23 @@ export const Route = createFileRoute("/_authed/admin/devices/$deviceId/edit")({
 ```
 
 TanStack allows mixing this directory tree with root-level files (`_authed.tsx` + `_authed/` folder). After adding or renaming route **files**, restart `pnpm dev:web` (or run `pnpm build:web` once) so `routeTree.gen.ts` regenerates.
+
+#### Routing migration (flat files → directory tree)
+
+The web app previously used many flat route files (`_authed.sites.$siteId.tsx`, etc.). They were moved under **`src/routes/_authed/…`** so URLs stay the same but the filesystem mirrors the URL hierarchy.
+
+| Before (flat) | After (directory) |
+| ------------- | ----------------- |
+| `_authed.sites.tsx` | `_authed/sites.tsx` (layout) + `_authed/sites/index.tsx` |
+| `_authed.sites.$siteId.tsx` | `_authed/sites/$siteId.tsx` |
+| `_authed.admin.devices.$deviceId.edit.tsx` | `_authed/admin/devices/$deviceId/edit.tsx` |
+
+**Lessons learnt:**
+
+- **Edit page UI in `src/features/`, not route files** — the router plugin watches `src/routes/` and regenerates `routeTree.gen.ts` on every route change, which often forces a full reload. Daily work in `*PageContent` under `src/features/` keeps Vite HMR fast.
+- **Keep route files thin** — only `createFileRoute`, `beforeLoad`, and `component: …PageContent`. Putting forms, charts, or large JSX in route files also triggers **Duplicate declaration "hot"** Babel errors when `beforeLoad` and a fat `component` share the same module (see Dev server notes).
+- **Use `getRouteApi` in features** — import `Route` from a route file into a feature couples them and breaks the split. Pass the exact route id string matching `createFileRoute('…')`.
+- **Restart dev after route file add/rename/delete** — if `routeTree.gen.ts` is stale or you hit a reload loop, stop `pnpm dev:web`, optionally delete `src/routeTree.gen.ts`, restart.
 
 ### Route files vs feature page content
 
@@ -225,6 +242,43 @@ Never call `fetchSessionUser` directly from route files.
 - **Reusable app components** group by domain: `src/components/layout/` for the shell, `src/components/sites/` for site-list and site-detail building blocks (cards, badges, charts, time-range tabs). **Feature page content** (`src/features/`) composes these; route files stay wiring-only.
 - **Icons:** `lucide-react`. **Charts:** `recharts` via the `Chart*` primitives in `~/components/ui/chart`.
 - **`cn(...)`** from `~/utils/cn` is the canonical class-name merger (`clsx` + `tailwind-merge`).
+
+### UI patterns (buttons, loading, back navigation)
+
+#### Back links — use `PageBackLink`
+
+All “back to list / parent” controls use **`PageBackLink`** (`src/components/layout/page-back-link.tsx`):
+
+- `Button` **`variant="outline"`** `size="sm"` with **`ChevronLeft`** + label
+- Wrapped in `mb-4` by default; pass **`className="mb-0"`** when placing the link in a flex row beside other controls (e.g. device edit + “Open installer”)
+
+```tsx
+<PageBackLink to="/admin/sites">{t("admin.sites.backToSites")}</PageBackLink>
+
+// Beside another button:
+<div className="mb-4 flex flex-wrap items-center gap-2">
+  <PageBackLink to="/admin/devices" className="mb-0">{t("admin.devices.listTitle")}</PageBackLink>
+  <Button variant="outline" size="sm" asChild>...</Button>
+</div>
+```
+
+Do **not** use `variant="ghost"` back links without the chevron — they were inconsistent across site detail vs admin edit pages before this component existed.
+
+#### Loading — skeleton vs spinner
+
+| Pattern | When to use |
+| ------- | ----------- |
+| **`Skeleton`** | List rows, chart areas, site detail layout while structure is known — **no** spinner on top |
+| **`LoadingIndicator`** | Full-page or block load with no skeleton yet; centered `py-12` on edit/detail pages |
+| **`ButtonPendingLabel`** | Inside submit/action buttons during mutations — keeps label visible + small spinner |
+
+**Lesson:** avoid showing both skeleton placeholders **and** `LoadingIndicator` for the same view — pick one so the UI does not feel busy. Login, settings save, and admin form submits use `ButtonPendingLabel`; sites list, alerts, and chart sections use skeleton-only loading.
+
+#### Primary actions
+
+- List “create” actions: `Button` default variant in `PageHeader` `actions` slot
+- Destructive: `variant="destructive"` on delete; secondary for rotate key / copy
+- Form submit: single primary `Button` + `ButtonPendingLabel` for pending state
 
 ### GraphQL codegen
 
