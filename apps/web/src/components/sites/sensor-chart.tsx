@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import { SensorIcon } from "~/components/sensor-icon";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import {
@@ -21,6 +22,8 @@ interface SensorChartProps {
   unit?: string;
   range: TimeRange;
   colorVar?: string;
+  /** Lucide React export name from `sensor_catalog.icon` (PascalCase). */
+  lucideIcon?: string | null;
 }
 
 type Point = { ts: number; value: number };
@@ -29,7 +32,15 @@ function tickScale(range: TimeRange): "hour" | "day" {
   return range === TimeRange.Last_24H ? "hour" : "day";
 }
 
-export function SensorChart({ siteId, sensorKey, label, unit, range, colorVar = "var(--chart-1)" }: SensorChartProps) {
+export function SensorChart({
+  siteId,
+  sensorKey,
+  label,
+  unit,
+  range,
+  colorVar = "var(--chart-1)",
+  lucideIcon
+}: SensorChartProps) {
   const { t } = useTranslation();
   const { data, isLoading, isError, error } = useSensorMeasurements(siteId, sensorKey, range);
 
@@ -54,7 +65,9 @@ export function SensorChart({ siteId, sensorKey, label, unit, range, colorVar = 
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <div className="space-y-1">
+        <div className="flex min-w-0 flex-1 items-start gap-2 space-y-1">
+          {lucideIcon ? <SensorIcon name={lucideIcon} className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" /> : null}
+          <div className="min-w-0 space-y-1">
           <CardTitle className="text-base font-medium">{label}</CardTitle>
           <CardDescription>
             {latest != null ? (
@@ -73,6 +86,7 @@ export function SensorChart({ siteId, sensorKey, label, unit, range, colorVar = 
               <span className="text-xs">{t("sensorChart.noReadings")}</span>
             )}
           </CardDescription>
+          </div>
         </div>
       </CardHeader>
       <CardContent>

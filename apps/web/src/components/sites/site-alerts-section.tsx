@@ -1,26 +1,55 @@
 import { Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
+
+import { SensorIcon } from "~/components/sensor-icon";
 
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { ButtonPendingLabel } from "~/components/ui/loading-indicator";
 import { Skeleton } from "~/components/ui/skeleton";
 import { AlertSeverity, AlertStatus } from "~/gql/generated/graphql";
 import { useAlerts, useResolveAlertMutate } from "~/hooks/useAPI";
+import { sensorCatalogKeyFromAlertType } from "~/utils/alert-sensor-key";
 import { formatRelativeTime } from "~/utils/format";
 
 interface SiteAlertsSectionProps {
   siteId: string;
+  sensorReporting?: readonly { sensorKey: string; icon?: string | null }[];
 }
 
-export function SiteAlertsSection({ siteId }: SiteAlertsSectionProps) {
+function lucideNameForAlertType(
+  type: string,
+  iconBySensorKey: ReadonlyMap<string, string | null | undefined>
+): string {
+  if (type === "device_offline") {
+    return "WifiOff";
+  }
+  const sk = sensorCatalogKeyFromAlertType(type);
+  if (sk) {
+    const icon = iconBySensorKey.get(sk);
+    return icon?.trim() ? icon : "AlertTriangle";
+  }
+  return "AlertTriangle";
+}
+
+export function SiteAlertsSection({ siteId, sensorReporting }: SiteAlertsSectionProps) {
   const { t } = useTranslation();
   const { data: alerts, isLoading, isError, error } = useAlerts({
     siteId,
     status: AlertStatus.Active
   });
   const { mutateAsync: resolveAlert, isPending: isResolving } = useResolveAlertMutate();
+
+  const iconBySensorKey = useMemo(() => {
+    const m = new Map<string, string | null | undefined>();
+    for (const r of sensorReporting ?? []) {
+      m.set(r.sensorKey, r.icon);
+    }
+    return m;
+  }, [sensorReporting]);
 
   if (isLoading) {
     return (
@@ -75,6 +104,10 @@ export function SiteAlertsSection({ siteId }: SiteAlertsSectionProps) {
               >
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
+                    <SensorIcon
+                      name={lucideNameForAlertType(a.type, iconBySensorKey)}
+                      className="h-4 w-4 shrink-0 text-muted-foreground"
+                    />
                     <Badge variant={a.severity === AlertSeverity.Critical ? "destructive" : "secondary"}>
                       {a.severity === AlertSeverity.Critical
                         ? t("alertsPage.severity.critical")
@@ -96,7 +129,7 @@ export function SiteAlertsSection({ siteId }: SiteAlertsSectionProps) {
                     disabled={isResolving}
                     onClick={() => void resolveAlert(a.id)}
                   >
-                    {t("alertsPage.resolve")}
+                    <ButtonPendingLabel pending={isResolving}>{t("alertsPage.resolve")}</ButtonPendingLabel>
                   </Button>
                 ) : null}
               </li>

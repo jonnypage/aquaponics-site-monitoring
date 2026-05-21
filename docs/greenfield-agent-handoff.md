@@ -86,6 +86,8 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 
 ### Phase 6 — Firmware installer + camera support
 
+**Repo status:** Phases 1–5 are implemented in this monorepo. For an agent-oriented implementation brief (current paths, partial work, exit criteria), use **[phase6-agent-prompt.md](phase6-agent-prompt.md)**. Web routing and UI conventions (folder routes, `PageBackLink`, loading patterns) are in **[development.md](development.md)**.
+
 - PlatformIO firmware project (out of workspace); placeholder `firmware.bin`; **esp-web-tools** install wizard (Wi-Fi, API URL, sensor→GPIO map, MVP sensors + optional camera flag).
 - `device_snapshots` metadata table; `devices.has_camera`, `report_interval_seconds`, `snapshot_interval_seconds`.
 - **Object storage:** S3-compatible upload + presigned read URLs; **no Postgres image blobs** (see **Camera snapshots**); Railway bucket wiring may land here or immediately after.

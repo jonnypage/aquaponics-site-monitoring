@@ -1,5 +1,5 @@
 import { Field, InputType, ObjectType, registerEnumType } from "@nestjs/graphql";
-import { IsEmail, IsString, MinLength } from "class-validator";
+import { IsEmail, IsOptional, IsString, MinLength } from "class-validator";
 
 export enum Role {
   ADMIN = "admin",
@@ -49,4 +49,29 @@ export class AuthPayload {
 
   @Field(() => UserModel)
   user!: UserModel;
+}
+
+@InputType()
+export class UpdateMeInput {
+  @Field()
+  @IsString()
+  @MinLength(1)
+  currentPassword!: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  name?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  newPassword?: string;
 }

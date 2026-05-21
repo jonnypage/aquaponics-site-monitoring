@@ -5,5 +5,15 @@ query GetSite($id: String!) {
     role
     status
     lastUpdate
+    latitude
+    longitude
+    sensorReporting {
+      sensorKey
+      enabled
+      displayName
+      unit
+      sortOrder
+      icon
+    }
   }
 }

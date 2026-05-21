@@ -1,5 +1,5 @@
 import { redirect } from "@tanstack/react-router";
-import { GetMeDocument, type GetMeQuery } from "~/gql/generated/graphql";
+import { GetMeDocument, Role, type GetMeQuery } from "~/gql/generated/graphql";
 import { graphqlRequest } from "~/utils/graphql";
 import type { RouterContext } from "~/router";
 
@@ -40,4 +40,14 @@ export function requireAuth(
  */
 export function requireGuest({ user }: RouterContext): void {
   if (user) throw redirect({ to: "/sites" });
+}
+
+/** Only `ADMIN` may access `/admin/*`. Call after `requireAuth`. */
+export function requireAdmin(
+  context: RouterContext
+): asserts context is RouterContext & { user: NonNullable<RouterContext["user"]> } {
+  requireAuth(context);
+  if (context.user.role !== Role.Admin) {
+    throw redirect({ to: "/sites" });
+  }
 }

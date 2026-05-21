@@ -1,0 +1,226 @@
+query SensorCatalog {
+  sensorCatalog {
+    key
+    displayName
+    unit
+    physicalMin
+    physicalMax
+    sortOrder
+    icon
+    createdAt
+    updatedAt
+  }
+}
+
+query AdminUsers {
+  adminUsers {
+    id
+    email
+    name
+    role
+    createdAt
+    updatedAt
+    assignedSiteIds
+  }
+}
+
+query AdminSites {
+  adminSites {
+    id
+    name
+    latitude
+    longitude
+    sensorReporting {
+      sensorKey
+      enabled
+      displayName
+      unit
+      sortOrder
+      icon
+    }
+    sensorThresholds {
+      sensorKey
+      normalMin
+      normalMax
+      warningDelta
+      criticalDelta
+    }
+  }
+}
+
+query AdminDevices($siteId: String) {
+  adminDevices(siteId: $siteId) {
+    deviceId
+    siteId
+    lastSeenAt
+    expectedIntervalSeconds
+    reportIntervalSeconds
+    snapshotIntervalSeconds
+    hasCamera
+    createdAt
+    updatedAt
+  }
+}
+
+query AdminDevice($id: String!) {
+  adminDevice(id: $id) {
+    deviceId
+    siteId
+    lastSeenAt
+    expectedIntervalSeconds
+    reportIntervalSeconds
+    snapshotIntervalSeconds
+    hasCamera
+    createdAt
+    updatedAt
+  }
+}
+
+mutation CreateSensorCatalogEntry($input: CreateSensorCatalogEntryInput!) {
+  createSensorCatalogEntry(input: $input) {
+    key
+    displayName
+    unit
+    physicalMin
+    physicalMax
+    sortOrder
+    icon
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateSensorCatalogEntry($input: UpdateSensorCatalogEntryInput!) {
+  updateSensorCatalogEntry(input: $input) {
+    key
+    displayName
+    unit
+    physicalMin
+    physicalMax
+    sortOrder
+    icon
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteSensorCatalogEntry($key: String!) {
+  deleteSensorCatalogEntry(key: $key)
+}
+
+mutation CreateAdminUser($input: CreateAdminUserInput!) {
+  createAdminUser(input: $input) {
+    id
+    email
+    name
+    role
+    createdAt
+    updatedAt
+    assignedSiteIds
+  }
+}
+
+mutation UpdateAdminUser($input: UpdateAdminUserInput!) {
+  updateAdminUser(input: $input) {
+    id
+    email
+    name
+    role
+    createdAt
+    updatedAt
+    assignedSiteIds
+  }
+}
+
+mutation ResetAdminUserPassword($id: String!, $newPassword: String!) {
+  resetAdminUserPassword(id: $id, newPassword: $newPassword)
+}
+
+mutation CreateAdminSite($input: CreateAdminSiteInput!) {
+  createAdminSite(input: $input) {
+    id
+    name
+    latitude
+    longitude
+    sensorReporting {
+      sensorKey
+      enabled
+      displayName
+      unit
+      sortOrder
+      icon
+    }
+    sensorThresholds {
+      sensorKey
+      normalMin
+      normalMax
+      warningDelta
+      criticalDelta
+    }
+  }
+}
+
+mutation UpdateAdminSite($input: UpdateAdminSiteInput!) {
+  updateAdminSite(input: $input) {
+    id
+    name
+    latitude
+    longitude
+    sensorReporting {
+      sensorKey
+      enabled
+      displayName
+      unit
+      sortOrder
+      icon
+    }
+    sensorThresholds {
+      sensorKey
+      normalMin
+      normalMax
+      warningDelta
+      criticalDelta
+    }
+  }
+}
+
+mutation CreateAdminDevice($input: CreateAdminDeviceInput!) {
+  createAdminDevice(input: $input) {
+    plainApiKey
+    device {
+      deviceId
+      siteId
+      lastSeenAt
+      expectedIntervalSeconds
+      reportIntervalSeconds
+      snapshotIntervalSeconds
+      hasCamera
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+mutation UpdateAdminDevice($input: UpdateAdminDeviceInput!) {
+  updateAdminDevice(input: $input) {
+    deviceId
+    siteId
+    lastSeenAt
+    expectedIntervalSeconds
+    reportIntervalSeconds
+    snapshotIntervalSeconds
+    hasCamera
+    createdAt
+    updatedAt
+  }
+}
+
+mutation RotateAdminDeviceApiKey($deviceId: String!) {
+  rotateAdminDeviceApiKey(deviceId: $deviceId) {
+    plainApiKey
+  }
+}
+
+mutation DeleteAdminDevice($deviceId: String!) {
+  deleteAdminDevice(deviceId: $deviceId)
+}

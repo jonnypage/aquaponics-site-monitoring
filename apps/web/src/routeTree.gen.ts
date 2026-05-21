@@ -12,9 +12,26 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthedSitesRouteImport } from './routes/_authed.sites'
-import { Route as AuthedAlertsRouteImport } from './routes/_authed.alerts'
-import { Route as AuthedSitesSiteIdRouteImport } from './routes/_authed.sites.$siteId'
+import { Route as AuthedSitesRouteImport } from './routes/_authed/sites'
+import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
+import { Route as AuthedAlertsRouteImport } from './routes/_authed/alerts'
+import { Route as AuthedAdminRouteImport } from './routes/_authed/admin'
+import { Route as AuthedSitesIndexRouteImport } from './routes/_authed/sites/index'
+import { Route as AuthedAdminIndexRouteImport } from './routes/_authed/admin/index'
+import { Route as AuthedSitesSiteIdRouteImport } from './routes/_authed/sites/$siteId'
+import { Route as AuthedAdminUsersIndexRouteImport } from './routes/_authed/admin/users/index'
+import { Route as AuthedAdminSitesIndexRouteImport } from './routes/_authed/admin/sites/index'
+import { Route as AuthedAdminSensorsIndexRouteImport } from './routes/_authed/admin/sensors/index'
+import { Route as AuthedAdminDevicesIndexRouteImport } from './routes/_authed/admin/devices/index'
+import { Route as AuthedAdminUsersNewRouteImport } from './routes/_authed/admin/users/new'
+import { Route as AuthedAdminSitesNewRouteImport } from './routes/_authed/admin/sites/new'
+import { Route as AuthedAdminSensorsNewRouteImport } from './routes/_authed/admin/sensors/new'
+import { Route as AuthedAdminDevicesNewRouteImport } from './routes/_authed/admin/devices/new'
+import { Route as AuthedAdminUsersUserIdEditRouteImport } from './routes/_authed/admin/users/$userId/edit'
+import { Route as AuthedAdminSitesSiteIdEditRouteImport } from './routes/_authed/admin/sites/$siteId/edit'
+import { Route as AuthedAdminSensorsSensorKeyEditRouteImport } from './routes/_authed/admin/sensors/$sensorKey/edit'
+import { Route as AuthedAdminDevicesDeviceIdInstallRouteImport } from './routes/_authed/admin/devices/$deviceId/install'
+import { Route as AuthedAdminDevicesDeviceIdEditRouteImport } from './routes/_authed/admin/devices/$deviceId/edit'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -35,53 +52,251 @@ const AuthedSitesRoute = AuthedSitesRouteImport.update({
   path: '/sites',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedAlertsRoute = AuthedAlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
   getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAdminRoute = AuthedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSitesIndexRoute = AuthedSitesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedSitesRoute,
+} as any)
+const AuthedAdminIndexRoute = AuthedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedAdminRoute,
 } as any)
 const AuthedSitesSiteIdRoute = AuthedSitesSiteIdRouteImport.update({
   id: '/$siteId',
   path: '/$siteId',
   getParentRoute: () => AuthedSitesRoute,
 } as any)
+const AuthedAdminUsersIndexRoute = AuthedAdminUsersIndexRouteImport.update({
+  id: '/users/',
+  path: '/users/',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminSitesIndexRoute = AuthedAdminSitesIndexRouteImport.update({
+  id: '/sites/',
+  path: '/sites/',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminSensorsIndexRoute = AuthedAdminSensorsIndexRouteImport.update({
+  id: '/sensors/',
+  path: '/sensors/',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminDevicesIndexRoute = AuthedAdminDevicesIndexRouteImport.update({
+  id: '/devices/',
+  path: '/devices/',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminUsersNewRoute = AuthedAdminUsersNewRouteImport.update({
+  id: '/users/new',
+  path: '/users/new',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminSitesNewRoute = AuthedAdminSitesNewRouteImport.update({
+  id: '/sites/new',
+  path: '/sites/new',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminSensorsNewRoute = AuthedAdminSensorsNewRouteImport.update({
+  id: '/sensors/new',
+  path: '/sensors/new',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminDevicesNewRoute = AuthedAdminDevicesNewRouteImport.update({
+  id: '/devices/new',
+  path: '/devices/new',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminUsersUserIdEditRoute =
+  AuthedAdminUsersUserIdEditRouteImport.update({
+    id: '/users/$userId/edit',
+    path: '/users/$userId/edit',
+    getParentRoute: () => AuthedAdminRoute,
+  } as any)
+const AuthedAdminSitesSiteIdEditRoute =
+  AuthedAdminSitesSiteIdEditRouteImport.update({
+    id: '/sites/$siteId/edit',
+    path: '/sites/$siteId/edit',
+    getParentRoute: () => AuthedAdminRoute,
+  } as any)
+const AuthedAdminSensorsSensorKeyEditRoute =
+  AuthedAdminSensorsSensorKeyEditRouteImport.update({
+    id: '/sensors/$sensorKey/edit',
+    path: '/sensors/$sensorKey/edit',
+    getParentRoute: () => AuthedAdminRoute,
+  } as any)
+const AuthedAdminDevicesDeviceIdInstallRoute =
+  AuthedAdminDevicesDeviceIdInstallRouteImport.update({
+    id: '/devices/$deviceId/install',
+    path: '/devices/$deviceId/install',
+    getParentRoute: () => AuthedAdminRoute,
+  } as any)
+const AuthedAdminDevicesDeviceIdEditRoute =
+  AuthedAdminDevicesDeviceIdEditRouteImport.update({
+    id: '/devices/$deviceId/edit',
+    path: '/devices/$deviceId/edit',
+    getParentRoute: () => AuthedAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AuthedAdminRouteWithChildren
   '/alerts': typeof AuthedAlertsRoute
+  '/settings': typeof AuthedSettingsRoute
   '/sites': typeof AuthedSitesRouteWithChildren
   '/sites/$siteId': typeof AuthedSitesSiteIdRoute
+  '/admin/': typeof AuthedAdminIndexRoute
+  '/sites/': typeof AuthedSitesIndexRoute
+  '/admin/devices/new': typeof AuthedAdminDevicesNewRoute
+  '/admin/sensors/new': typeof AuthedAdminSensorsNewRoute
+  '/admin/sites/new': typeof AuthedAdminSitesNewRoute
+  '/admin/users/new': typeof AuthedAdminUsersNewRoute
+  '/admin/devices/': typeof AuthedAdminDevicesIndexRoute
+  '/admin/sensors/': typeof AuthedAdminSensorsIndexRoute
+  '/admin/sites/': typeof AuthedAdminSitesIndexRoute
+  '/admin/users/': typeof AuthedAdminUsersIndexRoute
+  '/admin/devices/$deviceId/edit': typeof AuthedAdminDevicesDeviceIdEditRoute
+  '/admin/devices/$deviceId/install': typeof AuthedAdminDevicesDeviceIdInstallRoute
+  '/admin/sensors/$sensorKey/edit': typeof AuthedAdminSensorsSensorKeyEditRoute
+  '/admin/sites/$siteId/edit': typeof AuthedAdminSitesSiteIdEditRoute
+  '/admin/users/$userId/edit': typeof AuthedAdminUsersUserIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/alerts': typeof AuthedAlertsRoute
-  '/sites': typeof AuthedSitesRouteWithChildren
+  '/settings': typeof AuthedSettingsRoute
   '/sites/$siteId': typeof AuthedSitesSiteIdRoute
+  '/admin': typeof AuthedAdminIndexRoute
+  '/sites': typeof AuthedSitesIndexRoute
+  '/admin/devices/new': typeof AuthedAdminDevicesNewRoute
+  '/admin/sensors/new': typeof AuthedAdminSensorsNewRoute
+  '/admin/sites/new': typeof AuthedAdminSitesNewRoute
+  '/admin/users/new': typeof AuthedAdminUsersNewRoute
+  '/admin/devices': typeof AuthedAdminDevicesIndexRoute
+  '/admin/sensors': typeof AuthedAdminSensorsIndexRoute
+  '/admin/sites': typeof AuthedAdminSitesIndexRoute
+  '/admin/users': typeof AuthedAdminUsersIndexRoute
+  '/admin/devices/$deviceId/edit': typeof AuthedAdminDevicesDeviceIdEditRoute
+  '/admin/devices/$deviceId/install': typeof AuthedAdminDevicesDeviceIdInstallRoute
+  '/admin/sensors/$sensorKey/edit': typeof AuthedAdminSensorsSensorKeyEditRoute
+  '/admin/sites/$siteId/edit': typeof AuthedAdminSitesSiteIdEditRoute
+  '/admin/users/$userId/edit': typeof AuthedAdminUsersUserIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authed/admin': typeof AuthedAdminRouteWithChildren
   '/_authed/alerts': typeof AuthedAlertsRoute
+  '/_authed/settings': typeof AuthedSettingsRoute
   '/_authed/sites': typeof AuthedSitesRouteWithChildren
   '/_authed/sites/$siteId': typeof AuthedSitesSiteIdRoute
+  '/_authed/admin/': typeof AuthedAdminIndexRoute
+  '/_authed/sites/': typeof AuthedSitesIndexRoute
+  '/_authed/admin/devices/new': typeof AuthedAdminDevicesNewRoute
+  '/_authed/admin/sensors/new': typeof AuthedAdminSensorsNewRoute
+  '/_authed/admin/sites/new': typeof AuthedAdminSitesNewRoute
+  '/_authed/admin/users/new': typeof AuthedAdminUsersNewRoute
+  '/_authed/admin/devices/': typeof AuthedAdminDevicesIndexRoute
+  '/_authed/admin/sensors/': typeof AuthedAdminSensorsIndexRoute
+  '/_authed/admin/sites/': typeof AuthedAdminSitesIndexRoute
+  '/_authed/admin/users/': typeof AuthedAdminUsersIndexRoute
+  '/_authed/admin/devices/$deviceId/edit': typeof AuthedAdminDevicesDeviceIdEditRoute
+  '/_authed/admin/devices/$deviceId/install': typeof AuthedAdminDevicesDeviceIdInstallRoute
+  '/_authed/admin/sensors/$sensorKey/edit': typeof AuthedAdminSensorsSensorKeyEditRoute
+  '/_authed/admin/sites/$siteId/edit': typeof AuthedAdminSitesSiteIdEditRoute
+  '/_authed/admin/users/$userId/edit': typeof AuthedAdminUsersUserIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/alerts' | '/sites' | '/sites/$siteId'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/admin'
+    | '/alerts'
+    | '/settings'
+    | '/sites'
+    | '/sites/$siteId'
+    | '/admin/'
+    | '/sites/'
+    | '/admin/devices/new'
+    | '/admin/sensors/new'
+    | '/admin/sites/new'
+    | '/admin/users/new'
+    | '/admin/devices/'
+    | '/admin/sensors/'
+    | '/admin/sites/'
+    | '/admin/users/'
+    | '/admin/devices/$deviceId/edit'
+    | '/admin/devices/$deviceId/install'
+    | '/admin/sensors/$sensorKey/edit'
+    | '/admin/sites/$siteId/edit'
+    | '/admin/users/$userId/edit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/alerts' | '/sites' | '/sites/$siteId'
+  to:
+    | '/'
+    | '/login'
+    | '/alerts'
+    | '/settings'
+    | '/sites/$siteId'
+    | '/admin'
+    | '/sites'
+    | '/admin/devices/new'
+    | '/admin/sensors/new'
+    | '/admin/sites/new'
+    | '/admin/users/new'
+    | '/admin/devices'
+    | '/admin/sensors'
+    | '/admin/sites'
+    | '/admin/users'
+    | '/admin/devices/$deviceId/edit'
+    | '/admin/devices/$deviceId/install'
+    | '/admin/sensors/$sensorKey/edit'
+    | '/admin/sites/$siteId/edit'
+    | '/admin/users/$userId/edit'
   id:
     | '__root__'
     | '/'
     | '/_authed'
     | '/login'
+    | '/_authed/admin'
     | '/_authed/alerts'
+    | '/_authed/settings'
     | '/_authed/sites'
     | '/_authed/sites/$siteId'
+    | '/_authed/admin/'
+    | '/_authed/sites/'
+    | '/_authed/admin/devices/new'
+    | '/_authed/admin/sensors/new'
+    | '/_authed/admin/sites/new'
+    | '/_authed/admin/users/new'
+    | '/_authed/admin/devices/'
+    | '/_authed/admin/sensors/'
+    | '/_authed/admin/sites/'
+    | '/_authed/admin/users/'
+    | '/_authed/admin/devices/$deviceId/edit'
+    | '/_authed/admin/devices/$deviceId/install'
+    | '/_authed/admin/sensors/$sensorKey/edit'
+    | '/_authed/admin/sites/$siteId/edit'
+    | '/_authed/admin/users/$userId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -120,12 +335,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSitesRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/settings': {
+      id: '/_authed/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthedSettingsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/alerts': {
       id: '/_authed/alerts'
       path: '/alerts'
       fullPath: '/alerts'
       preLoaderRoute: typeof AuthedAlertsRouteImport
       parentRoute: typeof AuthedRoute
+    }
+    '/_authed/admin': {
+      id: '/_authed/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthedAdminRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/sites/': {
+      id: '/_authed/sites/'
+      path: '/'
+      fullPath: '/sites/'
+      preLoaderRoute: typeof AuthedSitesIndexRouteImport
+      parentRoute: typeof AuthedSitesRoute
+    }
+    '/_authed/admin/': {
+      id: '/_authed/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthedAdminIndexRouteImport
+      parentRoute: typeof AuthedAdminRoute
     }
     '/_authed/sites/$siteId': {
       id: '/_authed/sites/$siteId'
@@ -134,15 +377,147 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSitesSiteIdRouteImport
       parentRoute: typeof AuthedSitesRoute
     }
+    '/_authed/admin/users/': {
+      id: '/_authed/admin/users/'
+      path: '/users'
+      fullPath: '/admin/users/'
+      preLoaderRoute: typeof AuthedAdminUsersIndexRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/sites/': {
+      id: '/_authed/admin/sites/'
+      path: '/sites'
+      fullPath: '/admin/sites/'
+      preLoaderRoute: typeof AuthedAdminSitesIndexRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/sensors/': {
+      id: '/_authed/admin/sensors/'
+      path: '/sensors'
+      fullPath: '/admin/sensors/'
+      preLoaderRoute: typeof AuthedAdminSensorsIndexRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/devices/': {
+      id: '/_authed/admin/devices/'
+      path: '/devices'
+      fullPath: '/admin/devices/'
+      preLoaderRoute: typeof AuthedAdminDevicesIndexRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/users/new': {
+      id: '/_authed/admin/users/new'
+      path: '/users/new'
+      fullPath: '/admin/users/new'
+      preLoaderRoute: typeof AuthedAdminUsersNewRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/sites/new': {
+      id: '/_authed/admin/sites/new'
+      path: '/sites/new'
+      fullPath: '/admin/sites/new'
+      preLoaderRoute: typeof AuthedAdminSitesNewRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/sensors/new': {
+      id: '/_authed/admin/sensors/new'
+      path: '/sensors/new'
+      fullPath: '/admin/sensors/new'
+      preLoaderRoute: typeof AuthedAdminSensorsNewRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/devices/new': {
+      id: '/_authed/admin/devices/new'
+      path: '/devices/new'
+      fullPath: '/admin/devices/new'
+      preLoaderRoute: typeof AuthedAdminDevicesNewRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/users/$userId/edit': {
+      id: '/_authed/admin/users/$userId/edit'
+      path: '/users/$userId/edit'
+      fullPath: '/admin/users/$userId/edit'
+      preLoaderRoute: typeof AuthedAdminUsersUserIdEditRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/sites/$siteId/edit': {
+      id: '/_authed/admin/sites/$siteId/edit'
+      path: '/sites/$siteId/edit'
+      fullPath: '/admin/sites/$siteId/edit'
+      preLoaderRoute: typeof AuthedAdminSitesSiteIdEditRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/sensors/$sensorKey/edit': {
+      id: '/_authed/admin/sensors/$sensorKey/edit'
+      path: '/sensors/$sensorKey/edit'
+      fullPath: '/admin/sensors/$sensorKey/edit'
+      preLoaderRoute: typeof AuthedAdminSensorsSensorKeyEditRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/devices/$deviceId/install': {
+      id: '/_authed/admin/devices/$deviceId/install'
+      path: '/devices/$deviceId/install'
+      fullPath: '/admin/devices/$deviceId/install'
+      preLoaderRoute: typeof AuthedAdminDevicesDeviceIdInstallRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/devices/$deviceId/edit': {
+      id: '/_authed/admin/devices/$deviceId/edit'
+      path: '/devices/$deviceId/edit'
+      fullPath: '/admin/devices/$deviceId/edit'
+      preLoaderRoute: typeof AuthedAdminDevicesDeviceIdEditRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
   }
 }
 
+interface AuthedAdminRouteChildren {
+  AuthedAdminIndexRoute: typeof AuthedAdminIndexRoute
+  AuthedAdminDevicesNewRoute: typeof AuthedAdminDevicesNewRoute
+  AuthedAdminSensorsNewRoute: typeof AuthedAdminSensorsNewRoute
+  AuthedAdminSitesNewRoute: typeof AuthedAdminSitesNewRoute
+  AuthedAdminUsersNewRoute: typeof AuthedAdminUsersNewRoute
+  AuthedAdminDevicesIndexRoute: typeof AuthedAdminDevicesIndexRoute
+  AuthedAdminSensorsIndexRoute: typeof AuthedAdminSensorsIndexRoute
+  AuthedAdminSitesIndexRoute: typeof AuthedAdminSitesIndexRoute
+  AuthedAdminUsersIndexRoute: typeof AuthedAdminUsersIndexRoute
+  AuthedAdminDevicesDeviceIdEditRoute: typeof AuthedAdminDevicesDeviceIdEditRoute
+  AuthedAdminDevicesDeviceIdInstallRoute: typeof AuthedAdminDevicesDeviceIdInstallRoute
+  AuthedAdminSensorsSensorKeyEditRoute: typeof AuthedAdminSensorsSensorKeyEditRoute
+  AuthedAdminSitesSiteIdEditRoute: typeof AuthedAdminSitesSiteIdEditRoute
+  AuthedAdminUsersUserIdEditRoute: typeof AuthedAdminUsersUserIdEditRoute
+}
+
+const AuthedAdminRouteChildren: AuthedAdminRouteChildren = {
+  AuthedAdminIndexRoute: AuthedAdminIndexRoute,
+  AuthedAdminDevicesNewRoute: AuthedAdminDevicesNewRoute,
+  AuthedAdminSensorsNewRoute: AuthedAdminSensorsNewRoute,
+  AuthedAdminSitesNewRoute: AuthedAdminSitesNewRoute,
+  AuthedAdminUsersNewRoute: AuthedAdminUsersNewRoute,
+  AuthedAdminDevicesIndexRoute: AuthedAdminDevicesIndexRoute,
+  AuthedAdminSensorsIndexRoute: AuthedAdminSensorsIndexRoute,
+  AuthedAdminSitesIndexRoute: AuthedAdminSitesIndexRoute,
+  AuthedAdminUsersIndexRoute: AuthedAdminUsersIndexRoute,
+  AuthedAdminDevicesDeviceIdEditRoute: AuthedAdminDevicesDeviceIdEditRoute,
+  AuthedAdminDevicesDeviceIdInstallRoute:
+    AuthedAdminDevicesDeviceIdInstallRoute,
+  AuthedAdminSensorsSensorKeyEditRoute: AuthedAdminSensorsSensorKeyEditRoute,
+  AuthedAdminSitesSiteIdEditRoute: AuthedAdminSitesSiteIdEditRoute,
+  AuthedAdminUsersUserIdEditRoute: AuthedAdminUsersUserIdEditRoute,
+}
+
+const AuthedAdminRouteWithChildren = AuthedAdminRoute._addFileChildren(
+  AuthedAdminRouteChildren,
+)
+
 interface AuthedSitesRouteChildren {
   AuthedSitesSiteIdRoute: typeof AuthedSitesSiteIdRoute
+  AuthedSitesIndexRoute: typeof AuthedSitesIndexRoute
 }
 
 const AuthedSitesRouteChildren: AuthedSitesRouteChildren = {
   AuthedSitesSiteIdRoute: AuthedSitesSiteIdRoute,
+  AuthedSitesIndexRoute: AuthedSitesIndexRoute,
 }
 
 const AuthedSitesRouteWithChildren = AuthedSitesRoute._addFileChildren(
@@ -150,12 +525,16 @@ const AuthedSitesRouteWithChildren = AuthedSitesRoute._addFileChildren(
 )
 
 interface AuthedRouteChildren {
+  AuthedAdminRoute: typeof AuthedAdminRouteWithChildren
   AuthedAlertsRoute: typeof AuthedAlertsRoute
+  AuthedSettingsRoute: typeof AuthedSettingsRoute
   AuthedSitesRoute: typeof AuthedSitesRouteWithChildren
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedAdminRoute: AuthedAdminRouteWithChildren,
   AuthedAlertsRoute: AuthedAlertsRoute,
+  AuthedSettingsRoute: AuthedSettingsRoute,
   AuthedSitesRoute: AuthedSitesRouteWithChildren,
 }
 
@@ -170,3 +549,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

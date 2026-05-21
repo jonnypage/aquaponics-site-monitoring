@@ -1,4 +1,10 @@
-import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  UnauthorizedException
+} from "@nestjs/common";
 import type { Database, User, UserRole } from "@aquaponics/db";
 import type { Kysely } from "kysely";
 import bcrypt from "bcryptjs";
@@ -146,5 +152,58 @@ export class AuthService {
 
   isAdmin(role: UserRole): boolean {
     return role === "admin";
+  }
+
+  async updateMe(
+    userId: string,
+    input: {
+      currentPassword: string;
+      name?: string;
+      email?: string;
+      newPassword?: string;
+    },
+    res: GqlContext["res"]
+  ): Promise<User> {
+    const user = await this.db.selectFrom("users").selectAll().where("id", "=", userId).executeTakeFirstOrThrow();
+
+    const currentOk = await bcrypt.compare(input.currentPassword, user.password_hash);
+    if (!currentOk) {
+      throw new UnauthorizedException("Invalid current password");
+    }
+
+    const hasName = input.name !== undefined && input.name.trim() !== "";
+    const hasEmail = input.email !== undefined && input.email.trim() !== "";
+    const hasNewPassword = input.newPassword !== undefined && input.newPassword.trim() !== "";
+
+    if (!hasName && !hasEmail && !hasNewPassword) {
+      throw new BadRequestException("Nothing to update");
+    }
+
+    const nextName = hasName ? input.name!.trim() : user.name;
+    const nextEmail = hasEmail ? input.email!.toLowerCase().trim() : user.email;
+
+    if (nextEmail !== user.email) {
+      const clash = await this.db.selectFrom("users").select("id").where("email", "=", nextEmail).executeTakeFirst();
+      if (clash) {
+        throw new ConflictException("Email already in use");
+      }
+    }
+
+    const passwordHash = hasNewPassword ? await bcrypt.hash(input.newPassword!, 12) : user.password_hash;
+
+    const updated = await this.db
+      .updateTable("users")
+      .set({
+        name: nextName,
+        email: nextEmail,
+        password_hash: passwordHash,
+        updated_at: new Date()
+      })
+      .where("id", "=", userId)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    this.clearSessionCookie(res);
+    return updated;
   }
 }
