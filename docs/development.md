@@ -103,7 +103,78 @@ Always add from the **monorepo root** with `--filter` so the dependency lands on
 | `src/components/ui/` | shadcn/ui primitives (`button`, `card`, `tabs`, `chart`, …) — add new ones here, do not inline Radix usage in pages |
 | `src/components/layout/` | App shell components: `DashboardShell`, `AppSidebar`, `AppHeader`, `PageHeader` |
 | `src/components/sites/` | Domain components for the site list / detail (`SiteCard`, `SiteStatusBadge`, `SensorChart`, `TimeRangeTabs`) |
-| `src/routes/` | TanStack Router file-based routes; `_authed.tsx` is a pathless layout that calls `requireAuth` and wraps every authed page in `DashboardShell` |
+| `src/routes/` | **Thin** TanStack Router wiring only (`createFileRoute`, `beforeLoad`, `component` import). Directory layout under `_authed/` mirrors URLs — see below. |
+| `src/features/` | Route-mounted page roots (`*PageContent`). Mirror URL areas (`sites/`, `admin/users/`, `auth/`). Daily UI work happens here for stable Vite HMR. |
+
+### Routes directory layout (`src/routes/`)
+
+Pathless dashboard shell at [`_authed.tsx`](../apps/web/src/routes/_authed.tsx); authenticated segments live under [`_authed/`](../apps/web/src/routes/_authed/):
+
+```text
+routes/
+  __root.tsx
+  index.tsx
+  login.tsx
+  _authed.tsx
+  _authed/
+    sites.tsx              # layout <Outlet />
+    sites/index.tsx        # /sites
+    sites/$siteId.tsx
+    alerts.tsx
+    settings.tsx
+    admin.tsx              # requireAdmin + <Outlet />
+    admin/index.tsx
+    admin/users/...
+    admin/sites/...
+    admin/devices/...
+    admin/sensors/...
+```
+
+Example leaf route:
+
+```typescript
+// routes/_authed/admin/devices/$deviceId/edit.tsx
+import { createFileRoute } from "@tanstack/react-router";
+import { AdminDeviceEditPageContent } from "~/features/admin/devices/admin-device-edit-page-content";
+
+export const Route = createFileRoute("/_authed/admin/devices/$deviceId/edit")({
+  component: AdminDeviceEditPageContent,
+});
+```
+
+TanStack allows mixing this directory tree with root-level files (`_authed.tsx` + `_authed/` folder). After adding or renaming route **files**, restart `pnpm dev:web` (or run `pnpm build:web` once) so `routeTree.gen.ts` regenerates.
+
+### Route files vs feature page content
+
+The Vite plugin `tanstackRouterGenerator` watches `src/routes/` and regenerates `src/routeTree.gen.ts` when route modules change. `router.tsx` imports that tree, so **editing route files often triggers a full page reload** (sometimes repeatedly).
+
+**Put in `src/routes/*.tsx` only:**
+
+- `export const Route = createFileRoute('…')({ … })`
+- `beforeLoad` guards (`requireAuth`, `requireGuest`, `requireAdmin`) or redirects
+- `component: SomePageContent` imported from `~/features/…`
+- Root shell (`__root.tsx`): `head`, `shellComponent`, `loadRootContext`
+
+**Put in `src/features/**`:**
+
+- Page UI, forms, local state, colocated skeletons/helpers
+- Hooks usage (`~/hooks/…`) and composition of `~/components/…`
+- For params or route context in a feature file, use TanStack’s **`getRouteApi`** (do not import `Route` from the route file):
+
+```typescript
+import { getRouteApi } from "@tanstack/react-router";
+
+const routeApi = getRouteApi("/_authed/sites/$siteId");
+
+export function SiteDetailPageContent() {
+  const { siteId } = routeApi.useParams();
+  // routeApi.useRouteContext() when needed
+}
+```
+
+The route id string must match the `createFileRoute('…')` literal in the corresponding route file exactly.
+
+**When you still need to restart `pnpm dev:web`:** adding/renaming/deleting route files, changing `beforeLoad`, or a reload loop after renames (stop dev, optionally delete `src/routeTree.gen.ts`, restart — see Dev server notes below).
 
 ### Internationalization (`i18next` + `react-i18next`)
 
@@ -128,7 +199,7 @@ Always add from the **monorepo root** with `--filter` so the dependency lands on
   const { mutateAsync: mutateLogin, isPending: isLoginPending } = useLoginMutate();
   ```
 - **Side-effects belong in the hook** — `invalidateQueries`, related refetches, etc. go in `onSuccess` / `onError` / `onSettled` on `useMutation`, not in the calling component.
-- Routes and components must not import `~/gql/generated/...`, `graphql`, `useQuery`, or `useMutation` directly.
+- Routes, feature page content, and components must not import `~/gql/generated/...`, `graphql`, `useQuery`, or `useMutation` directly.
 
 ### Route auth guards (`src/api/session.ts`)
 
@@ -151,7 +222,7 @@ Never call `fetchSessionUser` directly from route files.
 - **Foundation:** Tailwind 3 + `tailwindcss-animate`. Theme tokens are CSS variables in `src/styles/tailwind.css` (`--background`, `--primary`, `--chart-1…5`, etc.); the Tailwind config exposes them as colour utilities.
 - **Light / dark:** `tailwind.config.ts` uses **`darkMode: "class"`**. Light tokens live on `:root`; dark overrides on **`html.dark`**. `ThemeProvider` (`src/theme/theme-provider.tsx`, outer wrapper in `app.tsx`) sets **`light` / `dark` / `system`** (`localStorage` key `dashboard-theme`); **system** follows `prefers-color-scheme` and updates when the OS preference changes. A small inline script in the root route `head` runs before paint to limit theme flash. `document.documentElement.style.colorScheme` is set for native form controls. Charts (`ChartStyle` in `~/components/ui/chart`) use **`html.dark`** for dark chart CSS variables.
 - **shadcn primitives** live in `src/components/ui/`. Build new screens out of these — do not import Radix or recharts directly in pages.
-- **Reusable app components** group by domain: `src/components/layout/` for the shell, `src/components/sites/` for site-list and site-detail building blocks (cards, badges, charts, time-range tabs). Pages stay thin and compose these.
+- **Reusable app components** group by domain: `src/components/layout/` for the shell, `src/components/sites/` for site-list and site-detail building blocks (cards, badges, charts, time-range tabs). **Feature page content** (`src/features/`) composes these; route files stay wiring-only.
 - **Icons:** `lucide-react`. **Charts:** `recharts` via the `Chart*` primitives in `~/components/ui/chart`.
 - **`cn(...)`** from `~/utils/cn` is the canonical class-name merger (`clsx` + `tailwind-merge`).
 
@@ -167,7 +238,7 @@ Generated types land in `src/gql/generated/` (gitignored; regenerate as needed).
 
 ## Dev server notes
 
-**`pnpm dev:web`** — uses `tanstackRouterGenerator` (not the full composed `tanstackRouter` plugin). The composed plugin can emit a **Duplicate declaration "hot"** Babel error on routes that have both `beforeLoad` and `component`. The generator still rebuilds `src/routeTree.gen.ts` on route changes; if you see a reload loop after renaming files, stop the server, optionally delete `src/routeTree.gen.ts`, and restart.
+**`pnpm dev:web`** — uses `tanstackRouterGenerator` (not the full composed `tanstackRouter` plugin). The composed plugin can emit a **Duplicate declaration "hot"** Babel error on routes that have both `beforeLoad` and `component` in the same file — keep route files thin (guards + `component` import only) and put UI in `src/features/`. The generator rebuilds `src/routeTree.gen.ts` when **route files** change; editing `src/features/` should hot-reload without regen. If you see a reload loop after renaming route files, stop the server, optionally delete `src/routeTree.gen.ts`, and restart.
 
 **`pnpm dev:api`** — compiles `packages/db` first, then runs `nest start --watch`. This is required because Nest GraphQL reads TypeScript decorator metadata that `tsx` does not emit. If you change only `packages/db`, restart `pnpm dev:api` or run `pnpm --filter @aquaponics/db build` manually. After changing GraphQL fields, restart `pnpm dev:api` so `apps/api/schema.graphql` is updated, then re-run codegen.
 

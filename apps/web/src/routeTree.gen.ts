@@ -12,26 +12,26 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthedSitesRouteImport } from './routes/_authed.sites'
-import { Route as AuthedSettingsRouteImport } from './routes/_authed.settings'
-import { Route as AuthedAlertsRouteImport } from './routes/_authed.alerts'
-import { Route as AuthedAdminRouteImport } from './routes/_authed.admin'
-import { Route as AuthedSitesIndexRouteImport } from './routes/_authed.sites.index'
-import { Route as AuthedAdminIndexRouteImport } from './routes/_authed.admin.index'
-import { Route as AuthedSitesSiteIdRouteImport } from './routes/_authed.sites.$siteId'
-import { Route as AuthedAdminUsersIndexRouteImport } from './routes/_authed.admin.users.index'
-import { Route as AuthedAdminSitesIndexRouteImport } from './routes/_authed.admin.sites.index'
-import { Route as AuthedAdminSensorsIndexRouteImport } from './routes/_authed.admin.sensors.index'
-import { Route as AuthedAdminDevicesIndexRouteImport } from './routes/_authed.admin.devices.index'
-import { Route as AuthedAdminUsersNewRouteImport } from './routes/_authed.admin.users.new'
-import { Route as AuthedAdminSitesNewRouteImport } from './routes/_authed.admin.sites.new'
-import { Route as AuthedAdminSensorsNewRouteImport } from './routes/_authed.admin.sensors.new'
-import { Route as AuthedAdminDevicesNewRouteImport } from './routes/_authed.admin.devices.new'
-import { Route as AuthedAdminUsersUserIdEditRouteImport } from './routes/_authed.admin.users.$userId.edit'
-import { Route as AuthedAdminSitesSiteIdEditRouteImport } from './routes/_authed.admin.sites.$siteId.edit'
-import { Route as AuthedAdminSensorsSensorKeyEditRouteImport } from './routes/_authed.admin.sensors.$sensorKey.edit'
-import { Route as AuthedAdminDevicesDeviceIdInstallRouteImport } from './routes/_authed.admin.devices.$deviceId.install'
-import { Route as AuthedAdminDevicesDeviceIdEditRouteImport } from './routes/_authed.admin.devices.$deviceId.edit'
+import { Route as AuthedSitesRouteImport } from './routes/_authed/sites'
+import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
+import { Route as AuthedAlertsRouteImport } from './routes/_authed/alerts'
+import { Route as AuthedAdminRouteImport } from './routes/_authed/admin'
+import { Route as AuthedSitesIndexRouteImport } from './routes/_authed/sites/index'
+import { Route as AuthedAdminIndexRouteImport } from './routes/_authed/admin/index'
+import { Route as AuthedSitesSiteIdRouteImport } from './routes/_authed/sites/$siteId'
+import { Route as AuthedAdminUsersIndexRouteImport } from './routes/_authed/admin/users/index'
+import { Route as AuthedAdminSitesIndexRouteImport } from './routes/_authed/admin/sites/index'
+import { Route as AuthedAdminSensorsIndexRouteImport } from './routes/_authed/admin/sensors/index'
+import { Route as AuthedAdminDevicesIndexRouteImport } from './routes/_authed/admin/devices/index'
+import { Route as AuthedAdminUsersNewRouteImport } from './routes/_authed/admin/users/new'
+import { Route as AuthedAdminSitesNewRouteImport } from './routes/_authed/admin/sites/new'
+import { Route as AuthedAdminSensorsNewRouteImport } from './routes/_authed/admin/sensors/new'
+import { Route as AuthedAdminDevicesNewRouteImport } from './routes/_authed/admin/devices/new'
+import { Route as AuthedAdminUsersUserIdEditRouteImport } from './routes/_authed/admin/users/$userId/edit'
+import { Route as AuthedAdminSitesSiteIdEditRouteImport } from './routes/_authed/admin/sites/$siteId/edit'
+import { Route as AuthedAdminSensorsSensorKeyEditRouteImport } from './routes/_authed/admin/sensors/$sensorKey/edit'
+import { Route as AuthedAdminDevicesDeviceIdInstallRouteImport } from './routes/_authed/admin/devices/$deviceId/install'
+import { Route as AuthedAdminDevicesDeviceIdEditRouteImport } from './routes/_authed/admin/devices/$deviceId/edit'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -549,3 +549,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
