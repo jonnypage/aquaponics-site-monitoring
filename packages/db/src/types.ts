@@ -44,14 +44,29 @@ export interface SensorCatalogTable {
 export interface DevicesTable {
   device_id: string;
   api_key_hash: string;
-  site_id: string;
+  site_id: string | null;
   last_seen_at: Timestamp | null;
   expected_interval_seconds: number;
   report_interval_seconds: number;
   snapshot_interval_seconds: number;
   has_camera: boolean;
+  name: string | null;
+  board: string | null;
+  pin_map: Record<string, number> | null;
   created_at: Timestamp;
   updated_at: Timestamp;
+}
+
+export interface DeviceSnapshotsTable {
+  id: Generated<string>;
+  device_id: string;
+  site_id: string;
+  taken_at: Timestamp;
+  ingested_at: Timestamp;
+  content_type: string;
+  byte_size: number;
+  storage_bucket: string;
+  storage_key: string;
 }
 
 export interface MeasurementsTable {
@@ -105,6 +120,7 @@ export interface Database {
   user_sites: UserSitesTable;
   sensor_catalog: SensorCatalogTable;
   devices: DevicesTable;
+  device_snapshots: DeviceSnapshotsTable;
   measurements: MeasurementsTable;
   site_sensor_catalog: SiteSensorCatalogTable;
   sensor_thresholds: SensorThresholdsTable;

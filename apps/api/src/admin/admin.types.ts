@@ -1,4 +1,5 @@
 import { Field, Float, InputType, Int, ObjectType } from "@nestjs/graphql";
+import { DeviceSnapshotModel } from "../snapshots/snapshots.types.js";
 import { Type } from "class-transformer";
 import {
   ArrayMinSize,
@@ -134,8 +135,11 @@ export class AdminDeviceModel {
   @Field()
   deviceId!: string;
 
-  @Field()
-  siteId!: string;
+  @Field(() => String, { nullable: true })
+  name?: string | null;
+
+  @Field(() => String, { nullable: true })
+  siteId?: string | null;
 
   @Field(() => Date, { nullable: true })
   lastSeenAt?: Date | null;
@@ -157,6 +161,9 @@ export class AdminDeviceModel {
 
   @Field()
   updatedAt!: Date;
+
+  @Field(() => [DeviceSnapshotModel])
+  recentSnapshots?: DeviceSnapshotModel[];
 }
 
 @ObjectType()
@@ -425,9 +432,16 @@ export class UpdateAdminSiteInput {
 
 @InputType()
 export class CreateAdminDeviceInput {
-  @Field()
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  name?: string | null;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
   @IsUUID("4")
-  siteId!: string;
+  siteId?: string | null;
 
   @Field(() => Int, { nullable: true })
   @IsOptional()
@@ -456,6 +470,12 @@ export class UpdateAdminDeviceInput {
   @IsString()
   @MinLength(1)
   deviceId!: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  name?: string | null;
 
   @Field(() => String, { nullable: true })
   @IsOptional()

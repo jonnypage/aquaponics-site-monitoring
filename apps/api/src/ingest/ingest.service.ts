@@ -6,6 +6,7 @@ import { ZodError } from "zod";
 import { DB_TOKEN } from "../database/database.constants.js";
 import { IngestAlertService } from "./ingest-alert.service.js";
 import { ingestBodySchema } from "./ingest.schema.js";
+import { requireDeviceSiteId } from "./device-site.util.js";
 import { IngestRateLimiter } from "./ingest-rate-limiter.service.js";
 
 function sha256Hex(plaintext: string): string {
@@ -60,6 +61,8 @@ export class IngestService {
       throw new UnauthorizedException("Invalid API key or device");
     }
 
+    const siteId = requireDeviceSiteId(device);
+
     const catalogRows = await this.db.selectFrom("sensor_catalog").select("key").execute();
     const allowedKeys = new Set(catalogRows.map((r) => r.key));
 
@@ -80,7 +83,7 @@ export class IngestService {
     const siteSensors = await this.db
       .selectFrom("site_sensor_catalog")
       .selectAll()
-      .where("site_id", "=", device.site_id)
+      .where("site_id", "=", siteId)
       .where("sensor", "in", sensorKeys)
       .execute();
     const enabledBySensor = new Map(siteSensors.map((s) => [s.sensor, s.enabled]));
@@ -88,7 +91,7 @@ export class IngestService {
     const thresholds = await this.db
       .selectFrom("sensor_thresholds")
       .selectAll()
-      .where("site_id", "=", device.site_id)
+      .where("site_id", "=", siteId)
       .where("sensor", "in", sensorKeys)
       .execute();
     const thresholdBySensor = new Map(thresholds.map((t) => [t.sensor, t]));
@@ -96,7 +99,7 @@ export class IngestService {
     const takenAt = new Date(parsed.timestamp);
     const rows = Object.entries(parsed.readings).map(([sensor, value]) => ({
       taken_at: takenAt,
-      site_id: device.site_id,
+      site_id: siteId,
       device_id: device.device_id,
       sensor,
       value: value as number
@@ -124,7 +127,7 @@ export class IngestService {
           const sensorEnabled = enabledBySensor.get(row.sensor) === true;
           const th = thresholdBySensor.get(row.sensor);
           await this.ingestAlerts.syncRangeAlertForReading(trx, {
-            siteId: device.site_id,
+            siteId,
             deviceId: device.device_id,
             sensorKey: row.sensor,
             value: row.value,
@@ -144,7 +147,7 @@ export class IngestService {
           const histRows = await trx
             .selectFrom("measurements")
             .select(["value", "taken_at"])
-            .where("site_id", "=", device.site_id)
+            .where("site_id", "=", siteId)
             .where("sensor", "=", row.sensor)
             .where("taken_at", "<=", takenAt)
             .orderBy("taken_at", "desc")
@@ -158,7 +161,7 @@ export class IngestService {
           }));
 
           await this.ingestAlerts.syncHeuristicAlertsForReading(trx, {
-            siteId: device.site_id,
+            siteId,
             deviceId: device.device_id,
             sensorKey: row.sensor,
             takenAt,
@@ -167,14 +170,14 @@ export class IngestService {
           });
         }
 
-        await this.ingestAlerts.syncDeviceOfflineStateForSite(trx, device.site_id);
+        await this.ingestAlerts.syncDeviceOfflineStateForSite(trx, siteId);
       });
     } catch (e) {
       this.rateLimiter.rollbackLast(device.device_id);
       throw e;
     }
 
-    const captureImageNow = await this.ingestAlerts.siteHasAnyActiveAlert(device.site_id);
+    const captureImageNow = await this.ingestAlerts.siteHasAnyActiveAlert(siteId);
 
     return {
       ok: true,

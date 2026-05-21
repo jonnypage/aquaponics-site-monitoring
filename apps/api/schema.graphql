@@ -27,6 +27,17 @@ type AuthPayload {
   user: UserModel!
 }
 
+type DeviceSnapshotModel {
+  id: String!
+  deviceId: String!
+  siteId: String!
+  takenAt: DateTime!
+  ingestedAt: DateTime!
+  contentType: String!
+  byteSize: Int!
+  imageUrl: String!
+}
+
 type SensorCatalogEntryModel {
   key: String!
   displayName: String!
@@ -77,7 +88,8 @@ type AdminSiteModel {
 
 type AdminDeviceModel {
   deviceId: String!
-  siteId: String!
+  name: String
+  siteId: String
   lastSeenAt: DateTime
   expectedIntervalSeconds: Int!
   reportIntervalSeconds: Int!
@@ -85,6 +97,7 @@ type AdminDeviceModel {
   hasCamera: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
+  recentSnapshots: [DeviceSnapshotModel!]!
 }
 
 type CreateAdminDevicePayload {
@@ -128,6 +141,7 @@ type SiteModel {
   sensorReporting: [SiteSensorReportingModel!]!
   latitude: Float
   longitude: Float
+  latestSnapshot: DeviceSnapshotModel
 }
 
 enum SiteStatus {
@@ -264,7 +278,8 @@ input UpdateAdminSiteInput {
 }
 
 input CreateAdminDeviceInput {
-  siteId: String!
+  name: String
+  siteId: String
   expectedIntervalSeconds: Int
   reportIntervalSeconds: Int
   snapshotIntervalSeconds: Int
@@ -273,6 +288,7 @@ input CreateAdminDeviceInput {
 
 input UpdateAdminDeviceInput {
   deviceId: String!
+  name: String
   siteId: String
   expectedIntervalSeconds: Int
   reportIntervalSeconds: Int

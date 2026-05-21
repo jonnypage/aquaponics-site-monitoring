@@ -15,8 +15,14 @@ function parseDeg(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Default map center for new sites and when lat/lng are unset (Belize). */
+export const DEFAULT_SITE_MAP_CENTER: google.maps.LatLngLiteral = {
+  lat: 18.070913,
+  lng: -88.555175
+};
+
 function defaultCenter(): google.maps.LatLngLiteral {
-  return { lat: 39.8283, lng: -98.5795 };
+  return DEFAULT_SITE_MAP_CENTER;
 }
 
 export interface SiteLocationMapPickerProps {

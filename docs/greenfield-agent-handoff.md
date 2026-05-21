@@ -32,7 +32,7 @@ This document is the **primary bootstrap spec** for rebuilding the aquaponics mo
 5. Implement Nest GraphQL schema to match **GraphQL contract** below (reference SDL: `apps/api/src/graphql/schema.graphql`).
 6. Implement `POST /ingest` per **Device ingestion** (legacy `docs/esp-device-ingest.md` is reference only for shape).
 7. Scaffold TanStack Start routes per **Web routes**; wire TanStack Query to GraphQL.
-8. Run **Definition of done** after **Phase 6**.
+8. Run **Definition of done** after **Phase 6** (Phases 1–6 = MVP). **Phase 7** is planned separately — see below and **[phase7-agent-prompt.md](phase7-agent-prompt.md)**.
 
 ---
 
@@ -94,6 +94,35 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 - Ingest **commands** in JSON response: `reportIntervalSeconds`, `snapshotIntervalSeconds`, `captureImageNow` when device has active alert.
 - Dashboard: latest snapshot on site/device detail when present.
 - **Exit criteria:** install wizard flashes device; ingest returns commands; snapshot upload stores object + metadata; alert sets `captureImageNow`.
+
+### Phase 7 — Notifications & alert policy (planned, deferred)
+
+**Status:** **Not started.** No notification provider is required for Phases 1–6 MVP. Implement when the team is ready to operate **email** (and optionally **SMS / WhatsApp / Signal**). Agent brief: **[phase7-agent-prompt.md](phase7-agent-prompt.md)**.
+
+**Current baseline (code today, often not configured in env):**
+
+- Ingest + scheduler **create and update** `alerts` (range, heuristics, `device_offline`).
+- Dashboard **`/alerts`** and per-site alert sections; **`resolveAlert`**.
+- **Email** via Resend in scheduler when `RESEND_API_KEY` + `ALERT_FROM_EMAIL` are set; `COOLDOWN_MINUTES` per `(site_id, type)`.
+- Recipients today: **all `admin` users** + users in **`user_sites`** for that site.
+
+**Operational guidance until Phase 7 (no extra schema):**
+
+- **Staging / calibration:** use a normal admin-only site (e.g. “Device staging”) — do not assign it to non-admins; assign test devices there for ingest validation; reassign to production when ready (measurements remain on the staging site).
+- **Noise:** loose thresholds on staging, resolve test alerts in UI, or wait for site-level **`suppress_notifications`** in Phase 7.
+
+**Phase 7 direction (draft):**
+
+| Area | Intent |
+|------|--------|
+| **Email** | Production-ready Resend setup, templates, docs. |
+| **Site policy** | `suppress_notifications` (and optionally `notification_min_severity`) on `sites` — admin site form; scheduler/dispatcher skip outbound notify. |
+| **Channels** | Pluggable dispatcher; evaluate **SMS**, **WhatsApp**, **Signal** (Signal has ops/API constraints — not committed for V1). |
+| **Architecture** | `NotificationPolicyService` + channel adapters; keep single API process; extend cooldown/dedupe if per-channel delivery is added. |
+
+**Exit criteria (draft):** staging site can suppress all outbound notifications; production site sends critical email with cooldown; dispatcher structured for at least one additional channel behind a feature flag.
+
+**Non-goals for first Phase 7 slice:** Redis/queues, guaranteed delivery, live Signal/WhatsApp unless explicitly scoped in Phase 7b/c.
 
 ---
 
@@ -652,6 +681,7 @@ Manual smoke:
 
 ## Post-MVP / deferred work
 
+- **Phase 7 — Notifications & alert policy** — see **[phase7-agent-prompt.md](phase7-agent-prompt.md)** (email productionization, site `suppress_notifications`, SMS/WhatsApp/Signal evaluation). Distinct from Phases 1–6 MVP.
 - Automated integration tests.
 - TimescaleDB hypertable migration.
 - Measurement **downsampling / retention / archiving** (initial policy: retain all rows indefinitely).

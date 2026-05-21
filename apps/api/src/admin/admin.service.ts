@@ -13,6 +13,7 @@ import { sql } from "kysely";
 import bcrypt from "bcryptjs";
 import { DB_TOKEN } from "../database/database.constants.js";
 import { Role } from "../auth/auth.types.js";
+import { IngestAlertService } from "../ingest/ingest-alert.service.js";
 import { loadSiteSensorReporting } from "../sites/site-sensor-reporting.util.js";
 import type {
   AdminDeviceModel,
@@ -80,7 +81,10 @@ function normalizeStoredLucideIcon(raw: string | null | undefined): string | nul
 
 @Injectable()
 export class AdminService {
-  constructor(@Inject(DB_TOKEN) private readonly db: Kysely<Database>) {}
+  constructor(
+    @Inject(DB_TOKEN) private readonly db: Kysely<Database>,
+    private readonly ingestAlerts: IngestAlertService
+  ) {}
 
   private mapCatalogRow(row: {
     key: string;
@@ -106,9 +110,18 @@ export class AdminService {
     };
   }
 
+  private normalizeDeviceName(value: string | null | undefined): string | null {
+    if (value == null) {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
   private mapDeviceRow(row: {
     device_id: string;
-    site_id: string;
+    name: string | null;
+    site_id: string | null;
     last_seen_at: Date | null;
     expected_interval_seconds: number;
     report_interval_seconds: number;
@@ -119,6 +132,7 @@ export class AdminService {
   }): AdminDeviceModel {
     return {
       deviceId: row.device_id,
+      name: row.name,
       siteId: row.site_id,
       lastSeenAt: row.last_seen_at ? new Date(row.last_seen_at) : null,
       expectedIntervalSeconds: row.expected_interval_seconds,
@@ -692,9 +706,12 @@ export class AdminService {
   }
 
   async createAdminDevice(input: CreateAdminDeviceInput): Promise<{ device: AdminDeviceModel; plainApiKey: string }> {
-    const site = await this.db.selectFrom("sites").select("id").where("id", "=", input.siteId).executeTakeFirst();
-    if (!site) {
-      throw new NotFoundException("Site not found");
+    const siteId = input.siteId?.trim() ? input.siteId.trim() : null;
+    if (siteId) {
+      const site = await this.db.selectFrom("sites").select("id").where("id", "=", siteId).executeTakeFirst();
+      if (!site) {
+        throw new NotFoundException("Site not found");
+      }
     }
     const deviceId = randomUUID();
     const plainApiKey = `aq_${randomBytes(24).toString("base64url")}`;
@@ -704,10 +721,11 @@ export class AdminService {
       .values({
         device_id: deviceId,
         api_key_hash: hash,
-        site_id: input.siteId,
+        name: this.normalizeDeviceName(input.name),
+        site_id: siteId,
         expected_interval_seconds: input.expectedIntervalSeconds ?? 300,
-        report_interval_seconds: input.reportIntervalSeconds ?? 300,
-        snapshot_interval_seconds: input.snapshotIntervalSeconds ?? 900,
+        report_interval_seconds: input.reportIntervalSeconds ?? 900,
+        snapshot_interval_seconds: input.snapshotIntervalSeconds ?? 1800,
         has_camera: input.hasCamera ?? false,
         updated_at: new Date()
       })
@@ -721,25 +739,58 @@ export class AdminService {
     if (!existing) {
       throw new NotFoundException("Device not found");
     }
-    if (input.siteId) {
-      const site = await this.db.selectFrom("sites").select("id").where("id", "=", input.siteId).executeTakeFirst();
-      if (!site) {
-        throw new NotFoundException("Site not found");
+    let nextSiteId: string | null = existing.site_id;
+    if (input.siteId !== undefined) {
+      if (input.siteId === null) {
+        nextSiteId = null;
+      } else {
+        const trimmed = input.siteId.trim();
+        if (trimmed === "") {
+          nextSiteId = null;
+        } else {
+          const site = await this.db.selectFrom("sites").select("id").where("id", "=", trimmed).executeTakeFirst();
+          if (!site) {
+            throw new NotFoundException("Site not found");
+          }
+          nextSiteId = trimmed;
+        }
       }
     }
+
+    const patch: {
+      site_id: string | null;
+      name?: string | null;
+      expected_interval_seconds: number;
+      report_interval_seconds: number;
+      snapshot_interval_seconds: number;
+      has_camera: boolean;
+      updated_at: Date;
+    } = {
+      site_id: nextSiteId,
+      expected_interval_seconds: input.expectedIntervalSeconds ?? existing.expected_interval_seconds,
+      report_interval_seconds: input.reportIntervalSeconds ?? existing.report_interval_seconds,
+      snapshot_interval_seconds: input.snapshotIntervalSeconds ?? existing.snapshot_interval_seconds,
+      has_camera: input.hasCamera ?? existing.has_camera,
+      updated_at: new Date()
+    };
+    if (input.name !== undefined) {
+      patch.name = this.normalizeDeviceName(input.name);
+    }
+
     const row = await this.db
       .updateTable("devices")
-      .set({
-        site_id: input.siteId ?? existing.site_id,
-        expected_interval_seconds: input.expectedIntervalSeconds ?? existing.expected_interval_seconds,
-        report_interval_seconds: input.reportIntervalSeconds ?? existing.report_interval_seconds,
-        snapshot_interval_seconds: input.snapshotIntervalSeconds ?? existing.snapshot_interval_seconds,
-        has_camera: input.hasCamera ?? existing.has_camera,
-        updated_at: new Date()
-      })
+      .set(patch)
       .where("device_id", "=", input.deviceId)
       .returningAll()
       .executeTakeFirstOrThrow();
+
+    if (existing.site_id && existing.site_id !== nextSiteId) {
+      await this.ingestAlerts.syncDeviceOfflineStateForSite(this.db, existing.site_id);
+    }
+    if (nextSiteId && nextSiteId !== existing.site_id) {
+      await this.ingestAlerts.syncDeviceOfflineStateForSite(this.db, nextSiteId);
+    }
+
     return this.mapDeviceRow(row);
   }
 

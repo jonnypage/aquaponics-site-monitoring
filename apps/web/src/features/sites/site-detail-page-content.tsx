@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { PageBackLink } from '~/components/layout/page-back-link';
 import { PageHeader } from '~/components/layout/page-header';
 import { SiteAlertsSection } from '~/components/sites/site-alerts-section';
+import { SiteLatestSnapshot } from '~/components/sites/site-latest-snapshot';
 import { SiteLocationMap } from '~/components/sites/site-location-map';
 import { SensorChart } from '~/components/sites/sensor-chart';
 import { SiteStatusBadge } from '~/components/sites/site-status-badge';
@@ -102,6 +103,16 @@ export function SiteDetailPageContent() {
           sensorReporting={site.sensorReporting}
         />
       </div>
+
+      {site.latestSnapshot ? (
+        <div className="mb-6">
+          <SiteLatestSnapshot
+            imageUrl={site.latestSnapshot.imageUrl}
+            takenAt={site.latestSnapshot.takenAt}
+            deviceId={site.latestSnapshot.deviceId}
+          />
+        </div>
+      ) : null}
 
       <div className="mb-6">
         {chartSensors.length === 0 ? (

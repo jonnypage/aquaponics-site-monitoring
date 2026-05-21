@@ -51,6 +51,7 @@ query AdminSites {
 query AdminDevices($siteId: String) {
   adminDevices(siteId: $siteId) {
     deviceId
+    name
     siteId
     lastSeenAt
     expectedIntervalSeconds
@@ -65,6 +66,7 @@ query AdminDevices($siteId: String) {
 query AdminDevice($id: String!) {
   adminDevice(id: $id) {
     deviceId
+    name
     siteId
     lastSeenAt
     expectedIntervalSeconds
@@ -73,6 +75,12 @@ query AdminDevice($id: String!) {
     hasCamera
     createdAt
     updatedAt
+    recentSnapshots {
+      id
+      takenAt
+      imageUrl
+      byteSize
+    }
   }
 }
 
@@ -189,6 +197,7 @@ mutation CreateAdminDevice($input: CreateAdminDeviceInput!) {
     plainApiKey
     device {
       deviceId
+      name
       siteId
       lastSeenAt
       expectedIntervalSeconds
@@ -204,6 +213,7 @@ mutation CreateAdminDevice($input: CreateAdminDeviceInput!) {
 mutation UpdateAdminDevice($input: UpdateAdminDeviceInput!) {
   updateAdminDevice(input: $input) {
     deviceId
+    name
     siteId
     lastSeenAt
     expectedIntervalSeconds

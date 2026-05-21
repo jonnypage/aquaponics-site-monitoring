@@ -9,6 +9,7 @@ import { Role } from "../auth/auth.types.js";
 import { DB_TOKEN } from "../database/database.constants.js";
 import { filterAlertsForEnabledSensorsOnly, loadDisabledSensorsBySite } from "./site-sensor-filter.util.js";
 import { SiteModel, SiteStatus } from "./dashboard.types.js";
+import { SnapshotsService } from "../snapshots/snapshots.service.js";
 import { loadSiteSensorReporting } from "./site-sensor-reporting.util.js";
 
 function userRoleToGql(role: User["role"]): Role {
@@ -19,7 +20,8 @@ function userRoleToGql(role: User["role"]): Role {
 export class SitesResolver {
   constructor(
     @Inject(DB_TOKEN) private readonly db: Kysely<Database>,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
+    private readonly snapshots: SnapshotsService
   ) {}
 
   @UseGuards(GqlAuthGuard)
@@ -119,6 +121,8 @@ export class SitesResolver {
       status = SiteStatus.UNKNOWN;
     }
 
+    const latestSnapshot = await this.snapshots.getLatestForSite(siteId);
+
     return {
       id: siteId,
       name,
@@ -127,7 +131,8 @@ export class SitesResolver {
       lastUpdate: lastTaken,
       sensorReporting,
       latitude,
-      longitude
+      longitude,
+      latestSnapshot
     };
   }
 }

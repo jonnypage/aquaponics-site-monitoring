@@ -9,7 +9,7 @@ import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-in
 import { Card, CardContent } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { useAdminDevice, useAdminSites, useDeleteAdminDeviceMutate, useRotateAdminDeviceApiKeyMutate, useUpdateAdminDeviceMutate } from "~/hooks/useAdmin";
+import { useAdminDevice, useAdminSites, useDeleteAdminDeviceMutate, useUpdateAdminDeviceMutate } from "~/hooks/useAdmin";
 
 const routeApi = getRouteApi("/_authed/admin/devices/$deviceId/edit");
 
@@ -29,22 +29,22 @@ export function AdminDeviceEditPageContent() {
   const { data: device, isLoading, isError, error } = useAdminDevice(deviceId);
   const { data: sites } = useAdminSites();
   const { mutateAsync: updateDevice, isPending: isSaving } = useUpdateAdminDeviceMutate();
-  const { mutateAsync: rotateKey, isPending: isRotating } = useRotateAdminDeviceApiKeyMutate();
   const { mutateAsync: deleteDevice, isPending: isDeleting } = useDeleteAdminDeviceMutate();
 
+  const [name, setName] = useState("");
   const [siteId, setSiteId] = useState("");
   const [expected, setExpected] = useState("");
   const [report, setReport] = useState("");
   const [snapshot, setSnapshot] = useState("");
   const [hasCamera, setHasCamera] = useState(false);
-  const [plainKey, setPlainKey] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!device) {
       return;
     }
-    setSiteId(device.siteId);
+    setName(device.name ?? "");
+    setSiteId(device.siteId ?? "");
     setExpected(String(device.expectedIntervalSeconds));
     setReport(String(device.reportIntervalSeconds));
     setSnapshot(String(device.snapshotIntervalSeconds));
@@ -60,23 +60,14 @@ export function AdminDeviceEditPageContent() {
     try {
       await updateDevice({
         deviceId: device.deviceId,
-        siteId: siteId || undefined,
+        name: name.trim() ? name.trim() : null,
+        siteId: siteId === "" ? null : siteId,
         expectedIntervalSeconds: parseOptInt(expected, device.expectedIntervalSeconds),
         reportIntervalSeconds: parseOptInt(report, device.reportIntervalSeconds),
         snapshotIntervalSeconds: parseOptInt(snapshot, device.snapshotIntervalSeconds),
         hasCamera
       });
       await navigate({ to: "/admin/devices" });
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : t("shared.unknownError"));
-    }
-  }
-
-  async function onRotate() {
-    setFormError(null);
-    try {
-      const r = await rotateKey(deviceId);
-      setPlainKey(r.plainApiKey);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : t("shared.unknownError"));
     }
@@ -126,16 +117,12 @@ export function AdminDeviceEditPageContent() {
       <Card className="w-full">
         <CardContent className="space-y-4 pt-6">
           <p className="font-mono text-xs text-muted-foreground">{device.deviceId}</p>
-          {plainKey ? (
-            <div className="space-y-2 rounded-md border border-primary/30 bg-muted/50 p-3">
-              <p className="text-sm font-medium">{t("admin.devices.plainKeyTitle")}</p>
-              <pre className="overflow-x-auto text-xs">{plainKey}</pre>
-              <Button type="button" size="sm" variant="secondary" onClick={() => void navigator.clipboard.writeText(plainKey)}>
-                {t("admin.shared.copyKey")}
-              </Button>
-            </div>
-          ) : null}
           <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
+            <div className="space-y-2">
+              <Label htmlFor="name">{t("admin.devices.name")}</Label>
+              <p className="text-xs text-muted-foreground">{t("admin.devices.nameHint")}</p>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="site">{t("admin.devices.site")}</Label>
               <select
@@ -144,6 +131,7 @@ export function AdminDeviceEditPageContent() {
                 value={siteId}
                 onChange={(e) => setSiteId(e.target.value)}
               >
+                <option value="">{t("admin.devices.unassigned")}</option>
                 {(sites ?? []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -171,9 +159,6 @@ export function AdminDeviceEditPageContent() {
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={isSaving}>
                 <ButtonPendingLabel pending={isSaving}>{t("admin.shared.save")}</ButtonPendingLabel>
-              </Button>
-              <Button type="button" variant="secondary" disabled={isRotating} onClick={() => void onRotate()}>
-                <ButtonPendingLabel pending={isRotating}>{t("admin.devices.rotateKey")}</ButtonPendingLabel>
               </Button>
               <Button type="button" variant="destructive" disabled={isDeleting} onClick={() => void onDelete()}>
                 <ButtonPendingLabel pending={isDeleting}>{t("admin.shared.delete")}</ButtonPendingLabel>

@@ -289,6 +289,9 @@ export class IngestAlertService {
   async syncAllDeviceOfflineStates(nowMs: number = Date.now()): Promise<void> {
     const rows = await this.db.selectFrom("devices").select("site_id").distinct().execute();
     for (const { site_id } of rows) {
+      if (site_id == null) {
+        continue;
+      }
       await this.syncDeviceOfflineStateForSite(this.db, site_id, nowMs);
     }
   }

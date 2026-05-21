@@ -2,7 +2,10 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { SiteLocationMapPicker } from "~/components/admin/site-location-map-picker";
+import {
+  DEFAULT_SITE_MAP_CENTER,
+  SiteLocationMapPicker
+} from "~/components/admin/site-location-map-picker";
 
 import { PageBackLink } from "~/components/layout/page-back-link";
 import { PageHeader } from "~/components/layout/page-header";
@@ -31,8 +34,8 @@ export function AdminSiteNewPageContent() {
   const keys = useMemo(() => (catalog ?? []).map((c) => c.key), [catalog]);
 
   const [name, setName] = useState("");
-  const [lat, setLat] = useState("");
-  const [lng, setLng] = useState("");
+  const [lat, setLat] = useState(String(DEFAULT_SITE_MAP_CENTER.lat));
+  const [lng, setLng] = useState(String(DEFAULT_SITE_MAP_CENTER.lng));
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [th, setTh] = useState<Record<string, { nm: string; nM: string; wd: string; cd: string }>>({});
   const [formError, setFormError] = useState<string | null>(null);
