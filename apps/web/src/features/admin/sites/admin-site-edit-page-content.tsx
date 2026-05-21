@@ -1,11 +1,11 @@
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
-import { ChevronLeft } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { SiteLocationMapPicker } from '~/components/admin/site-location-map-picker';
 import { SiteAlertsSection } from '~/components/sites/site-alerts-section';
 
+import { PageBackLink } from '~/components/layout/page-back-link';
 import { PageHeader } from '~/components/layout/page-header';
 import { Button } from '~/components/ui/button';
 import { ButtonPendingLabel, LoadingIndicator } from '~/components/ui/loading-indicator';
@@ -140,14 +140,7 @@ export function AdminSiteEditPageContent() {
   return (
     <>
       <PageHeader title={t('admin.sites.editTitle')} />
-      <div className='mb-4'>
-        <Button variant='outline' size='sm' asChild>
-          <Link to='/admin/sites' className='inline-flex items-center gap-2'>
-            <ChevronLeft className='h-4 w-4 shrink-0' aria-hidden />
-            {t('admin.sites.backToSites')}
-          </Link>
-        </Button>
-      </div>
+      <PageBackLink to='/admin/sites'>{t('admin.sites.backToSites')}</PageBackLink>
       {/* <div className='mb-6'>
         <SiteAlertsSection
           siteId={site.id}

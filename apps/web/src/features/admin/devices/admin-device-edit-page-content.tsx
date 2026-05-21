@@ -2,6 +2,7 @@ import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { PageBackLink } from "~/components/layout/page-back-link";
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
 import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
@@ -112,10 +113,10 @@ export function AdminDeviceEditPageContent() {
   return (
     <>
       <PageHeader title={t("admin.devices.editTitle")} />
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/admin/devices">{t("admin.devices.listTitle")}</Link>
-        </Button>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <PageBackLink to="/admin/devices" className="mb-0">
+          {t("admin.devices.listTitle")}
+        </PageBackLink>
         <Button variant="outline" size="sm" asChild>
           <Link to="/admin/devices/$deviceId/install" params={{ deviceId: device.deviceId }}>
             {t("admin.devices.openInstaller")}

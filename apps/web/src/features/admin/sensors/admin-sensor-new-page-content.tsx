@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { PageBackLink } from "~/components/layout/page-back-link";
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
 import { ButtonPendingLabel } from "~/components/ui/loading-indicator";
@@ -56,11 +57,7 @@ export function AdminSensorNewPageContent() {
   return (
     <>
       <PageHeader title={t("admin.sensors.newTitle")} />
-      <div className="mb-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/admin/sensors">{t("admin.sensors.listTitle")}</Link>
-        </Button>
-      </div>
+      <PageBackLink to="/admin/sensors">{t("admin.sensors.listTitle")}</PageBackLink>
       <Card className="w-full">
         <CardContent className="pt-6">
           <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>

@@ -1,8 +1,9 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { getRouteApi, Link } from '@tanstack/react-router';
-import { AlertTriangle, ChevronLeft } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { PageBackLink } from '~/components/layout/page-back-link';
 import { PageHeader } from '~/components/layout/page-header';
 import { SiteAlertsSection } from '~/components/sites/site-alerts-section';
 import { SiteLocationMap } from '~/components/sites/site-location-map';
@@ -82,12 +83,7 @@ export function SiteDetailPageContent() {
 
   return (
     <>
-      <Button variant='ghost' size='sm' asChild className='mb-2 -ml-2'>
-        <Link to='/sites'>
-          <ChevronLeft className='h-4 w-4' />
-          {t('siteDetailPage.back')}
-        </Link>
-      </Button>
+      <PageBackLink to='/sites'>{t('siteDetailPage.back')}</PageBackLink>
 
       <PageHeader
         title={site.name}

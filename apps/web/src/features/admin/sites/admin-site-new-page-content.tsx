@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { SiteLocationMapPicker } from "~/components/admin/site-location-map-picker";
 
+import { PageBackLink } from "~/components/layout/page-back-link";
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
 import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
@@ -107,11 +108,7 @@ export function AdminSiteNewPageContent() {
   return (
     <>
       <PageHeader title={t("admin.sites.newTitle")} />
-      <div className="mb-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/admin/sites">{t("admin.hub.sitesTitle")}</Link>
-        </Button>
-      </div>
+      <PageBackLink to="/admin/sites">{t("admin.hub.sitesTitle")}</PageBackLink>
       <Card className="w-full">
         <CardContent className="pt-6">
           <form className="space-y-6" onSubmit={(e) => void onSubmit(e)}>

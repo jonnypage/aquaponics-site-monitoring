@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { PageBackLink } from "~/components/layout/page-back-link";
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
 import { ButtonPendingLabel } from "~/components/ui/loading-indicator";
@@ -33,11 +34,7 @@ export function AdminDeviceNewPageContent() {
   return (
     <>
       <PageHeader title={t("admin.devices.newTitle")} />
-      <div className="mb-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/admin/devices">{t("admin.devices.listTitle")}</Link>
-        </Button>
-      </div>
+      <PageBackLink to="/admin/devices">{t("admin.devices.listTitle")}</PageBackLink>
       <Card className="w-full">
         <CardContent className="pt-6">
           {plainKey ? (

@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, ChevronLeft, Plus } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { PageBackLink } from "~/components/layout/page-back-link";
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
@@ -28,14 +29,7 @@ export function AdminDevicesIndexPageContent() {
           </Button>
         }
       />
-      <div className="mb-4">
-        <Button variant="outline" size="sm" asChild>
-          <Link to="/admin" className="inline-flex items-center gap-2">
-            <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
-            {t("admin.shared.backToAdmin")}
-          </Link>
-        </Button>
-      </div>
+      <PageBackLink to="/admin">{t("admin.shared.backToAdmin")}</PageBackLink>
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
