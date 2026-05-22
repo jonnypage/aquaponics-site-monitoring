@@ -266,3 +266,20 @@ mutation RotateAdminDeviceApiKey($deviceId: String!) {
 mutation DeleteAdminDevice($deviceId: String!) {
   deleteAdminDevice(deviceId: $deviceId)
 }
+
+mutation ResetAdminSiteMeasurements($siteId: String!) {
+  resetAdminSiteMeasurements(siteId: $siteId) {
+    siteId
+    deletedMeasurements
+    resolvedAlerts
+  }
+}
+
+mutation ClearAdminSiteSnapshots($siteId: String!) {
+  clearAdminSiteSnapshots(siteId: $siteId) {
+    siteId
+    deletedSnapshots
+    deletedStorageObjects
+    storageSkipped
+  }
+}

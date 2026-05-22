@@ -177,7 +177,8 @@ export class IngestService {
       throw e;
     }
 
-    const captureImageNow = await this.ingestAlerts.siteHasAnyActiveAlert(siteId);
+    const siteHasActiveAlert = await this.ingestAlerts.siteHasAnyActiveAlert(siteId);
+    const captureImageNow = device.has_camera && siteHasActiveAlert;
 
     return {
       ok: true,

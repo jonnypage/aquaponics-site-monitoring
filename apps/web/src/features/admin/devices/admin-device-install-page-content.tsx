@@ -1,4 +1,5 @@
 import { getRouteApi } from "@tanstack/react-router";
+import { Eye, EyeOff } from "lucide-react";
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -25,10 +26,16 @@ import {
   writeDeviceInstallApiKey
 } from "~/utils/device-install-api-key";
 import {
+  type DeviceBoardId,
+  getDeviceBoardGpioProfile,
+  hasBlockingInstallGpioIssues
+} from "~/utils/device-board-gpio";
+import {
   applyPinMapToRow,
   buildDevicePinMap,
   buildFirmwarePins,
   emptyWireMap,
+  flattenInstallGpioEntries,
   hasIncludedPinnedSensor,
   type InstallSensorRow
 } from "~/utils/firmware-sensor-pins";
@@ -152,9 +159,10 @@ export function AdminDeviceInstallPageContent() {
   const installRef = useRef<HTMLElement & { manifest?: string }>(null);
   const manifestRevokeRef = useRef<(() => void) | null>(null);
 
-  const [board, setBoard] = useState<"esp8266" | "esp32-cyd">("esp8266");
+  const [board, setBoard] = useState<DeviceBoardId>("esp8266");
   const [wifiSsid, setWifiSsid] = useState("");
   const [wifiPassword, setWifiPassword] = useState("");
+  const [showWifiPassword, setShowWifiPassword] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [hasCamera, setHasCamera] = useState(false);
   const [reportDuration, setReportDuration] = useState<DurationValue>(DEFAULT_REPORT_DURATION);
@@ -167,8 +175,6 @@ export function AdminDeviceInstallPageContent() {
   const [manifestUrl, setManifestUrl] = useState<string | null>(null);
   const [espToolsReady, setEspToolsReady] = useState(false);
   const [installSupport, setInstallSupport] = useState<EspWebInstallSupport | null>(null);
-  const [serialPickerStatus, setSerialPickerStatus] = useState<string | null>(null);
-  const [serialPickerBusy, setSerialPickerBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [step, setStep] = useState<"form" | "flash">("form");
 
@@ -243,9 +249,22 @@ export function AdminDeviceInstallPageContent() {
     }
   }, [device]);
 
+  const gpioEntries = useMemo(() => flattenInstallGpioEntries(sensorRows), [sensorRows]);
+
+  const gpioBlocked = useMemo(
+    () => hasBlockingInstallGpioIssues(board, gpioEntries),
+    [board, gpioEntries]
+  );
+
   const canPrepare = useMemo(() => {
-    return board === "esp8266" && wifiSsid.trim() !== "" && hasIncludedPinnedSensor(sensorRows);
-  }, [board, sensorRows, wifiSsid]);
+    const profile = getDeviceBoardGpioProfile(board);
+    return (
+      profile.installSupported &&
+      wifiSsid.trim() !== "" &&
+      hasIncludedPinnedSensor(sensorRows) &&
+      !gpioBlocked
+    );
+  }, [board, gpioBlocked, sensorRows, wifiSsid]);
 
   async function resolveInstallApiKey(): Promise<string> {
     const existing = apiKey.trim() || readDeviceInstallApiKey(deviceId);
@@ -281,28 +300,6 @@ export function AdminDeviceInstallPageContent() {
     inner.click();
   }
 
-  async function onTestSerialPicker() {
-    setSerialPickerStatus(null);
-    setSerialPickerBusy(true);
-    try {
-      const port = await navigator.serial.requestPort();
-      try {
-        await port.close();
-      } catch {
-        /* ignore */
-      }
-      setSerialPickerStatus(t("admin.devices.installSerialPicked"));
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "NotFoundError") {
-        setSerialPickerStatus(t("admin.devices.installSerialCancelled"));
-      } else {
-        setSerialPickerStatus(err instanceof Error ? err.message : t("shared.unknownError"));
-      }
-    } finally {
-      setSerialPickerBusy(false);
-    }
-  }
-
   async function onPrepareFlash(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -312,7 +309,11 @@ export function AdminDeviceInstallPageContent() {
       return;
     }
     if (!canPrepare) {
-      setFormError(t("admin.devices.installValidation"));
+      if (gpioBlocked) {
+        setFormError(t("admin.devices.installValidationGpio"));
+      } else {
+        setFormError(t("admin.devices.installValidation"));
+      }
       return;
     }
 
@@ -424,14 +425,9 @@ export function AdminDeviceInstallPageContent() {
   return (
     <>
       <PageHeader title={t("admin.devices.installTitle")} description={t("admin.devices.installDescription")} />
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <PageBackLink to="/admin/devices/$deviceId/edit" params={{ deviceId }} className="mb-0">
-          {t("admin.devices.backToEdit")}
-        </PageBackLink>
-        <PageBackLink to="/admin/devices" className="mb-0">
-          {t("admin.devices.listTitle")}
-        </PageBackLink>
-      </div>
+      <PageBackLink to="/admin/devices/$deviceId/edit" params={{ deviceId }}>
+        {t("admin.devices.backToEdit")}
+      </PageBackLink>
 
       {step === "form" ? (
         <Card className="w-full">
@@ -453,7 +449,7 @@ export function AdminDeviceInstallPageContent() {
                   id="board"
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={board}
-                  onChange={(e) => setBoard(e.target.value as "esp8266" | "esp32-cyd")}
+                  onChange={(e) => setBoard(e.target.value as DeviceBoardId)}
                 >
                   <option value="esp8266">ESP8266 (D1 mini)</option>
                   <option value="esp32-cyd" disabled>
@@ -470,16 +466,39 @@ export function AdminDeviceInstallPageContent() {
               <div className="space-y-2">
                 <Label htmlFor="wifiPassword">{t("admin.devices.installWifiPassword")}</Label>
                 <p className="text-xs text-muted-foreground">{t("admin.devices.installWifiPasswordHint")}</p>
-                <Input
-                  id="wifiPassword"
-                  type="password"
-                  value={wifiPassword}
-                  onChange={(e) => setWifiPassword(e.target.value)}
-                  autoComplete="off"
-                />
+                <div className="relative">
+                  <Input
+                    id="wifiPassword"
+                    type={showWifiPassword ? "text" : "password"}
+                    value={wifiPassword}
+                    onChange={(e) => setWifiPassword(e.target.value)}
+                    autoComplete="off"
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground"
+                    aria-label={
+                      showWifiPassword
+                        ? t("admin.devices.installWifiPasswordHide")
+                        : t("admin.devices.installWifiPasswordShow")
+                    }
+                    aria-pressed={showWifiPassword}
+                    onClick={() => setShowWifiPassword((visible) => !visible)}
+                  >
+                    {showWifiPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden />
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <InstallSensorPinsFieldset
+                board={board}
                 rows={sensorRows}
                 onChange={setSensorRows}
                 unassignedSite={device.siteId == null}
@@ -495,19 +514,25 @@ export function AdminDeviceInstallPageContent() {
                 {t("admin.devices.hasCamera")}
               </label>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div
+                className={
+                  hasCamera ? "grid gap-4 sm:grid-cols-2" : "max-w-sm space-y-4"
+                }
+              >
                 <DurationField
                   id="report"
                   label={t("admin.devices.reportInterval")}
                   value={reportDuration}
                   onChange={setReportDuration}
                 />
-                <DurationField
-                  id="snapshot"
-                  label={t("admin.devices.snapshotInterval")}
-                  value={snapshotDuration}
-                  onChange={setSnapshotDuration}
-                />
+                {hasCamera ? (
+                  <DurationField
+                    id="snapshot"
+                    label={t("admin.devices.snapshotInterval")}
+                    value={snapshotDuration}
+                    onChange={setSnapshotDuration}
+                  />
+                ) : null}
               </div>
 
               {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
@@ -549,19 +574,6 @@ export function AdminDeviceInstallPageContent() {
                   <div className="sr-only" aria-hidden>
                     {createElement("esp-web-install-button", { ref: installRef })}
                   </div>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={serialPickerBusy}
-                  onClick={() => void onTestSerialPicker()}
-                >
-                  <ButtonPendingLabel pending={serialPickerBusy}>
-                    {t("admin.devices.installFlashTestPicker")}
-                  </ButtonPendingLabel>
-                </Button>
-                {serialPickerStatus ? (
-                  <p className="text-sm text-muted-foreground">{serialPickerStatus}</p>
                 ) : null}
                 {firmwareError ? <p className="text-sm text-destructive">{firmwareError}</p> : null}
               </div>

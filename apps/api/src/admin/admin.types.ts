@@ -528,3 +528,30 @@ export class UpdateAdminDeviceInput {
   @IsOptional()
   pinMap?: Record<string, unknown> | null;
 }
+
+@ObjectType()
+export class ResetAdminSiteMeasurementsPayload {
+  @Field()
+  siteId!: string;
+
+  @Field(() => Int)
+  deletedMeasurements!: number;
+
+  @Field(() => Int)
+  resolvedAlerts!: number;
+}
+
+@ObjectType()
+export class ClearAdminSiteSnapshotsPayload {
+  @Field()
+  siteId!: string;
+
+  @Field(() => Int)
+  deletedSnapshots!: number;
+
+  @Field(() => Int)
+  deletedStorageObjects!: number;
+
+  @Field()
+  storageSkipped!: boolean;
+}

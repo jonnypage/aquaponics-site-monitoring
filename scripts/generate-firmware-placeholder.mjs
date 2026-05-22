@@ -2,7 +2,7 @@
 /**
  * Writes a gitignored stub firmware.bin (config markers only) for install-wizard dev.
  * Not runnable on hardware. For real devices:
- *   cd firmware/aquaponics-node && pio run && pnpm firmware:copy
+ *   pnpm firmware:build
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";

@@ -93,6 +93,10 @@ export class IngestSnapshotService {
 
     const siteId = requireDeviceSiteId(device);
 
+    if (!device.has_camera) {
+      throw new BadRequestException("Device is not configured with a camera");
+    }
+
     const takenAt = new Date(parsed.timestamp);
     const ingestedAt = new Date();
 

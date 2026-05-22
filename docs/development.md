@@ -58,16 +58,19 @@ The ESP8266 image at `apps/web/public/firmware/esp8266/firmware.bin` is **gitign
 
 | Script | Purpose |
 | ------ | ------- |
+| `pnpm firmware:build` | PlatformIO build + copy to `apps/web/public/firmware/esp8266/firmware.bin` |
+| `pnpm firmware:monitor` | Serial monitor at **115200** (pass `-- -p /dev/cu.…` for port) |
 | `pnpm firmware:ensure` | Create placeholder if `firmware.bin` is missing (used by `predev:web` / `prebuild:web`) |
 | `pnpm firmware:placeholder` | Force-regenerate placeholder (config markers only; **not** runnable on hardware) |
-| `pnpm firmware:copy` | Copy `firmware/aquaponics-node/.pio/build/d1_mini/firmware.bin` after `pio run` |
+| `pnpm firmware:copy` | Copy only (after a manual `pio run` in `firmware/aquaponics-node`) |
 
 ```bash
-cd firmware/aquaponics-node && pio run
-pnpm firmware:copy
+pnpm firmware:build
 ```
 
 Re-copy after any C++ change before USB flash. USB install flow: [`docs/esp8266-usb-macos.md`](esp8266-usb-macos.md).
+
+GPIO pins on the install form are validated per board profile in `apps/web/src/utils/device-board-gpio.ts` (ESP8266 allowlist: 4, 5, 12, 13, 14, 17; flash/boot/serial pins error). Add profiles when new boards ship.
 
 ## Common commands
 
@@ -79,7 +82,7 @@ pnpm typecheck
 pnpm dev:api              # builds packages/db first, then nest start --watch on :4000
 pnpm dev:web              # ensures firmware.bin (placeholder if missing), then :3333
 
-pnpm firmware:copy        # after PlatformIO build — real installer binary
+pnpm firmware:build       # pio run + copy — real installer binary
 pnpm build:api
 pnpm build:web
 

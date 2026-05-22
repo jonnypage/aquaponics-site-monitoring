@@ -58,10 +58,7 @@ Terminal may show:
 
 In Chrome’s Web Serial dialog, pick the **USB serial** entry with a similar name — **not** `Bluetooth-Incoming-Port` or `debug-console`.
 
-On the install **Flash device** step:
-
-1. Blue **Connect** (inside the dashed box) — starts esp-web-tools flash.
-2. **Open USB port picker (test)** — same Chrome dialog; use this to confirm the picker works.
+On the install **Flash device** step, click **Connect and flash firmware** — Chrome opens the Web Serial port picker, then esp-web-tools flashes the device.
 
 If Terminal has `usbserial` but Chrome’s list is **empty**:
 
@@ -72,7 +69,7 @@ lsof | grep -i usbserial
 
 Quit **Arduino IDE**, `screen`, VS Code serial monitors, etc., then try again.
 
-If **no dialog appears** when clicking Connect or the test button, confirm in DevTools console:
+If **no dialog appears** when clicking **Connect and flash firmware**, confirm in DevTools console:
 
 ```js
 ({ secure: window.isSecureContext, serial: "serial" in navigator, origin: location.origin })
@@ -85,7 +82,7 @@ All must be true on `http://localhost:3333`.
 1. Open **`http://localhost:3333`** (not a `192.168.x.x` URL).
 2. **Google Chrome** or **Microsoft Edge** (not Safari / Firefox / Arc).
 3. Admin → **Devices** → device → **Install** → fill Wi‑Fi + GPIO → **Continue to flash**.
-4. Click blue **Connect** → port picker should list the `/dev/cu.*` device above.
+4. Click **Connect and flash firmware** → port picker should list the `/dev/cu.*` device above.
 5. Select it and follow esp-web-tools prompts.
 
 ## 6. Still no port in Chrome?
@@ -105,8 +102,7 @@ Point firmware `apiOrigin` at your API (installer sets this). For local dev use 
 Build a real firmware binary before hardware flash (`firmware.bin` is **not in git**):
 
 ```bash
-cd firmware/aquaponics-node && pio run
-pnpm firmware:copy
+pnpm firmware:build
 ```
 
 `pnpm dev:web` auto-creates a **placeholder** if the file is missing (installer UI only). Use a PlatformIO build for on-device telemetry.

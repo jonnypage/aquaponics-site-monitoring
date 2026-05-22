@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Ensures apps/web/public/firmware/esp8266/firmware.bin exists (placeholder if missing).
- * Invoked by predev:web / prebuild:web. Real hardware: pio run && pnpm firmware:copy
+ * Invoked by predev:web / prebuild:web. Real hardware: pnpm firmware:build
  */
 import { access } from "node:fs/promises";
 import { spawn } from "node:child_process";

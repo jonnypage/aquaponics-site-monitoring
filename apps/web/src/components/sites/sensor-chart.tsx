@@ -24,13 +24,11 @@ interface SensorChartProps {
   colorVar?: string;
   /** Lucide React export name from `sensor_catalog.icon` (PascalCase). */
   lucideIcon?: string | null;
+  /** Matches site `pollIntervalSeconds` (device telemetry cadence). */
+  refetchIntervalMs?: number;
 }
 
 type Point = { ts: number; value: number };
-
-function tickScale(range: TimeRange): "hour" | "day" {
-  return range === TimeRange.Last_24H ? "hour" : "day";
-}
 
 export function SensorChart({
   siteId,
@@ -39,10 +37,13 @@ export function SensorChart({
   unit,
   range,
   colorVar = "var(--chart-1)",
-  lucideIcon
+  lucideIcon,
+  refetchIntervalMs
 }: SensorChartProps) {
   const { t } = useTranslation();
-  const { data, isLoading, isError, error } = useSensorMeasurements(siteId, sensorKey, range);
+  const { data, isLoading, isError, error } = useSensorMeasurements(siteId, sensorKey, range, {
+    refetchIntervalMs
+  });
 
   const points: Point[] = useMemo(() => {
     if (!data) return [];
@@ -59,7 +60,6 @@ export function SensorChart({
     value: { label, color: `hsl(${colorVar})` }
   };
 
-  const scale = tickScale(range);
   const fillId = `fill-${sensorKey}`;
 
   return (
@@ -115,7 +115,8 @@ export function SensorChart({
                 type="number"
                 scale="time"
                 domain={["dataMin", "dataMax"]}
-                tickFormatter={(v) => formatChartTick(new Date(v), scale)}
+                tick={range !== TimeRange.Last_24H}
+                tickFormatter={(v) => formatChartTick(new Date(v), "day")}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={32}

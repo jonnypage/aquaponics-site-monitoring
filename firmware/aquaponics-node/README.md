@@ -2,19 +2,31 @@
 
 PlatformIO firmware for site monitoring devices. Not part of the pnpm workspace.
 
+## Serial monitor (115200 baud)
+
+Firmware uses **`Serial.begin(115200)`**. From repo root:
+
+```bash
+pnpm firmware:monitor -- -p /dev/cu.usbserial-XXXX
+```
+
+If you run `pio device monitor` from the wrong directory, PlatformIO defaults to **9600** and logs look like gibberish (``). Use the command above or `cd firmware/aquaponics-node && pio device monitor`.
+
+## Debug WiFi credentials on serial
+
+`platformio.ini` sets `-DUD_WIFI_DEBUG=1` by default (temporary): boot logs print SSID and password at 115200. Set `-DUD_WIFI_DEBUG=0` in `build_flags` before production.
+
 ## Build
 
 Requires [PlatformIO](https://platformio.org/). From this directory:
 
-```bash
-pio run
-```
-
-Copy the built image into the web installer static path (from repo root):
+From the **repo root** (build + copy in one step):
 
 ```bash
-pnpm firmware:copy
+pnpm firmware:build
 ```
+
+Or from this directory only: `pio run`, then from repo root `pnpm firmware:copy`.
 
 `apps/web/public/firmware/esp8266/firmware.bin` is **gitignored**. If it is missing, `pnpm dev:web` generates a **placeholder** (installer UI only — not runnable on the device).
 
@@ -25,7 +37,7 @@ The admin install wizard patches a 2 KiB region between `__UD_CFG_BEGIN__` and `
 - `deviceId`, `apiKey`, `apiOrigin` (LAN IP reachable by the ESP, e.g. `http://192.168.1.106:4000` — set via `VITE_DEVICE_API_ORIGIN` in `apps/web/.env`, not `localhost`)
 - Wi-Fi credentials and GPIO `pins` for MVP sensors
 - **`v: 2`** (preferred): per-sensor role map, e.g. `"ph": { "signal": 5 }`; `null` disables a sensor. Legacy **`v: 1`** scalar pins (`"ph": 5`) map to role `signal`.
-- `hasCamera` (snapshot uploads use a stub JPEG until a camera driver is added)
+- `hasCamera` — when true, uploads a 16:9 JPEG from placekittens.com (640×360); when false, no snapshots (including alert-driven `captureImageNow`). The download tolerates chunked responses (no `Content-Length`).
 
 Telemetry intervals come from the server via `POST /ingest` `commands` — not from the flashed JSON.
 

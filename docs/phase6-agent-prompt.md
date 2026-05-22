@@ -29,13 +29,13 @@ Hand this document to an implementing agent for **Phase 6 — Firmware installer
 | Web site detail | `SiteLatestSnapshot` when metadata exists |
 | Web install wizard | esp-web-tools, Wi‑Fi, wire→GPIO, `firmware-config-patch` v2, `pin_map` |
 | **`firmware/aquaponics-node/`** | Telemetry + stub JPEG snapshot + v1/v2 pin config parser |
-| **`apps/web/public/firmware/esp8266/firmware.bin`** | Gitignored; `firmware:ensure` (placeholder) or `firmware:copy` after `pio run` |
+| **`apps/web/public/firmware/esp8266/firmware.bin`** | Gitignored; `firmware:ensure` (placeholder) or `firmware:build` |
 
 ### Gaps / post-MVP
 
 | Item | Notes |
 |------|--------|
-| **Firmware CI / deploy** | `firmware.bin` not in git; Railway (etc.) should `pio run` + `pnpm firmware:copy` before `build:web` — not wired yet |
+| **Firmware CI / deploy** | `firmware.bin` not in git; Railway (etc.) should `pnpm firmware:build` before `build:web` — not wired yet |
 | **Real camera driver** | Firmware sends minimal stub JPEG only |
 | **Admin device snapshot gallery** | GraphQL `recentSnapshots` exists; device edit UI does not list images yet |
 | **ESP32 CYD installer** | Not implemented |
@@ -69,7 +69,8 @@ Hand this document to an implementing agent for **Phase 6 — Firmware installer
 | `firmware/aquaponics-node/` | PlatformIO firmware |
 | `scripts/generate-firmware-placeholder.mjs` | `pnpm firmware:placeholder` |
 | `scripts/ensure-firmware-binary.mjs` | `pnpm firmware:ensure` (`predev:web`) |
-| `scripts/copy-firmware-build.mjs` | `pnpm firmware:copy` |
+| `scripts/build-firmware.mjs` | `pnpm firmware:build` |
+| `scripts/copy-firmware-build.mjs` | `pnpm firmware:copy` (copy only) |
 
 ---
 

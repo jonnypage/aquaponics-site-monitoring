@@ -21,6 +21,7 @@ import bcrypt from "bcryptjs";
 import { DB_TOKEN } from "../database/database.constants.js";
 import { Role } from "../auth/auth.types.js";
 import { IngestAlertService } from "../ingest/ingest-alert.service.js";
+import { SnapshotsService } from "../snapshots/snapshots.service.js";
 import { loadSiteSensorReporting } from "../sites/site-sensor-reporting.util.js";
 import type {
   AdminDeviceModel,
@@ -29,7 +30,9 @@ import type {
   CreateAdminDeviceInput,
   CreateAdminSiteInput,
   CreateAdminUserInput,
+  ClearAdminSiteSnapshotsPayload,
   CreateSensorCatalogEntryInput,
+  ResetAdminSiteMeasurementsPayload,
   SensorCatalogEntryModel,
   SiteSensorReportingInput,
   SiteSensorThresholdInput,
@@ -101,8 +104,16 @@ function normalizeStoredLucideIcon(raw: string | null | undefined): string | nul
 export class AdminService {
   constructor(
     @Inject(DB_TOKEN) private readonly db: Kysely<Database>,
-    private readonly ingestAlerts: IngestAlertService
+    private readonly ingestAlerts: IngestAlertService,
+    private readonly snapshots: SnapshotsService
   ) {}
+
+  private async requireAdminSite(siteId: string): Promise<void> {
+    const site = await this.db.selectFrom("sites").select("id").where("id", "=", siteId).executeTakeFirst();
+    if (!site) {
+      throw new NotFoundException("Site not found");
+    }
+  }
 
   private parseWiringInput(input: SensorWiringTemplateInput | undefined): SensorWiringTemplate {
     if (!input) {
@@ -872,5 +883,39 @@ export class AdminService {
       throw new NotFoundException("Device not found");
     }
     return true;
+  }
+
+  async resetAdminSiteMeasurements(siteId: string): Promise<ResetAdminSiteMeasurementsPayload> {
+    await this.requireAdminSite(siteId);
+    const now = new Date();
+
+    const del = await this.db
+      .deleteFrom("measurements")
+      .where("site_id", "=", siteId)
+      .executeTakeFirst();
+
+    const resolved = await this.db
+      .updateTable("alerts")
+      .set({ status: "resolved", updated_at: now })
+      .where("site_id", "=", siteId)
+      .where("status", "=", "active")
+      .executeTakeFirst();
+
+    return {
+      siteId,
+      deletedMeasurements: Number(del.numDeletedRows ?? 0n),
+      resolvedAlerts: Number(resolved.numUpdatedRows ?? 0n)
+    };
+  }
+
+  async clearAdminSiteSnapshots(siteId: string): Promise<ClearAdminSiteSnapshotsPayload> {
+    await this.requireAdminSite(siteId);
+    const result = await this.snapshots.clearSiteSnapshots(siteId);
+    return {
+      siteId,
+      deletedSnapshots: result.deletedSnapshots,
+      deletedStorageObjects: result.deletedStorageObjects,
+      storageSkipped: result.storageSkipped
+    };
   }
 }

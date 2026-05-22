@@ -1,8 +1,7 @@
 import { Link, useLocation } from '@tanstack/react-router';
 import {
   Bell,
-  LayoutDashboard,
-  Settings,
+  MapPin,
   Shield,
   type LucideIcon,
 } from 'lucide-react';
@@ -29,7 +28,7 @@ const navSections: NavSection[] = [
       {
         labelKey: 'appSidebar.links.sites',
         to: '/sites',
-        icon: LayoutDashboard,
+        icon: MapPin,
       },
       { labelKey: 'appSidebar.links.alerts', to: '/alerts', icon: Bell },
       // {

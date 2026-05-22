@@ -9,10 +9,12 @@ import { EntityKeyBadge } from '~/components/ui/entity-key-badge';
 import { Card, CardContent } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useAdminDevices, useAdminSites } from '~/hooks/useAdmin';
+import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
 import { formatRelativeTime } from '~/utils/format';
 
 export function AdminDevicesIndexPageContent() {
   const { t } = useTranslation();
+  useRelativeTimeTick();
   const { data: devices, isLoading, isError, error } = useAdminDevices();
   const { data: sites } = useAdminSites();
   const siteName = (id: string | null | undefined) =>

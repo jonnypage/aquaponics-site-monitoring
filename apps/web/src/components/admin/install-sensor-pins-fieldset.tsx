@@ -9,19 +9,23 @@ import { Button } from "~/components/ui/button";
 import { EntityKeyBadge } from "~/components/ui/entity-key-badge";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { GpioPinInputFeedback } from "~/components/admin/gpio-pin-input-feedback";
 import { cn } from "~/utils/cn";
+import { formatAllowedGpioList, validateGpioForBoard, type DeviceBoardId } from "~/utils/device-board-gpio";
 import type { InstallExtraWire, InstallSensorRow } from "~/utils/firmware-sensor-pins";
 import { slugWireIdFromLabel } from "~/utils/sensor-wiring";
 import { WireColorPicker } from "~/components/admin/wire-color-picker";
 import { resolveWireColorCss } from "~/utils/wire-color";
 
 export interface InstallSensorPinsFieldsetProps {
+  board: DeviceBoardId;
   rows: InstallSensorRow[];
   onChange: (next: InstallSensorRow[]) => void;
   unassignedSite?: boolean;
 }
 
 export function InstallSensorPinsFieldset({
+  board,
   rows,
   onChange,
   unassignedSite = false
@@ -77,6 +81,9 @@ export function InstallSensorPinsFieldset({
   return (
     <fieldset className="space-y-3 rounded-md border p-3">
       <legend className="px-1 text-sm font-medium">{t("admin.devices.installPins")}</legend>
+      <p className="text-xs text-muted-foreground">
+        {t("admin.devices.installGpioAllowedHint", { pins: formatAllowedGpioList(board) })}
+      </p>
       {unassignedSite ? (
         <p className="text-xs text-muted-foreground">{t("admin.devices.installSensorsUnassignedHint")}</p>
       ) : null}
@@ -121,63 +128,86 @@ export function InstallSensorPinsFieldset({
 
               {showWiring ? (
                 <div className="mt-3 space-y-2 border-l-2 border-muted pl-3">
-                  {row.wiringTemplate.wires.map((wire) => (
-                    <div key={wire.id} className="flex flex-wrap items-center gap-2">
-                      <span
-                        className="h-4 w-4 shrink-0 rounded-full border border-border"
-                        style={{ backgroundColor: resolveWireColorCss(wire.color) }}
-                        title={wire.label}
-                      />
-                      <span className="min-w-[5rem] text-sm">{wire.label}</span>
-                      <span className="text-xs text-muted-foreground">GPIO</span>
-                      <Input
-                        className="w-20"
-                        inputMode="numeric"
-                        aria-label={t("admin.devices.installMapWireGpio", { label: wire.label })}
-                        value={row.wireMap[wire.id] ?? ""}
-                        onChange={(e) => setWireGpio(row.sensorKey, wire.id, e.target.value)}
-                      />
-                      {wire.required === false ? (
-                        <span className="text-xs text-muted-foreground">({t("admin.sensors.wiringOptional")})</span>
-                      ) : null}
-                    </div>
-                  ))}
+                  {row.wiringTemplate.wires.map((wire) => {
+                    const gpioValue = row.wireMap[wire.id] ?? "";
+                    const gpioValidation = validateGpioForBoard(board, gpioValue);
+                    return (
+                      <div key={wire.id} className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className="h-4 w-4 shrink-0 rounded-full border border-border"
+                            style={{ backgroundColor: resolveWireColorCss(wire.color) }}
+                            title={wire.label}
+                          />
+                          <span className="min-w-[5rem] text-sm">{wire.label}</span>
+                          <span className="text-xs text-muted-foreground">GPIO</span>
+                          <Input
+                            className={cn(
+                              "w-20",
+                              gpioValidation?.level === "error" && "border-destructive"
+                            )}
+                            inputMode="numeric"
+                            aria-invalid={gpioValidation?.level === "error"}
+                            aria-label={t("admin.devices.installMapWireGpio", { label: wire.label })}
+                            value={gpioValue}
+                            onChange={(e) => setWireGpio(row.sensorKey, wire.id, e.target.value)}
+                          />
+                          {wire.required === false ? (
+                            <span className="text-xs text-muted-foreground">
+                              ({t("admin.sensors.wiringOptional")})
+                            </span>
+                          ) : null}
+                        </div>
+                        <GpioPinInputFeedback board={board} value={gpioValue} />
+                      </div>
+                    );
+                  })}
 
-                  {row.extraWires.map((extra) => (
-                    <div key={extra.id} className="flex flex-wrap items-center gap-2">
-                      <span
-                        className="h-4 w-4 shrink-0 rounded-full border"
-                        style={{ backgroundColor: resolveWireColorCss(extra.color) }}
-                      />
-                      <span className="text-sm">{extra.label}</span>
-                      <span className="text-xs text-muted-foreground">GPIO</span>
-                      <Input
-                        className="w-20"
-                        inputMode="numeric"
-                        value={extra.gpio}
-                        onChange={(e) => {
-                          updateRow(row.sensorKey, {
-                            extraWires: row.extraWires.map((x) =>
-                              x.id === extra.id ? { ...x, gpio: e.target.value } : x
-                            )
-                          });
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() =>
-                          updateRow(row.sensorKey, {
-                            extraWires: row.extraWires.filter((x) => x.id !== extra.id)
-                          })
-                        }
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                  {row.extraWires.map((extra) => {
+                    const gpioValidation = validateGpioForBoard(board, extra.gpio);
+                    return (
+                      <div key={extra.id} className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className="h-4 w-4 shrink-0 rounded-full border"
+                            style={{ backgroundColor: resolveWireColorCss(extra.color) }}
+                          />
+                          <span className="text-sm">{extra.label}</span>
+                          <span className="text-xs text-muted-foreground">GPIO</span>
+                          <Input
+                            className={cn(
+                              "w-20",
+                              gpioValidation?.level === "error" && "border-destructive"
+                            )}
+                            inputMode="numeric"
+                            aria-invalid={gpioValidation?.level === "error"}
+                            value={extra.gpio}
+                            onChange={(e) => {
+                              updateRow(row.sensorKey, {
+                                extraWires: row.extraWires.map((x) =>
+                                  x.id === extra.id ? { ...x, gpio: e.target.value } : x
+                                )
+                              });
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() =>
+                              updateRow(row.sensorKey, {
+                                extraWires: row.extraWires.filter((x) => x.id !== extra.id)
+                              })
+                            }
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <GpioPinInputFeedback board={board} value={extra.gpio} />
+                      </div>
+                    );
+                  })}
 
                   {row.wiringTemplate.allowExtraWires &&
                   row.extraWires.length < (row.wiringTemplate.maxExtraWires ?? 2) ? (

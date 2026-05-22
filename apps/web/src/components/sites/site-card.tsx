@@ -11,6 +11,7 @@ import {
 } from '~/components/ui/card';
 import { SiteStatusBadge } from '~/components/sites/site-status-badge';
 import type { SiteStatus } from '~/gql/generated/graphql';
+import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
 import { formatRelativeTime } from '~/utils/format';
 import { siteStatusCardClassName } from '~/utils/site-status-theme';
 import { cn } from '~/utils/cn';
@@ -24,6 +25,7 @@ interface SiteCardProps {
 
 export function SiteCard({ id, name, status, lastUpdate }: SiteCardProps) {
   const { t } = useTranslation();
+  useRelativeTimeTick();
   const lastSeen = lastUpdate
     ? formatRelativeTime(new Date(lastUpdate))
     : t('siteCard.noReadingsYet');

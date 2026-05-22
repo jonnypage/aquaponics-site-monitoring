@@ -16,7 +16,9 @@ import { Card, CardContent } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
 import { TimeRange } from '~/gql/generated/graphql';
 import { useSite } from '~/hooks/useAPI';
+import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
 import { formatRelativeTime } from '~/utils/format';
+import { sitePollIntervalMs } from '~/utils/site-poll-interval';
 
 const routeApi = getRouteApi('/_authed/sites/$siteId');
 
@@ -33,6 +35,7 @@ export function SiteDetailPageContent() {
   const { siteId } = routeApi.useParams();
   const { data: site, isLoading, isError, error } = useSite(siteId);
   const [range, setRange] = useState<TimeRange>(TimeRange.Last_24H);
+  useRelativeTimeTick();
 
   const chartSensors = useMemo(() => {
     if (!site?.sensorReporting?.length) {
@@ -82,6 +85,8 @@ export function SiteDetailPageContent() {
     ? formatRelativeTime(new Date(site.lastUpdate))
     : t('siteCard.noReadingsYet');
 
+  const pollIntervalMs = sitePollIntervalMs(site.pollIntervalSeconds);
+
   return (
     <>
       <PageBackLink to='/sites'>{t('siteDetailPage.back')}</PageBackLink>
@@ -104,16 +109,6 @@ export function SiteDetailPageContent() {
         />
       </div>
 
-      {site.latestSnapshot ? (
-        <div className="mb-6">
-          <SiteLatestSnapshot
-            imageUrl={site.latestSnapshot.imageUrl}
-            takenAt={site.latestSnapshot.takenAt}
-            deviceId={site.latestSnapshot.deviceId}
-          />
-        </div>
-      ) : null}
-
       <div className="mb-6">
         {chartSensors.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -134,6 +129,7 @@ export function SiteDetailPageContent() {
                   range={range}
                   colorVar={s.colorVar}
                   lucideIcon={s.icon}
+                  refetchIntervalMs={pollIntervalMs}
                 />
               </div>
             ))}
@@ -141,7 +137,26 @@ export function SiteDetailPageContent() {
         )}
       </div>
 
-      <SiteLocationMap latitude={site.latitude} longitude={site.longitude} />
+      <div
+        className={
+          site.latestSnapshot
+            ? 'mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start'
+            : 'mb-6'
+        }
+      >
+        {site.latestSnapshot ? (
+          <div className="min-w-0">
+            <SiteLatestSnapshot
+              imageUrl={site.latestSnapshot.imageUrl}
+              takenAt={site.latestSnapshot.takenAt}
+              deviceId={site.latestSnapshot.deviceId}
+            />
+          </div>
+        ) : null}
+        <div className="min-w-0">
+          <SiteLocationMap latitude={site.latitude} longitude={site.longitude} />
+        </div>
+      </div>
     </>
   );
 }

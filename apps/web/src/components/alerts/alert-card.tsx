@@ -11,7 +11,8 @@ import {
   AlertStatus,
   type GetAlertsQuery,
 } from '~/gql/generated/graphql';
-import { useResolveAlertMutate } from '~/hooks/useAPI';
+import { useResolveAlertMutate, type ResolveAlertInput } from '~/hooks/useAPI';
+import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
 import { formatRelativeTime } from '~/utils/format';
 
 export type AlertRow = GetAlertsQuery['getAlerts'][number];
@@ -23,8 +24,12 @@ interface AlertCardProps {
 
 export function AlertCard({ alert, siteName }: AlertCardProps) {
   const { t } = useTranslation();
-  const { mutateAsync: resolveAlert, isPending: isResolving } =
-    useResolveAlertMutate();
+  useRelativeTimeTick();
+  const {
+    mutateAsync: resolveAlert,
+    isPending: isResolving,
+    variables: resolvingAlertId
+  } = useResolveAlertMutate();
 
   return (
     <Card>
@@ -94,9 +99,11 @@ export function AlertCard({ alert, siteName }: AlertCardProps) {
             size='sm'
             className='shrink-0 self-start'
             disabled={isResolving}
-            onClick={() => void resolveAlert(alert.id)}
+            onClick={() =>
+              void resolveAlert({ id: alert.id, siteId: alert.siteId } satisfies ResolveAlertInput)
+            }
           >
-            <ButtonPendingLabel pending={isResolving}>
+            <ButtonPendingLabel pending={isResolving && resolvingAlertId?.id === alert.id}>
               {t('alertsPage.resolve')}
             </ButtonPendingLabel>
           </Button>

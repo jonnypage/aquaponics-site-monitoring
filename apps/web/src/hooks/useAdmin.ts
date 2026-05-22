@@ -8,8 +8,10 @@ import {
   CreateAdminSiteDocument,
   CreateAdminUserDocument,
   CreateSensorCatalogEntryDocument,
+  ClearAdminSiteSnapshotsDocument,
   DeleteAdminDeviceDocument,
   DeleteSensorCatalogEntryDocument,
+  ResetAdminSiteMeasurementsDocument,
   ResetAdminUserPasswordDocument,
   RotateAdminDeviceApiKeyDocument,
   SensorCatalogDocument,
@@ -31,8 +33,12 @@ import {
   type CreateAdminUserMutationVariables,
   type CreateSensorCatalogEntryMutation,
   type CreateSensorCatalogEntryMutationVariables,
+  type ClearAdminSiteSnapshotsMutation,
+  type ClearAdminSiteSnapshotsMutationVariables,
   type DeleteAdminDeviceMutation,
   type DeleteAdminDeviceMutationVariables,
+  type ResetAdminSiteMeasurementsMutation,
+  type ResetAdminSiteMeasurementsMutationVariables,
   type DeleteSensorCatalogEntryMutation,
   type DeleteSensorCatalogEntryMutationVariables,
   type ResetAdminUserPasswordMutation,
@@ -50,7 +56,7 @@ import {
   type UpdateSensorCatalogEntryMutationVariables
 } from "~/gql/generated/graphql";
 import { graphqlRequest } from "~/utils/graphql";
-import { siteQueryKey, sitesQueryKey } from "~/hooks/useAPI";
+import { invalidateSiteDetailQueries, siteQueryKey, sitesQueryKey } from "~/hooks/useAPI";
 
 export const adminSensorCatalogQueryKey = ["admin", "sensorCatalog"] as const;
 export const adminUsersQueryKey = ["admin", "users"] as const;
@@ -293,6 +299,49 @@ export function useDeleteAdminDeviceMutate() {
       return unwrap("deleteAdminDevice", r).deleteAdminDevice;
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: adminDevicesQueryKey(undefined) });
+    }
+  });
+}
+
+function invalidateSiteTelemetryQueries(queryClient: ReturnType<typeof useQueryClient>, siteId: string) {
+  invalidateSiteDetailQueries(queryClient, siteId);
+  void queryClient.invalidateQueries({ queryKey: ["alerts"] });
+  void queryClient.invalidateQueries({ queryKey: adminDevicesQueryKey(siteId) });
+}
+
+export function useResetAdminSiteMeasurementsMutate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (siteId: string) => {
+      const variables: ResetAdminSiteMeasurementsMutationVariables = { siteId };
+      const r = await graphqlRequest<ResetAdminSiteMeasurementsMutation>(
+        ResetAdminSiteMeasurementsDocument,
+        variables
+      );
+      return unwrap("resetAdminSiteMeasurements", r).resetAdminSiteMeasurements;
+    },
+    onSuccess: (_data, siteId) => {
+      void queryClient.invalidateQueries({ queryKey: adminSitesQueryKey });
+      void queryClient.invalidateQueries({ queryKey: sitesQueryKey });
+      invalidateSiteTelemetryQueries(queryClient, siteId);
+    }
+  });
+}
+
+export function useClearAdminSiteSnapshotsMutate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (siteId: string) => {
+      const variables: ClearAdminSiteSnapshotsMutationVariables = { siteId };
+      const r = await graphqlRequest<ClearAdminSiteSnapshotsMutation>(
+        ClearAdminSiteSnapshotsDocument,
+        variables
+      );
+      return unwrap("clearAdminSiteSnapshots", r).clearAdminSiteSnapshots;
+    },
+    onSuccess: (_data, siteId) => {
+      invalidateSiteTelemetryQueries(queryClient, siteId);
       void queryClient.invalidateQueries({ queryKey: adminDevicesQueryKey(undefined) });
     }
   });

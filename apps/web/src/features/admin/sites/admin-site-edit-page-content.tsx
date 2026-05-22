@@ -13,12 +13,14 @@ import {
   ButtonPendingLabel,
   LoadingIndicator,
 } from '~/components/ui/loading-indicator';
-import { Card, CardContent } from '~/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { EntityKeyBadge } from '~/components/ui/entity-key-badge';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
   useAdminSites,
+  useClearAdminSiteSnapshotsMutate,
+  useResetAdminSiteMeasurementsMutate,
   useSensorCatalog,
   useUpdateAdminSiteMutate,
 } from '~/hooks/useAdmin';
@@ -41,6 +43,16 @@ export function AdminSiteEditPageContent() {
   const { data: sites, isLoading } = useAdminSites();
   const { data: catalog } = useSensorCatalog();
   const { mutateAsync: updateSite, isPending } = useUpdateAdminSiteMutate();
+  const {
+    mutateAsync: resetMeasurements,
+    isPending: isResettingMeasurements
+  } = useResetAdminSiteMeasurementsMutate();
+  const {
+    mutateAsync: clearSnapshots,
+    isPending: isClearingSnapshots
+  } = useClearAdminSiteSnapshotsMutate();
+  const [dataActionMessage, setDataActionMessage] = useState<string | null>(null);
+  const [dataActionError, setDataActionError] = useState<string | null>(null);
 
   const site = useMemo(
     () => sites?.find((s) => s.id === siteId),
@@ -179,6 +191,56 @@ export function AdminSiteEditPageContent() {
     );
   }
 
+  async function onResetMeasurements() {
+    if (!window.confirm(t('admin.sites.resetMeasurementsConfirm'))) {
+      return;
+    }
+    setDataActionError(null);
+    setDataActionMessage(null);
+    try {
+      const result = await resetMeasurements(siteId);
+      setDataActionMessage(
+        t('admin.sites.resetMeasurementsSuccess', {
+          count: result.deletedMeasurements,
+          alerts: result.resolvedAlerts
+        })
+      );
+    } catch (err) {
+      setDataActionError(
+        t('admin.sites.dataActionError', {
+          message: err instanceof Error ? err.message : t('shared.unknownError')
+        })
+      );
+    }
+  }
+
+  async function onClearSnapshots() {
+    if (!window.confirm(t('admin.sites.clearSnapshotsConfirm'))) {
+      return;
+    }
+    setDataActionError(null);
+    setDataActionMessage(null);
+    try {
+      const result = await clearSnapshots(siteId);
+      setDataActionMessage(
+        result.storageSkipped
+          ? t('admin.sites.clearSnapshotsSuccessStorageSkipped', {
+              snapshots: result.deletedSnapshots
+            })
+          : t('admin.sites.clearSnapshotsSuccess', {
+              snapshots: result.deletedSnapshots,
+              objects: result.deletedStorageObjects
+            })
+      );
+    } catch (err) {
+      setDataActionError(
+        t('admin.sites.dataActionError', {
+          message: err instanceof Error ? err.message : t('shared.unknownError')
+        })
+      );
+    }
+  }
+
   return (
     <>
       <PageHeader title={t('admin.sites.editTitle')} />
@@ -276,6 +338,43 @@ export function AdminSiteEditPageContent() {
               </ButtonPendingLabel>
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card className='mt-6 border-destructive/30'>
+        <CardHeader>
+          <CardTitle className='text-base'>{t('admin.sites.dataManagementTitle')}</CardTitle>
+          <CardDescription>{t('admin.sites.dataManagementDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent className='space-y-3'>
+          <div className='flex flex-col gap-2 sm:flex-row sm:flex-wrap'>
+            <Button
+              type='button'
+              variant='outline'
+              disabled={isResettingMeasurements || isClearingSnapshots}
+              onClick={() => void onResetMeasurements()}
+            >
+              <ButtonPendingLabel pending={isResettingMeasurements}>
+                {t('admin.sites.resetMeasurements')}
+              </ButtonPendingLabel>
+            </Button>
+            <Button
+              type='button'
+              variant='destructive'
+              disabled={isResettingMeasurements || isClearingSnapshots}
+              onClick={() => void onClearSnapshots()}
+            >
+              <ButtonPendingLabel pending={isClearingSnapshots}>
+                {t('admin.sites.clearSnapshots')}
+              </ButtonPendingLabel>
+            </Button>
+          </div>
+          {dataActionMessage ? (
+            <p className='text-sm text-muted-foreground'>{dataActionMessage}</p>
+          ) : null}
+          {dataActionError ? (
+            <p className='text-sm text-destructive'>{dataActionError}</p>
+          ) : null}
         </CardContent>
       </Card>
     </>

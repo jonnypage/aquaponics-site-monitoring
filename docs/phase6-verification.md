@@ -143,7 +143,7 @@ query { getSite(id: "<site-uuid>") { id name latestSnapshot { deviceId takenAt i
 
 1. Admin → Devices → create or open device → **Install**.
 2. Confirm: Wi‑Fi fields, sensor list with wire colors, duration dropdowns, **Continue to flash**, esp-web-tools **Connect** button (Chrome/Edge on `http://localhost:3333`).
-3. Optional USB: flash with real `firmware.bin` (`pnpm firmware:copy` after `pio run`; placeholder is UI-only).
+3. Optional USB: flash with real `firmware.bin` (`pnpm firmware:build`; placeholder is UI-only).
 4. **No port in picker?** See **[`docs/esp8266-usb-macos.md`](esp8266-usb-macos.md)** — CP210x or CH340 drivers on macOS, verify with `ls /dev/cu.*`.
 
 | Check | Pass? | Notes |
@@ -159,8 +159,7 @@ query { getSite(id: "<site-uuid>") { id name latestSnapshot { deviceId takenAt i
 Requires real `firmware.bin` (gitignored; from PlatformIO):
 
 ```bash
-cd firmware/aquaponics-node && pio run
-pnpm firmware:copy
+pnpm firmware:build
 ```
 
 | Check | Pass? | Notes |

@@ -84,7 +84,7 @@ export function patchFirmwareConfig(
 
   if (maxPayload < 64) {
     throw new Error(
-      `Firmware config region is too small (${maxPayload} bytes between markers). Rebuild firmware (pio run) and run pnpm firmware:copy.`
+      `Firmware config region is too small (${maxPayload} bytes between markers). Rebuild with pnpm firmware:build.`
     );
   }
 

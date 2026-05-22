@@ -148,14 +148,16 @@ export function AdminDeviceEditPageContent() {
               <Label htmlFor="rep">{t("admin.devices.reportInterval")}</Label>
               <Input id="rep" value={report} onChange={(e) => setReport(e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="snap">{t("admin.devices.snapshotInterval")}</Label>
-              <Input id="snap" value={snapshot} onChange={(e) => setSnapshot(e.target.value)} />
-            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={hasCamera} onChange={() => setHasCamera((v) => !v)} />
               {t("admin.devices.hasCamera")}
             </label>
+            {hasCamera ? (
+              <div className="space-y-2">
+                <Label htmlFor="snap">{t("admin.devices.snapshotInterval")}</Label>
+                <Input id="snap" value={snapshot} onChange={(e) => setSnapshot(e.target.value)} />
+              </div>
+            ) : null}
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={isSaving}>

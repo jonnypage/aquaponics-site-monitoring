@@ -11,6 +11,8 @@
     "build:api": "pnpm --filter @aquaponics/db build && pnpm --filter @aquaponics/api build",
     "start:api": "pnpm --filter @aquaponics/api start",
     "dev:api": "pnpm --filter @aquaponics/db build && pnpm --filter @aquaponics/api dev",
+    "firmware:build": "node scripts/build-firmware.mjs",
+    "firmware:monitor": "node scripts/firmware-monitor.mjs",
     "firmware:placeholder": "node scripts/generate-firmware-placeholder.mjs",
     "firmware:ensure": "node scripts/ensure-firmware-binary.mjs",
     "firmware:copy": "node scripts/copy-firmware-build.mjs",

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { Database } from "@aquaponics/db";
 import type { Kysely } from "kysely";
 import { DB_TOKEN } from "../database/database.constants.js";
@@ -9,6 +9,8 @@ const RECENT_SNAPSHOT_LIMIT = 10;
 
 @Injectable()
 export class SnapshotsService {
+  private readonly logger = new Logger(SnapshotsService.name);
+
   constructor(
     @Inject(DB_TOKEN) private readonly db: Kysely<Database>,
     private readonly storage: StorageService
@@ -104,5 +106,36 @@ export class SnapshotsService {
       }
     }
     return out;
+  }
+
+  /**
+   * Delete all snapshot DB rows for a site and remove objects under `snapshots/{siteId}/`.
+   */
+  async clearSiteSnapshots(siteId: string): Promise<{
+    deletedSnapshots: number;
+    deletedStorageObjects: number;
+    storageSkipped: boolean;
+  }> {
+    const prefix = `snapshots/${siteId}/`;
+    let deletedStorageObjects = 0;
+    let storageSkipped = false;
+
+    if (this.storage.isConfigured()) {
+      deletedStorageObjects = await this.storage.deleteByPrefix(prefix);
+    } else {
+      storageSkipped = true;
+      this.logger.warn(`Object storage not configured; skipping bucket delete for site ${siteId}`);
+    }
+
+    const del = await this.db
+      .deleteFrom("device_snapshots")
+      .where("site_id", "=", siteId)
+      .executeTakeFirst();
+
+    return {
+      deletedSnapshots: Number(del.numDeletedRows ?? 0n),
+      deletedStorageObjects,
+      storageSkipped
+    };
   }
 }

@@ -1,5 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectsCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const DEFAULT_PRESIGN_SECONDS = 900;
@@ -68,6 +74,67 @@ export class StorageService {
       })
     );
     this.logger.debug(`Stored snapshot object: ${key}`);
+  }
+
+  /** Delete up to 1000 keys per S3 request. */
+  async deleteObjects(keys: string[]): Promise<number> {
+    const client = this.client;
+    const bucket = this.bucket;
+    if (!client || !bucket) {
+      throw new Error("Object storage is not configured");
+    }
+    if (keys.length === 0) {
+      return 0;
+    }
+
+    const unique = [...new Set(keys)];
+    let deleted = 0;
+    const batchSize = 1000;
+    for (let i = 0; i < unique.length; i += batchSize) {
+      const batch = unique.slice(i, i + batchSize);
+      const result = await client.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: {
+            Objects: batch.map((Key) => ({ Key })),
+            Quiet: true
+          }
+        })
+      );
+      deleted += result.Deleted?.length ?? 0;
+    }
+    this.logger.debug(`Deleted ${deleted} object(s) from bucket`);
+    return deleted;
+  }
+
+  /** Remove all objects under a prefix (paginated list + batch delete). */
+  async deleteByPrefix(prefix: string): Promise<number> {
+    const client = this.client;
+    const bucket = this.bucket;
+    if (!client || !bucket) {
+      throw new Error("Object storage is not configured");
+    }
+
+    let deleted = 0;
+    let continuationToken: string | undefined;
+    do {
+      const list = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken
+        })
+      );
+      const keys = (list.Contents ?? [])
+        .map((o) => o.Key)
+        .filter((k): k is string => typeof k === "string" && k.length > 0);
+      if (keys.length > 0) {
+        deleted += await this.deleteObjects(keys);
+      }
+      continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    return deleted;
   }
 
   async getPresignedGetUrl(

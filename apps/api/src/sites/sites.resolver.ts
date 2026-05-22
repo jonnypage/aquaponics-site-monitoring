@@ -123,6 +123,15 @@ export class SitesResolver {
 
     const latestSnapshot = await this.snapshots.getLatestForSite(siteId);
 
+    const intervalRow = await this.db
+      .selectFrom("devices")
+      .select((eb) => eb.fn.min("expected_interval_seconds").as("min_interval"))
+      .where("site_id", "=", siteId)
+      .executeTakeFirst();
+    const rawMin = intervalRow?.min_interval;
+    const pollIntervalSeconds =
+      typeof rawMin === "number" && Number.isFinite(rawMin) && rawMin > 0 ? rawMin : 300;
+
     return {
       id: siteId,
       name,
@@ -132,7 +141,8 @@ export class SitesResolver {
       sensorReporting,
       latitude,
       longitude,
-      latestSnapshot
+      latestSnapshot,
+      pollIntervalSeconds
     };
   }
 }

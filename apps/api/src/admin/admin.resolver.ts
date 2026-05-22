@@ -8,11 +8,13 @@ import {
   AdminDeviceModel,
   AdminSiteModel,
   AdminUserModel,
+  ClearAdminSiteSnapshotsPayload,
   CreateAdminDeviceInput,
   CreateAdminDevicePayload,
   CreateAdminSiteInput,
   CreateAdminUserInput,
   CreateSensorCatalogEntryInput,
+  ResetAdminSiteMeasurementsPayload,
   RotateAdminDeviceApiKeyPayload,
   SensorCatalogEntryModel,
   UpdateAdminDeviceInput,
@@ -155,5 +157,23 @@ export class AdminResolver {
   @Mutation(() => Boolean)
   async deleteAdminDevice(@Args("deviceId") deviceId: string): Promise<boolean> {
     return this.admin.deleteAdminDevice(deviceId);
+  }
+
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles("admin")
+  @Mutation(() => ResetAdminSiteMeasurementsPayload)
+  async resetAdminSiteMeasurements(
+    @Args("siteId") siteId: string
+  ): Promise<ResetAdminSiteMeasurementsPayload> {
+    return this.admin.resetAdminSiteMeasurements(siteId);
+  }
+
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles("admin")
+  @Mutation(() => ClearAdminSiteSnapshotsPayload)
+  async clearAdminSiteSnapshots(
+    @Args("siteId") siteId: string
+  ): Promise<ClearAdminSiteSnapshotsPayload> {
+    return this.admin.clearAdminSiteSnapshots(siteId);
   }
 }

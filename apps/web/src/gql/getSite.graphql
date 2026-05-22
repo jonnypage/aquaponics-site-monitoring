@@ -22,5 +22,6 @@ query GetSite($id: String!) {
       imageUrl
       byteSize
     }
+    pollIntervalSeconds
   }
 }

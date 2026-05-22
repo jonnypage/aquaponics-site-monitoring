@@ -6,7 +6,7 @@
 |------|---------|
 | Local dev / UI smoke (placeholder, not runnable on device) | `pnpm firmware:placeholder` |
 | Auto-create if missing when starting web | `pnpm dev:web` (runs `firmware:ensure`) |
-| Real device flash | `cd firmware/aquaponics-node && pio run`, then `pnpm firmware:copy` |
+| Real device flash | `pnpm firmware:build` (from repo root) |
 
 The admin install wizard loads `/firmware/esp8266/firmware.bin` from this folder.
 

@@ -14,7 +14,7 @@ Concise context for AI coding agents and developers who need orientation before 
 ## Current baseline (update when you ship work)
 
 - **Active phase:** Phases **1–6** MVP complete per **[docs/greenfield-agent-handoff.md](docs/greenfield-agent-handoff.md)**. **Phase 7** (notifications: email productionization, site suppress flag, SMS/WhatsApp/Signal) is **planned, not started** — see **[docs/phase7-agent-prompt.md](docs/phase7-agent-prompt.md)**. Post-MVP: ESP32 CYD, real camera driver, firmware CI.
-- **Implemented:** (Phases 1–5 as before.) **Phase 6:** migration **`0006_phase6_snapshots`** (`device_snapshots`, optional `devices.name` / `board` / `pin_map`); migration **`0008_sensor_wiring_template`** (`sensor_catalog.wiring_template`); **`StorageModule`** (S3-compatible — **Railway Storage bucket** in prod); **`POST /ingest/snapshot`**; **`SnapshotsService`** + **`getSite.latestSnapshot`** / **`adminDevice.recentSnapshots`** (presigned GET); web **`SiteLatestSnapshot`** on site detail; esp-web-tools **`/admin/devices/$deviceId/install`** (colored wire → GPIO map, firmware config **`v: 2`**, optional **`pin_map`** persist) + **`SensorWiringEditor`** on admin sensor forms; **`firmware/aquaponics-node/`** (v1 scalar + v2 role pin parser); gitignored **`apps/web/public/firmware/esp8266/firmware.bin`** (`pnpm firmware:copy` after `pio run`; `firmware:ensure` placeholder for dev).
+- **Implemented:** (Phases 1–5 as before.) **Phase 6:** migration **`0006_phase6_snapshots`** (`device_snapshots`, optional `devices.name` / `board` / `pin_map`); migration **`0008_sensor_wiring_template`** (`sensor_catalog.wiring_template`); **`StorageModule`** (S3-compatible — **Railway Storage bucket** in prod); **`POST /ingest/snapshot`**; **`SnapshotsService`** + **`getSite.latestSnapshot`** / **`adminDevice.recentSnapshots`** (presigned GET); web **`SiteLatestSnapshot`** on site detail; esp-web-tools **`/admin/devices/$deviceId/install`** (colored wire → GPIO map, firmware config **`v: 2`**, optional **`pin_map`** persist) + **`SensorWiringEditor`** on admin sensor forms; **`firmware/aquaponics-node/`** (v1 scalar + v2 role pin parser); gitignored **`apps/web/public/firmware/esp8266/firmware.bin`** (`pnpm firmware:build`; `firmware:ensure` placeholder for dev).
 - **Not implemented yet:** Phase 7 notifications (`suppress_notifications`, multi-channel dispatcher); ESP32 CYD installer target; firmware CI; real camera hardware driver.
 - **Staging sites (ops, no code):** use an admin-only **“Device staging”** site — do not assign to non-admins; assign devices there for calibration ingest; reassign to production when ready.
 - **Env contract:** use **`DATABASE_PUBLIC_URL`** for Postgres (see `README.md`). Do not reintroduce `DATABASE_URL` as the primary app variable without an explicit project decision.
@@ -28,10 +28,11 @@ Concise context for AI coding agents and developers who need orientation before 
 | `apps/api/src/storage/`            | S3-compatible upload + presigned reads (`OBJECT_STORAGE_*`; Railway bucket) |
 | `apps/api/src/snapshots/`          | Snapshot metadata → presigned URLs for GraphQL |
 | `firmware/aquaponics-node/`        | PlatformIO ESP8266 firmware (outside pnpm) |
-| `apps/web/public/firmware/esp8266/`| Gitignored `firmware.bin` + README; `pnpm firmware:copy` / `firmware:ensure` |
+| `apps/web/public/firmware/esp8266/`| Gitignored `firmware.bin` + README; `pnpm firmware:build` / `firmware:ensure` |
+| `scripts/build-firmware.mjs` | `pnpm firmware:build` (pio run + copy) |
 | `scripts/generate-firmware-placeholder.mjs` | Placeholder `firmware.bin` |
 | `scripts/ensure-firmware-binary.mjs` | Creates placeholder if missing (`predev:web`) |
-| `scripts/copy-firmware-build.mjs` | `pnpm firmware:copy` |
+| `scripts/copy-firmware-build.mjs` | `pnpm firmware:copy` (copy only) |
 | `packages/db/src/sensor-wiring.ts` | `wiring_template` / `pin_map` types + validation |
 | `apps/web/src/utils/sensor-wiring.ts` | Web wiring types + GraphQL normalize |
 | `apps/web/src/utils/firmware-sensor-pins.ts` | Install rows, `buildFirmwarePins` v2, `buildDevicePinMap` |
@@ -75,7 +76,8 @@ pnpm build:web
 pnpm dev:api
 pnpm dev:web
 pnpm firmware:placeholder   # stub installer binary (gitignored path)
-pnpm firmware:copy        # after `cd firmware/aquaponics-node && pio run`
+pnpm firmware:build       # pio run + copy to web public
+pnpm firmware:copy        # copy only (after manual pio run)
 pnpm migrate:deploy
 pnpm seed
 pnpm db:setup

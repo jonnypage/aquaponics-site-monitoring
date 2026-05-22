@@ -25,7 +25,7 @@ Before calling Phase 6 production-ready on your environment, run [`docs/phase6-v
 - **Database foundation:** migrations, seed data, users, sites, devices, sensor catalog, measurements, and **Phase 4 alert tables** (`site_sensor_catalog`, `sensor_thresholds`, `alerts` — migrate to `0003` to enable) are managed through `packages/db`. Migration **`0004`** adds optional **`sites.latitude`** / **`sites.longitude`** for admin site forms.
 - **Authenticated API:** the dashboard API uses GraphQL, HTTP-only JWT cookies, bcrypt password hashing, and role-aware access checks. **Profile updates** use **`updateMe`** (current password required; clears the session cookie so the client signs in again). **Admin-only** GraphQL (`sensorCatalog`, `adminUsers` with assignments, `adminSites`, `adminDevices`, catalog and admin CRUD mutations) is implemented in [`apps/api/src/admin/`](apps/api/src/admin/).
 - **Web dashboard shell:** TanStack Start is wired up with login, session loading, protected routes, site/measurement GraphQL reads, **site status** (OK / unknown / warning / critical from alerts + telemetry), an **alerts** page linked from the sidebar, **`/settings`** (account form + `updateMe`), and **`/admin/*`** (admin-only) for **users**, **sites** (sensors + thresholds + geo, optional **Google Maps** picker when `VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY` is set), **devices** (API key on create/rotate; **browser installer** at `/admin/devices/$deviceId/install`), and **global sensor catalog** CRUD via GraphQL admin operations and [`apps/web/src/hooks/useAdmin.ts`](apps/web/src/hooks/useAdmin.ts).
-- **Phase 6 — firmware + camera:** `POST /ingest/snapshot` (multipart JPEG), **`device_snapshots`** metadata in Postgres, image bytes in **S3-compatible storage** (use a **Railway Storage bucket** in production), presigned URLs on **`getSite.latestSnapshot`** and **`adminDevice.recentSnapshots`**, latest snapshot on site detail, esp-web-tools install wizard (catalog **wire colors/labels** → GPIO map; firmware config **`v: 2`** role pins; optional **`devices.pin_map`**), migration **`0008_sensor_wiring_template`** (`sensor_catalog.wiring_template`), PlatformIO firmware under [`firmware/aquaponics-node/`](firmware/aquaponics-node/) (v1 scalar + v2 role pin parsing). Installer binary at `apps/web/public/firmware/esp8266/firmware.bin` is **gitignored** — use `pnpm firmware:copy` after `pio run` (see **Firmware** below).
+- **Phase 6 — firmware + camera:** `POST /ingest/snapshot` (multipart JPEG), **`device_snapshots`** metadata in Postgres, image bytes in **S3-compatible storage** (use a **Railway Storage bucket** in production), presigned URLs on **`getSite.latestSnapshot`** and **`adminDevice.recentSnapshots`**, latest snapshot on site detail, esp-web-tools install wizard (catalog **wire colors/labels** → GPIO map; firmware config **`v: 2`** role pins; optional **`devices.pin_map`**), migration **`0008_sensor_wiring_template`** (`sensor_catalog.wiring_template`), PlatformIO firmware under [`firmware/aquaponics-node/`](firmware/aquaponics-node/) (v1 scalar + v2 role pin parsing). Installer binary at `apps/web/public/firmware/esp8266/firmware.bin` is **gitignored** — use `pnpm firmware:build` (see **Firmware** below).
 
 The web app uses **directory-based routes** under `apps/web/src/routes/_authed/` with page UI in `apps/web/src/features/` so day-to-day edits hot-reload without regenerating `routeTree.gen.ts`. Full product spec: [`docs/greenfield-agent-handoff.md`](docs/greenfield-agent-handoff.md).
 
@@ -119,13 +119,12 @@ The installer loads `/firmware/esp8266/firmware.bin` from `apps/web/public/`. Th
 
 ```bash
 # From repo root — real firmware (required for hardware)
-cd firmware/aquaponics-node && pio run && cd ../..
-pnpm firmware:copy
+pnpm firmware:build
 ```
 
 `pnpm dev:web` runs `firmware:ensure` first; if the file is missing it creates a **placeholder** (wizard UI only — **do not** flash that to hardware).
 
-After any C++ change under `firmware/aquaponics-node/`, repeat `pio run` and `pnpm firmware:copy`, then re-flash devices.
+After any C++ change under `firmware/aquaponics-node/`, run `pnpm firmware:build` again, then re-flash devices.
 
 ### 2. Configure the web app for devices
 
@@ -150,12 +149,13 @@ The device joins your router as a **client** (it does not create its own Wi‑Fi
 
 ### 4. Verify (serial + dashboard)
 
-**Serial monitor** (115200 baud; close Chrome/IDE first so only one app uses the port):
+**Serial monitor** (must be **115200** — close Chrome/IDE first so only one app uses the port):
 
 ```bash
-cd firmware/aquaponics-node
-pio device monitor -p /dev/cu.usbserial-XXXX
+pnpm firmware:monitor -- -p /dev/cu.usbserial-XXXX
 ```
+
+Running `pio device monitor` from the repo root without the project dir defaults to **9600** and produces garbage output.
 
 Press **RST** on the board. Expected lines:
 
@@ -171,7 +171,7 @@ Telemetry OK, next report in 300s
 
 | Problem | What to check |
 | ------- | ------------- |
-| `Invalid or missing device config` / `Config: …` | Re-flash from Install after `firmware:copy`; hard-refresh the browser so it does not use a cached `firmware.bin` |
+| `Invalid or missing device config` / `Config: …` | Re-flash from Install after `firmware:build`; hard-refresh the browser so it does not use a cached `firmware.bin` |
 | No Wi‑Fi / no `IP:` | 2.4 GHz SSID/password; serial logs; router client list |
 | `Telemetry HTTP 4xx/5xx` | API running; `VITE_DEVICE_API_ORIGIN` reachable from ESP; correct device API key |
 | No USB port in Chrome | [`docs/esp8266-usb-macos.md`](docs/esp8266-usb-macos.md) |
@@ -212,9 +212,10 @@ Full checklist: [`docs/phase6-verification.md`](docs/phase6-verification.md).
 | ------- | ------- |
 | `pnpm firmware:ensure` | Create placeholder if `firmware.bin` is missing (`predev:web` / `prebuild:web`) |
 | `pnpm firmware:placeholder` | Force-regenerate placeholder (installer UI only) |
-| `pnpm firmware:copy` | Copy PlatformIO build → `apps/web/public/firmware/esp8266/firmware.bin` |
+| `pnpm firmware:build` | `pio run` in `firmware/aquaponics-node` + copy to `apps/web/public/…/firmware.bin` |
+| `pnpm firmware:copy` | Copy only (if you already ran `pio run`) |
 
-See **[Installing firmware (ESP8266)](#installing-firmware-esp8266)** above. Production deploys should run `pio run` + `firmware:copy` before `build:web` (CI not wired yet).
+See **[Installing firmware (ESP8266)](#installing-firmware-esp8266)** above. Production deploys should run `pnpm firmware:build` before `build:web` (CI not wired yet).
 
 ## Phase 6 verification
 

@@ -124,6 +124,19 @@ type RotateAdminDeviceApiKeyPayload {
   plainApiKey: String!
 }
 
+type ResetAdminSiteMeasurementsPayload {
+  siteId: String!
+  deletedMeasurements: Int!
+  resolvedAlerts: Int!
+}
+
+type ClearAdminSiteSnapshotsPayload {
+  siteId: String!
+  deletedSnapshots: Int!
+  deletedStorageObjects: Int!
+  storageSkipped: Boolean!
+}
+
 type AlertModel {
   id: String!
   siteId: String!
@@ -157,6 +170,7 @@ type SiteModel {
   latitude: Float
   longitude: Float
   latestSnapshot: DeviceSnapshotModel
+  pollIntervalSeconds: Float!
 }
 
 enum SiteStatus {
@@ -211,6 +225,8 @@ type Mutation {
   updateAdminDevice(input: UpdateAdminDeviceInput!): AdminDeviceModel!
   rotateAdminDeviceApiKey(deviceId: String!): RotateAdminDeviceApiKeyPayload!
   deleteAdminDevice(deviceId: String!): Boolean!
+  resetAdminSiteMeasurements(siteId: String!): ResetAdminSiteMeasurementsPayload!
+  clearAdminSiteSnapshots(siteId: String!): ClearAdminSiteSnapshotsPayload!
   resolveAlert(id: String!): Boolean!
 }
 

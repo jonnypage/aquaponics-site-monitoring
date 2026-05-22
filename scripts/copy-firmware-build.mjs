@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copy PlatformIO build output into the web static path (gitignored).
- * Run after: cd firmware/aquaponics-node && pio run
+ * Run after: pnpm firmware:build (or pio run in firmware/aquaponics-node)
  */
 import { access, copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -16,7 +16,7 @@ try {
   await access(src);
 } catch {
   console.error(`Missing ${src}`);
-  console.error("Build first: cd firmware/aquaponics-node && pio run");
+  console.error("Build first: pnpm firmware:build");
   process.exit(1);
 }
 

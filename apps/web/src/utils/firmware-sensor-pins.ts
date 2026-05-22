@@ -76,6 +76,36 @@ export function buildDevicePinMap(rows: InstallSensorRow[]): DevicePinMap {
   return map;
 }
 
+/** All GPIO text fields for included sensors (for board allowlist validation). */
+export function flattenInstallGpioEntries(
+  rows: InstallSensorRow[]
+): Array<{ sensorKey: string; wireLabel: string; raw: string; active: boolean }> {
+  const entries: Array<{ sensorKey: string; wireLabel: string; raw: string; active: boolean }> =
+    [];
+  for (const row of rows) {
+    if (!row.siteEnabled || !row.included) {
+      continue;
+    }
+    for (const wire of row.wiringTemplate.wires) {
+      entries.push({
+        sensorKey: row.sensorKey,
+        wireLabel: wire.label,
+        raw: row.wireMap[wire.id] ?? "",
+        active: true
+      });
+    }
+    for (const extra of row.extraWires) {
+      entries.push({
+        sensorKey: row.sensorKey,
+        wireLabel: extra.label,
+        raw: extra.gpio,
+        active: true
+      });
+    }
+  }
+  return entries;
+}
+
 export function hasIncludedPinnedSensor(rows: InstallSensorRow[]): boolean {
   return rows.some((row) => {
     if (!row.siteEnabled || !row.included) {

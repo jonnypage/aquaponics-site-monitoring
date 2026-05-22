@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
   GetAlertsDocument,
   GetSensorMeasurementsDocument,
@@ -24,15 +24,21 @@ import {
   type UpdateMeMutationVariables
 } from "~/gql/generated/graphql";
 import { loadSessionUser, sessionUserQueryKey } from "~/api/session";
+import { SITE_ALERTS_REFETCH_MS, sitePollIntervalMs } from "~/utils/site-poll-interval";
 import { graphqlRequest } from "~/utils/graphql";
 
 export const sitesQueryKey = ["sites"] as const;
 export const siteQueryKey = (id: string) => ["site", id] as const;
-const sensorMeasurementsQueryKey = (siteId: string, sensorKey: string, range: TimeRange) =>
+export const sensorMeasurementsQueryKey = (siteId: string, sensorKey: string, range: TimeRange) =>
   ["sensorMeasurements", siteId, sensorKey, range] as const;
 
-const alertsQueryKey = (vars: Pick<GetAlertsQueryVariables, "siteId" | "type" | "status">) =>
+export const alertsQueryKey = (vars: Pick<GetAlertsQueryVariables, "siteId" | "type" | "status">) =>
   ["alerts", vars.siteId ?? null, vars.type ?? null, vars.status ?? null] as const;
+
+export type ResolveAlertInput = {
+  id: string;
+  siteId?: string;
+};
 
 function unwrap<T>(label: string, payload: { data?: T; errors?: { message: string }[] }): T {
   if (payload.errors?.length) {
@@ -42,6 +48,15 @@ function unwrap<T>(label: string, payload: { data?: T; errors?: { message: strin
     throw new Error(`${label}: empty response`);
   }
   return payload.data;
+}
+
+/** Refetch site detail queries after alert changes (status badge, charts, alerts list). */
+export function invalidateSiteDetailQueries(queryClient: QueryClient, siteId: string) {
+  void queryClient.invalidateQueries({ queryKey: siteQueryKey(siteId) });
+  void queryClient.invalidateQueries({
+    predicate: (query) =>
+      query.queryKey[0] === "sensorMeasurements" && query.queryKey[1] === siteId
+  });
 }
 
 export function useMe() {
@@ -57,6 +72,14 @@ export function useSites() {
     queryFn: async () => {
       const r = await graphqlRequest<GetSitesQuery>(GetSitesDocument);
       return unwrap("getSites", r).getSites;
+    },
+    refetchInterval: (query) => {
+      const sites = query.state.data;
+      if (!sites?.length) {
+        return false;
+      }
+      const minSeconds = Math.min(...sites.map((s) => s.pollIntervalSeconds));
+      return sitePollIntervalMs(minSeconds);
     }
   });
 }
@@ -68,11 +91,17 @@ export function useSite(id: string) {
       const r = await graphqlRequest<GetSiteQuery>(GetSiteDocument, { id });
       return unwrap("getSite", r).getSite;
     },
-    enabled: Boolean(id)
+    enabled: Boolean(id),
+    refetchInterval: (query) => sitePollIntervalMs(query.state.data?.pollIntervalSeconds)
   });
 }
 
-export function useSensorMeasurements(siteId: string, sensorKey: string, range: TimeRange) {
+export function useSensorMeasurements(
+  siteId: string,
+  sensorKey: string,
+  range: TimeRange,
+  options?: { refetchIntervalMs?: number }
+) {
   return useQuery({
     queryKey: sensorMeasurementsQueryKey(siteId, sensorKey, range),
     queryFn: async () => {
@@ -80,30 +109,47 @@ export function useSensorMeasurements(siteId: string, sensorKey: string, range: 
       const r = await graphqlRequest<GetSensorMeasurementsQuery>(GetSensorMeasurementsDocument, variables);
       return unwrap("getSensorMeasurements", r).getSensorMeasurements;
     },
-    enabled: Boolean(siteId && sensorKey)
+    enabled: Boolean(siteId && sensorKey),
+    refetchInterval: options?.refetchIntervalMs
   });
 }
 
-export function useAlerts(variables: GetAlertsQueryVariables) {
+export function useAlerts(
+  variables: GetAlertsQueryVariables,
+  options?: { refetchIntervalMs?: number }
+) {
+  const siteScoped = Boolean(variables.siteId);
   return useQuery({
     queryKey: alertsQueryKey(variables),
     queryFn: async () => {
       const r = await graphqlRequest<GetAlertsQuery>(GetAlertsDocument, variables);
       return unwrap("getAlerts", r).getAlerts;
-    }
+    },
+    refetchInterval: siteScoped
+      ? (options?.refetchIntervalMs ?? SITE_ALERTS_REFETCH_MS)
+      : false
   });
 }
 
 export function useResolveAlertMutate() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id }: ResolveAlertInput) => {
       const variables: ResolveAlertMutationVariables = { id };
       const r = await graphqlRequest<ResolveAlertMutation>(ResolveAlertDocument, variables);
       return unwrap("resolveAlert", r).resolveAlert;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["alerts"] });
+    onSuccess: (_data, { siteId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["alerts"] });
+      void queryClient.invalidateQueries({ queryKey: sitesQueryKey });
+      if (siteId) {
+        invalidateSiteDetailQueries(queryClient, siteId);
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ["site"] });
+        void queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] === "sensorMeasurements"
+        });
+      }
     }
   });
 }
