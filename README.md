@@ -11,7 +11,7 @@ ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and
 - **Database foundation:** migrations, seed data, users, sites, devices, sensor catalog, measurements, and **Phase 4 alert tables** (`site_sensor_catalog`, `sensor_thresholds`, `alerts` — migrate to `0003` to enable) are managed through `packages/db`. Migration **`0004`** adds optional **`sites.latitude`** / **`sites.longitude`** for admin site forms.
 - **Authenticated API:** the dashboard API uses GraphQL, HTTP-only JWT cookies, bcrypt password hashing, and role-aware access checks. **Profile updates** use **`updateMe`** (current password required; clears the session cookie so the client signs in again). **Admin-only** GraphQL (`sensorCatalog`, `adminUsers` with assignments, `adminSites`, `adminDevices`, catalog and admin CRUD mutations) is implemented in [`apps/api/src/admin/`](apps/api/src/admin/).
 - **Web dashboard shell:** TanStack Start is wired up with login, session loading, protected routes, site/measurement GraphQL reads, **site status** (OK / unknown / warning / critical from alerts + telemetry), an **alerts** page linked from the sidebar, **`/settings`** (account form + `updateMe`), and **`/admin/*`** (admin-only) for **users**, **sites** (sensors + thresholds + geo, optional **Google Maps** picker when `VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY` is set), **devices** (API key on create/rotate; **browser installer** at `/admin/devices/$deviceId/install`), and **global sensor catalog** CRUD via GraphQL admin operations and [`apps/web/src/hooks/useAdmin.ts`](apps/web/src/hooks/useAdmin.ts).
-- **Phase 6 — firmware + camera:** `POST /ingest/snapshot` (multipart JPEG), **`device_snapshots`** metadata in Postgres, image bytes in **S3-compatible storage** (use a **Railway Storage bucket** in production), presigned URLs on **`getSite.latestSnapshot`** and **`adminDevice.recentSnapshots`**, latest snapshot on site detail, esp-web-tools install wizard (catalog **wire colors/labels** → GPIO map; firmware config **`v: 2`** role pins; optional **`devices.pin_map`**), migration **`0008_sensor_wiring_template`** (`sensor_catalog.wiring_template`), PlatformIO firmware under [`firmware/aquaponics-node/`](firmware/aquaponics-node/) (v1 scalar + v2 role pin parsing), [`apps/web/public/firmware/esp8266/firmware.bin`](apps/web/public/firmware/esp8266/firmware.bin) (run `pio run` and copy after C++ changes — placeholder is config-patch only).
+- **Phase 6 — firmware + camera:** `POST /ingest/snapshot` (multipart JPEG), **`device_snapshots`** metadata in Postgres, image bytes in **S3-compatible storage** (use a **Railway Storage bucket** in production), presigned URLs on **`getSite.latestSnapshot`** and **`adminDevice.recentSnapshots`**, latest snapshot on site detail, esp-web-tools install wizard (catalog **wire colors/labels** → GPIO map; firmware config **`v: 2`** role pins; optional **`devices.pin_map`**), migration **`0008_sensor_wiring_template`** (`sensor_catalog.wiring_template`), PlatformIO firmware under [`firmware/aquaponics-node/`](firmware/aquaponics-node/) (v1 scalar + v2 role pin parsing). Installer binary at `apps/web/public/firmware/esp8266/firmware.bin` is **gitignored** — use `pnpm firmware:copy` after `pio run` (see **Firmware** below).
 
 ## Where It Is Headed
 
@@ -107,26 +107,46 @@ pnpm db:setup
 ### Snapshot ingest (smoke test)
 
 ```bash
+# Telemetry (readings is an object keyed by sensor catalog key)
+curl -sS -X POST "http://localhost:4000/ingest" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: local-dev-ingest-key-change-in-prod-32chars" \
+  -d '{"deviceId":"seed-device-1","timestamp":"2026-05-21T12:00:00.000Z","readings":{"temperature":24.5,"ph":7.0}}'
+
 curl -X POST "http://localhost:4000/ingest/snapshot" \
   -H "x-api-key: <device-api-key>" \
   -F 'metadata={"deviceId":"seed-device-1","timestamp":"2026-05-21T12:00:00.000Z"};type=application/json' \
   -F "image=@/path/to/photo.jpg;type=image/jpeg"
 ```
 
+Full checklist: [`docs/phase6-verification.md`](docs/phase6-verification.md).
+
 ### Firmware
 
+`firmware.bin` is a **build artifact** (not in git). The install wizard serves it from `apps/web/public/firmware/esp8266/`.
+
 ```bash
-# Placeholder binary (markers only; for installer UI dev)
-node scripts/generate-firmware-placeholder.mjs
+# Placeholder (auto-created by pnpm dev:web if missing; installer UI only, not for hardware)
+pnpm firmware:placeholder
 
 # Real firmware (requires PlatformIO)
 cd firmware/aquaponics-node && pio run
-cp firmware/aquaponics-node/.pio/build/d1_mini/firmware.bin apps/web/public/firmware/esp8266/firmware.bin
+pnpm firmware:copy
 ```
+
+Production deploys should run `pio run` + `firmware:copy` (or equivalent) before `build:web`, or serve the image from object storage later.
+
+## Phase 6 verification
+
+Phases 1–6 are implemented in code; run the smoke checklist before treating Phase 6 as production-ready:
+
+- **[`docs/phase6-verification.md`](docs/phase6-verification.md)** — step-by-step API/storage/UI/hardware tests
+- **[`docs/phase6-agent-prompt.md`](docs/phase6-agent-prompt.md)** — current Phase 6 status and key paths
 
 ## Documentation
 
 - [`docs/development.md`](docs/development.md) — development commands, **folder-based routing** (`routes/_authed/…` + `features/*PageContent`), UI patterns (`PageBackLink`, loading)
 - [`docs/greenfield-agent-handoff.md`](docs/greenfield-agent-handoff.md) — product spec and build phases
-- [`docs/phase6-agent-prompt.md`](docs/phase6-agent-prompt.md) — agent bootstrap for **Phase 6** (firmware installer + camera snapshots)
+- [`docs/phase6-agent-prompt.md`](docs/phase6-agent-prompt.md) — Phase 6 status and agent bootstrap
+- [`docs/phase6-verification.md`](docs/phase6-verification.md) — Phase 6 smoke test checklist
 - [`docs/phase7-agent-prompt.md`](docs/phase7-agent-prompt.md) — **planned** Phase 7 (notifications & alert policy; deferred)

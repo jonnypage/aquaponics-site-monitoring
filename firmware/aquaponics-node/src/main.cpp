@@ -250,9 +250,14 @@ void setup() {
   Serial.println("aquaponics-node starting");
 
   if (!loadDeviceConfig(g_cfg)) {
-    Serial.println("Invalid or missing device config region");
+    Serial.println("Device config not loaded — fix above and re-flash from Install");
     return;
   }
+
+  Serial.print("Device ");
+  Serial.print(g_cfg.deviceId);
+  Serial.print(" API ");
+  Serial.println(g_cfg.apiOrigin);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(g_cfg.wifiSsid.c_str(), g_cfg.wifiPassword.c_str());

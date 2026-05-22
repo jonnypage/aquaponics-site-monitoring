@@ -8,6 +8,17 @@ void ud_touch_cfg_region();
 static const char *CFG_BEGIN = "__UD_CFG_BEGIN__";
 static const char *CFG_END = "__UD_CFG_END__";
 
+#ifndef UD_CFG_REGION_SIZE
+#define UD_CFG_REGION_SIZE 2048
+#endif
+
+namespace {
+constexpr size_t kBeginLen = 16;
+constexpr size_t kEndLen = 14;
+constexpr size_t kPayloadStart = kBeginLen;
+constexpr size_t kPayloadEnd = UD_CFG_REGION_SIZE - kEndLen;
+}  // namespace
+
 static int parsePinValue(JsonVariantConst v) {
   if (v.isNull()) {
     return -1;
@@ -72,16 +83,15 @@ bool loadDeviceConfig(DeviceConfig &out) {
   ud_touch_cfg_region();
 
   const char *region = ud_device_cfg_region;
-  const char *jsonStart = strstr(region, CFG_BEGIN);
-  if (!jsonStart) {
+  // Do not use strstr on the 2 KiB slot: payload is zero-padded and not null-terminated.
+  if (memcmp(region, CFG_BEGIN, kBeginLen) != 0 ||
+      memcmp(region + kPayloadEnd, CFG_END, kEndLen) != 0) {
+    Serial.println("Config: markers missing (re-flash from Install wizard)");
     return false;
   }
-  jsonStart += strlen(CFG_BEGIN);
 
-  const char *jsonEnd = strstr(region, CFG_END);
-  if (!jsonEnd || jsonEnd <= jsonStart) {
-    return false;
-  }
+  const char *jsonStart = region + kPayloadStart;
+  const char *jsonEnd = region + kPayloadEnd;
 
   String payload;
   payload.reserve(static_cast<unsigned>(jsonEnd - jsonStart));
@@ -92,14 +102,23 @@ bool loadDeviceConfig(DeviceConfig &out) {
     payload += *p;
   }
 
+  if (payload.length() == 0) {
+    Serial.println("Config: empty JSON (re-flash from Install wizard)");
+    return false;
+  }
+
   JsonDocument doc;
   const DeserializationError err = deserializeJson(doc, payload);
   if (err) {
+    Serial.print("Config: JSON parse failed: ");
+    Serial.println(err.c_str());
     return false;
   }
 
   const int version = doc["v"].as<int>();
   if (version != 1 && version != 2) {
+    Serial.print("Config: unsupported version ");
+    Serial.println(version);
     return false;
   }
 
@@ -118,6 +137,11 @@ bool loadDeviceConfig(DeviceConfig &out) {
     }
   }
 
-  return out.deviceId.length() > 0 && out.apiKey.length() > 0 && out.apiOrigin.length() > 0 &&
-         out.wifiSsid.length() > 0;
+  if (out.deviceId.length() == 0 || out.apiKey.length() == 0 || out.apiOrigin.length() == 0 ||
+      out.wifiSsid.length() == 0) {
+    Serial.println("Config: missing deviceId, apiKey, apiOrigin, or wifiSsid");
+    return false;
+  }
+
+  return true;
 }

@@ -46,7 +46,16 @@ function sha256Hex(plaintext: string): string {
 }
 
 function gqlRoleToDb(role: Role): UserRole {
-  return role as unknown as UserRole;
+  switch (role) {
+    case Role.ADMIN:
+      return "admin";
+    case Role.SITE_MANAGER:
+      return "site_manager";
+    case Role.SITE_VIEWER:
+      return "site_viewer";
+    default:
+      throw new BadRequestException("Invalid role");
+  }
 }
 
 function assertLatLngPair(lat: number | null | undefined, lng: number | null | undefined): void {

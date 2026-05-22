@@ -6,6 +6,7 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
@@ -295,6 +296,7 @@ export class CreateAdminUserInput {
   password!: string;
 
   @Field(() => Role)
+  @IsEnum(Role)
   role!: Role;
 
   @Field(() => [String])
@@ -322,6 +324,7 @@ export class UpdateAdminUserInput {
 
   @Field(() => Role, { nullable: true })
   @IsOptional()
+  @IsEnum(Role)
   role?: Role;
 
   @Field(() => [String], { nullable: true })

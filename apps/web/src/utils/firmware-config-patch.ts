@@ -20,20 +20,6 @@ export function estimateFirmwareConfigBytes(config: FirmwareDeviceConfig): numbe
   return new TextEncoder().encode(JSON.stringify(config)).length;
 }
 
-export interface EspWebToolsManifest {
-  name: string;
-  version?: string;
-  new_install_prompt_erase?: boolean;
-  builds: Array<{
-    chipFamily: string;
-    parts: Array<{
-      path: string;
-      offset: number;
-      data: Uint8Array;
-    }>;
-  }>;
-}
-
 function encoder(): TextEncoder {
   return new TextEncoder();
 }
@@ -51,17 +37,41 @@ function findMarker(haystack: Uint8Array, marker: string, start = 0): number {
   return -1;
 }
 
-/** Patch the 2 KiB config region in a firmware binary and return manifest for esp-web-tools. */
+/** Pick the widest BEGIN…END span (avoids false adjacency from truncated firmware markers). */
+function findConfigPayloadBounds(haystack: Uint8Array): { payloadStart: number; payloadEnd: number } | null {
+  const beginLen = encoder().encode(CONFIG_BEGIN_MARKER).length;
+  let searchFrom = 0;
+  let best: { payloadStart: number; payloadEnd: number; size: number } | null = null;
+
+  while (searchFrom < haystack.length) {
+    const beginIdx = findMarker(haystack, CONFIG_BEGIN_MARKER, searchFrom);
+    if (beginIdx < 0) {
+      break;
+    }
+    const endIdx = findMarker(haystack, CONFIG_END_MARKER, beginIdx + beginLen);
+    if (endIdx > beginIdx) {
+      const payloadStart = beginIdx + beginLen;
+      const payloadEnd = endIdx;
+      const size = payloadEnd - payloadStart;
+      if (!best || size > best.size) {
+        best = { payloadStart, payloadEnd, size };
+      }
+    }
+    searchFrom = beginIdx + 1;
+  }
+
+  return best;
+}
+
+/** Patch the 2 KiB config region in a firmware binary. Pair with `createEspWebToolsManifestUrls` for flashing. */
 export function patchFirmwareConfig(
   firmwareBytes: ArrayBuffer,
-  config: FirmwareDeviceConfig,
-  firmwareName = "aquaponics-node"
-): { patched: Uint8Array; manifest: EspWebToolsManifest } {
+  config: FirmwareDeviceConfig
+): { patched: Uint8Array } {
   const patched = new Uint8Array(firmwareBytes.slice(0));
-  const beginIdx = findMarker(patched, CONFIG_BEGIN_MARKER);
-  const endIdx = findMarker(patched, CONFIG_END_MARKER, beginIdx >= 0 ? beginIdx + 1 : 0);
+  const bounds = findConfigPayloadBounds(patched);
 
-  if (beginIdx < 0 || endIdx < 0 || endIdx <= beginIdx) {
+  if (!bounds || bounds.payloadEnd <= bounds.payloadStart) {
     throw new Error(
       `Firmware binary is missing config markers ${CONFIG_BEGIN_MARKER} / ${CONFIG_END_MARKER}. Build firmware from firmware/aquaponics-node first.`
     );
@@ -69,9 +79,14 @@ export function patchFirmwareConfig(
 
   const json = JSON.stringify(config);
   const jsonBytes = encoder().encode(json);
-  const payloadStart = beginIdx + encoder().encode(CONFIG_BEGIN_MARKER).length;
-  const payloadEnd = endIdx;
+  const { payloadStart, payloadEnd } = bounds;
   const maxPayload = payloadEnd - payloadStart;
+
+  if (maxPayload < 64) {
+    throw new Error(
+      `Firmware config region is too small (${maxPayload} bytes between markers). Rebuild firmware (pio run) and run pnpm firmware:copy.`
+    );
+  }
 
   if (jsonBytes.length > maxPayload) {
     throw new Error(`Config JSON (${jsonBytes.length} bytes) exceeds region (${maxPayload} bytes)`);
@@ -80,22 +95,5 @@ export function patchFirmwareConfig(
   patched.fill(0, payloadStart, payloadEnd);
   patched.set(jsonBytes, payloadStart);
 
-  const manifest: EspWebToolsManifest = {
-    name: firmwareName,
-    new_install_prompt_erase: true,
-    builds: [
-      {
-        chipFamily: "ESP8266",
-        parts: [
-          {
-            path: "firmware.bin",
-            offset: 0,
-            data: patched
-          }
-        ]
-      }
-    ]
-  };
-
-  return { patched, manifest };
+  return { patched };
 }

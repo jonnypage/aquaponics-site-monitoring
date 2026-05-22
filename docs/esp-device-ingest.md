@@ -21,4 +21,4 @@ Postgres table `device_snapshots` holds metadata only.
 
 - PlatformIO project: [`firmware/aquaponics-node/`](../firmware/aquaponics-node/)
 - Browser installer: `/admin/devices/$deviceId/install` (esp-web-tools)
-- Placeholder binary: `apps/web/public/firmware/esp8266/firmware.bin` (replace with `pio run` output before production flash)
+- Installer binary: `apps/web/public/firmware/esp8266/firmware.bin` (gitignored; `pnpm firmware:copy` after `pio run`, or `firmware:placeholder` for UI-only dev)

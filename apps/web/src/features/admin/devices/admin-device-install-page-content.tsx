@@ -18,7 +18,7 @@ import {
   useSensorCatalog,
   useUpdateAdminDeviceMutate
 } from "~/hooks/useAdmin";
-import { getPublicApiOrigin } from "~/utils/api-origin";
+import { getDeviceApiOrigin } from "~/utils/api-origin";
 import {
   clearDeviceInstallApiKey,
   readDeviceInstallApiKey,
@@ -45,16 +45,15 @@ import {
   CONFIG_REGION_SIZE,
   estimateFirmwareConfigBytes,
   patchFirmwareConfig,
-  type EspWebToolsManifest,
   type FirmwareDeviceConfig
 } from "~/utils/firmware-config-patch";
+import { createEspWebToolsManifestUrls } from "~/utils/esp-web-manifest-blobs";
 import {
   normalizeWiringTemplateFromGraphql,
   type DevicePinMap,
   type SensorWiringTemplate
 } from "~/utils/sensor-wiring";
-
-import "esp-web-tools";
+import { getEspWebInstallSupport, type EspWebInstallSupport } from "~/utils/esp-web-install";
 
 const FIRMWARE_URL = "/firmware/esp8266/firmware.bin";
 
@@ -142,14 +141,16 @@ function buildInitialSensorRows(
 export function AdminDeviceInstallPageContent() {
   const { deviceId } = routeApi.useParams();
   const { t } = useTranslation();
-  const apiOrigin = getPublicApiOrigin();
+  const apiOrigin = getDeviceApiOrigin();
   const { data: device, isLoading, isError, error } = useAdminDevice(deviceId);
   const { data: sites } = useAdminSites();
   const { data: catalog } = useSensorCatalog();
   const { mutateAsync: updateDevice, isPending: isSaving } = useUpdateAdminDeviceMutate();
   const { mutateAsync: rotateKey, isPending: isRotatingKey } = useRotateAdminDeviceApiKeyMutate();
 
-  const installRef = useRef<HTMLElement & { manifest?: EspWebToolsManifest | string }>(null);
+  /** esp-web-tools registers `esp-web-install-button` (not esp-web-tools-install-button). */
+  const installRef = useRef<HTMLElement & { manifest?: string }>(null);
+  const manifestRevokeRef = useRef<(() => void) | null>(null);
 
   const [board, setBoard] = useState<"esp8266" | "esp32-cyd">("esp8266");
   const [wifiSsid, setWifiSsid] = useState("");
@@ -163,7 +164,11 @@ export function AdminDeviceInstallPageContent() {
 
   const [firmwareLoading, setFirmwareLoading] = useState(false);
   const [firmwareError, setFirmwareError] = useState<string | null>(null);
-  const [manifest, setManifest] = useState<EspWebToolsManifest | null>(null);
+  const [manifestUrl, setManifestUrl] = useState<string | null>(null);
+  const [espToolsReady, setEspToolsReady] = useState(false);
+  const [installSupport, setInstallSupport] = useState<EspWebInstallSupport | null>(null);
+  const [serialPickerStatus, setSerialPickerStatus] = useState<string | null>(null);
+  const [serialPickerBusy, setSerialPickerBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [step, setStep] = useState<"form" | "flash">("form");
 
@@ -253,6 +258,51 @@ export function AdminDeviceInstallPageContent() {
     return r.plainApiKey;
   }
 
+  function applyManifestToInstallButton(): boolean {
+    const host = installRef.current;
+    if (!host || !manifestUrl) {
+      return false;
+    }
+    host.manifest = manifestUrl;
+    return true;
+  }
+
+  function onConnectAndFlash() {
+    setFirmwareError(null);
+    if (!applyManifestToInstallButton()) {
+      setFirmwareError(t("admin.devices.installConnectMissing"));
+      return;
+    }
+    const inner = installRef.current?.shadowRoot?.querySelector("button");
+    if (!inner) {
+      setFirmwareError(t("admin.devices.installConnectMissing"));
+      return;
+    }
+    inner.click();
+  }
+
+  async function onTestSerialPicker() {
+    setSerialPickerStatus(null);
+    setSerialPickerBusy(true);
+    try {
+      const port = await navigator.serial.requestPort();
+      try {
+        await port.close();
+      } catch {
+        /* ignore */
+      }
+      setSerialPickerStatus(t("admin.devices.installSerialPicked"));
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "NotFoundError") {
+        setSerialPickerStatus(t("admin.devices.installSerialCancelled"));
+      } else {
+        setSerialPickerStatus(err instanceof Error ? err.message : t("shared.unknownError"));
+      }
+    } finally {
+      setSerialPickerBusy(false);
+    }
+  }
+
   async function onPrepareFlash(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -312,8 +362,11 @@ export function AdminDeviceInstallPageContent() {
         throw new Error(`Failed to load firmware (${res.status})`);
       }
       const buf = await res.arrayBuffer();
-      const { manifest: m } = patchFirmwareConfig(buf, config, "aquaponics-node");
-      setManifest(m);
+      const { patched } = patchFirmwareConfig(buf, config);
+      manifestRevokeRef.current?.();
+      const blobs = createEspWebToolsManifestUrls(patched, "aquaponics-node");
+      manifestRevokeRef.current = blobs.revoke;
+      setManifestUrl(blobs.manifestUrl);
       clearDeviceInstallApiKey(deviceId);
       setStep("flash");
     } catch (err) {
@@ -324,11 +377,35 @@ export function AdminDeviceInstallPageContent() {
   }
 
   useEffect(() => {
-    if (step !== "flash" || !manifest || !installRef.current) {
+    return () => {
+      manifestRevokeRef.current?.();
+      manifestRevokeRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (step !== "flash") {
+      setEspToolsReady(false);
       return;
     }
-    installRef.current.manifest = manifest;
-  }, [step, manifest]);
+    setInstallSupport(getEspWebInstallSupport());
+    let cancelled = false;
+    void import("esp-web-tools").then(() => {
+      if (!cancelled) {
+        setEspToolsReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== "flash" || !manifestUrl || !espToolsReady || !installRef.current) {
+      return;
+    }
+    installRef.current.manifest = manifestUrl;
+  }, [step, manifestUrl, espToolsReady]);
 
   if (isLoading) {
     return <LoadingIndicator label={t("shared.loading")} />;
@@ -363,6 +440,13 @@ export function AdminDeviceInstallPageContent() {
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={(e) => void onPrepareFlash(e)}>
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                <p className="font-medium text-foreground">{t("admin.devices.installDeviceApiOrigin")}</p>
+                <p className="font-mono text-xs text-foreground">{apiOrigin}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("admin.devices.installDeviceApiOriginHint")}
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="board">{t("admin.devices.installBoard")}</Label>
                 <select
@@ -446,7 +530,48 @@ export function AdminDeviceInstallPageContent() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">{t("admin.devices.installFlashHint")}</p>
-            {createElement("esp-web-tools-install-button", { ref: installRef })}
+            <p className="text-sm text-muted-foreground">{t("admin.devices.installFlashMacSerialHint")}</p>
+            {installSupport == null ? (
+              <LoadingIndicator label={t("shared.loading")} />
+            ) : installSupport.ok ? (
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  disabled={!manifestUrl || !espToolsReady}
+                  onClick={onConnectAndFlash}
+                >
+                  <ButtonPendingLabel pending={!espToolsReady}>
+                    {t("admin.devices.installConnectFlash")}
+                  </ButtonPendingLabel>
+                </Button>
+                {/* Hidden host for esp-web-tools (client-only import) */}
+                {espToolsReady ? (
+                  <div className="sr-only" aria-hidden>
+                    {createElement("esp-web-install-button", { ref: installRef })}
+                  </div>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={serialPickerBusy}
+                  onClick={() => void onTestSerialPicker()}
+                >
+                  <ButtonPendingLabel pending={serialPickerBusy}>
+                    {t("admin.devices.installFlashTestPicker")}
+                  </ButtonPendingLabel>
+                </Button>
+                {serialPickerStatus ? (
+                  <p className="text-sm text-muted-foreground">{serialPickerStatus}</p>
+                ) : null}
+                {firmwareError ? <p className="text-sm text-destructive">{firmwareError}</p> : null}
+              </div>
+            ) : (
+              <p className="text-sm text-destructive">
+                {installSupport.reason === "insecure"
+                  ? t("admin.devices.installFlashNotAllowed", { origin: installSupport.origin })
+                  : t("admin.devices.installFlashUnsupported")}
+              </p>
+            )}
             <Button type="button" variant="outline" onClick={() => setStep("form")}>
               {t("admin.devices.installBackToForm")}
             </Button>

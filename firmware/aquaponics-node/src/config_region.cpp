@@ -4,17 +4,17 @@
 #define UD_CFG_REGION_SIZE 2048
 #endif
 
-char ud_device_cfg_region[UD_CFG_REGION_SIZE] = {0};
+extern char ud_device_cfg_region[UD_CFG_REGION_SIZE];
+
+namespace {
+constexpr size_t kBeginLen = 16;
+constexpr size_t kEndLen = 14;
+constexpr size_t kEndOffset = UD_CFG_REGION_SIZE - kEndLen;
+}  // namespace
 
 void ud_touch_cfg_region() {
-  static bool initialized = false;
-  if (initialized) {
-    return;
+  if (std::memcmp(ud_device_cfg_region, "__UD_CFG_BEGIN__", kBeginLen) != 0) {
+    std::memcpy(ud_device_cfg_region, "__UD_CFG_BEGIN__", kBeginLen);
+    std::memcpy(ud_device_cfg_region + kEndOffset, "__UD_CFG_END__", kEndLen);
   }
-  initialized = true;
-  std::memset(ud_device_cfg_region, 0, UD_CFG_REGION_SIZE);
-  const char *begin = "__UD_CFG_BEGIN__";
-  const char *end = "__UD_CFG_END__";
-  std::memcpy(ud_device_cfg_region, begin, 15);
-  std::memcpy(ud_device_cfg_region + UD_CFG_REGION_SIZE - 13, end, 13);
 }

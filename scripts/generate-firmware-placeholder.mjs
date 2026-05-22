@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
- * Writes a stub firmware.bin with __UD_CFG_BEGIN__ / __UD_CFG_END__ markers for the
- * web installer patcher. Replace with a real PlatformIO build before production flash:
- *   cd firmware/aquaponics-node && pio run
- *   cp .pio/build/d1_mini/firmware.bin ../../apps/web/public/firmware/esp8266/firmware.bin
+ * Writes a gitignored stub firmware.bin (config markers only) for install-wizard dev.
+ * Not runnable on hardware. For real devices:
+ *   cd firmware/aquaponics-node && pio run && pnpm firmware:copy
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";

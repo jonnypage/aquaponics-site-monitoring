@@ -86,14 +86,18 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 
 ### Phase 6 — Firmware installer + camera support
 
-**Repo status:** Phases 1–5 are implemented in this monorepo. For an agent-oriented implementation brief (current paths, partial work, exit criteria), use **[phase6-agent-prompt.md](phase6-agent-prompt.md)**. Web routing and UI conventions (folder routes, `PageBackLink`, loading patterns) are in **[development.md](development.md)**.
+**Repo status:** Phases **1–6 MVP are implemented** in this monorepo. Verification checklist: **[phase6-verification.md](phase6-verification.md)**. Agent brief: **[phase6-agent-prompt.md](phase6-agent-prompt.md)**.
 
-- PlatformIO firmware project (out of workspace); placeholder `firmware.bin`; **esp-web-tools** install wizard (Wi-Fi, API URL, sensor→GPIO map, MVP sensors + optional camera flag).
-- `device_snapshots` metadata table; `devices.has_camera`, `report_interval_seconds`, `snapshot_interval_seconds`.
-- **Object storage:** S3-compatible upload + presigned read URLs; **no Postgres image blobs** (see **Camera snapshots**); Railway bucket wiring may land here or immediately after.
-- Ingest **commands** in JSON response: `reportIntervalSeconds`, `snapshotIntervalSeconds`, `captureImageNow` when device has active alert.
-- Dashboard: latest snapshot on site/device detail when present.
-- **Exit criteria:** install wizard flashes device; ingest returns commands; snapshot upload stores object + metadata; alert sets `captureImageNow`.
+**Implemented:**
+
+- Migration **`0006_phase6_snapshots`**; **`StorageModule`**; **`POST /ingest/snapshot`** (503 without `OBJECT_STORAGE_*`).
+- GraphQL **`getSite.latestSnapshot`**, **`adminDevice.recentSnapshots`**; web **`SiteLatestSnapshot`** on site detail.
+- **esp-web-tools** install wizard (Wi‑Fi, catalog wire→GPIO, firmware config **v2**, optional **`devices.pin_map`**); migration **`0008_sensor_wiring_template`**.
+- **`firmware/aquaponics-node/`** (telemetry, stub JPEG snapshots, command handling); gitignored **`apps/web/public/firmware/esp8266/firmware.bin`** (`pnpm firmware:copy` after `pio run`; `firmware:placeholder` for installer UI dev).
+
+**Still to validate / optional gaps:** real object storage env, real PlatformIO binary on device, admin UI for `recentSnapshots`, real camera hardware, firmware CI, ESP32 CYD.
+
+- **Exit criteria:** install wizard flashes device; ingest returns commands; snapshot upload stores object + metadata; alert sets `captureImageNow`; site detail shows latest snapshot when present.
 
 ### Phase 7 — Notifications & alert policy (planned, deferred)
 
@@ -603,7 +607,7 @@ Gate `/admin/*` server- or client-side: non-`admin` → redirect `/sites`.
 ### Maps and installer
 
 - `VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY` (or equivalent): Maps Embed on site detail; Maps JavaScript API on admin site form picker.
-- Firmware: static `public/firmware/<board>/firmware.bin`; patch 2 KiB config region (`__UD_CFG_BEGIN__` / `__UD_CFG_END__`); esp-web-tools manifest from in-memory patched bytes; placeholder binary acceptable until PlatformIO build is wired. Installer/config must support MVP sensors (`temperature`, `ph`, `waterLevel`, `waterFlow`) and optional **camera** flag + default intervals.
+- Firmware: gitignored static `public/firmware/<board>/firmware.bin` (build with PlatformIO + `pnpm firmware:copy`); patch 2 KiB config region (`__UD_CFG_BEGIN__` / `__UD_CFG_END__`); esp-web-tools manifest from in-memory patched bytes. Installer/config must support MVP sensors (`temperature`, `ph`, `waterLevel`, `waterFlow`) and optional **camera** flag + default intervals.
 
 ### Sensor wiring (multi-pin)
 
@@ -730,7 +734,7 @@ Manual smoke:
 - Server-side chart **rollups / materialized aggregates**.
 - Distributed **scheduler** locks when running multiple API replicas.
 - Refresh tokens, OAuth, Redis sessions, Auth.js adapters.
-- Real firmware CI; replace placeholder `firmware.bin`.
+- Firmware CI: `pio run` + `firmware:copy` in deploy pipeline (binary not in git).
 - ESP32 CYD board target (stub "coming soon" in wizard).
 - TLS pinning / Improv Wi-Fi on devices.
 - **Railway + S3-compatible object storage** provisioned and wired for production camera snapshots (metadata schema and ingest path should exist before this).

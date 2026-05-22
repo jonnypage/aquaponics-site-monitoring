@@ -7,3 +7,6 @@ dist
 apps/web/.output
 apps/web/.tanstack/tmp/*
 **/node_modules/.nitro
+
+# ESP8266 image for install wizard — generate locally or copy from PlatformIO (see README)
+apps/web/public/firmware/esp8266/firmware.bin

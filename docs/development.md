@@ -40,9 +40,34 @@ Minimum `apps/web/.env`:
 VITE_PUBLIC_API_URL=http://localhost:4000
 ```
 
+When flashing devices locally, add a **separate** LAN URL for firmware (do not point `VITE_PUBLIC_API_URL` at your LAN IP while using the dashboard on `localhost` — login cookies are cross-site and will fail):
+
+```bash
+VITE_DEVICE_API_ORIGIN=http://192.168.1.106:4000
+```
+
+Use your Mac’s LAN address (`ipconfig getifaddr en0`). Restart `pnpm dev:web` after changing `.env`.
+
 `migrate:deploy`, `seed`, and `db:setup` read `DATABASE_PUBLIC_URL` from `packages/db/.env` when run via pnpm filter. Keep it populated there, or export the variable in your shell.
 
 Do not commit real `.env` files.
+
+## Firmware binary (install wizard)
+
+The ESP8266 image at `apps/web/public/firmware/esp8266/firmware.bin` is **gitignored**. Source lives in [`firmware/aquaponics-node/`](../firmware/aquaponics-node/).
+
+| Script | Purpose |
+| ------ | ------- |
+| `pnpm firmware:ensure` | Create placeholder if `firmware.bin` is missing (used by `predev:web` / `prebuild:web`) |
+| `pnpm firmware:placeholder` | Force-regenerate placeholder (config markers only; **not** runnable on hardware) |
+| `pnpm firmware:copy` | Copy `firmware/aquaponics-node/.pio/build/d1_mini/firmware.bin` after `pio run` |
+
+```bash
+cd firmware/aquaponics-node && pio run
+pnpm firmware:copy
+```
+
+Re-copy after any C++ change before USB flash. USB install flow: [`docs/esp8266-usb-macos.md`](esp8266-usb-macos.md).
 
 ## Common commands
 
@@ -52,8 +77,9 @@ Run from the repo root:
 pnpm typecheck
 
 pnpm dev:api              # builds packages/db first, then nest start --watch on :4000
-pnpm dev:web              # TanStack Start dev server on :3333
+pnpm dev:web              # ensures firmware.bin (placeholder if missing), then :3333
 
+pnpm firmware:copy        # after PlatformIO build — real installer binary
 pnpm build:api
 pnpm build:web
 
