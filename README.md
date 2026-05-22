@@ -4,6 +4,20 @@ A small monitoring platform for aquaponics sites, built to collect field sensor 
 
 ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and site data, and a TanStack Start dashboard gives users a place to log in and inspect site health.
 
+## Current status
+
+| Area | Status |
+| ---- | ------ |
+| **Phases 1–6 (MVP)** | Implemented in code — ingest, alerts, dashboard, admin CRUD, snapshots, ESP8266 install wizard |
+| **Hardware (ESP8266 D1 mini)** | Validated locally: browser flash via esp-web-tools, Wi‑Fi join, `POST /ingest` to a LAN API, serial logs at 115200 |
+| **Firmware in git** | **No** — source in [`firmware/aquaponics-node/`](firmware/aquaponics-node/); built `firmware.bin` is gitignored and copied into the web app for the installer |
+| **Phase 7** | Planned (notifications / alert policy) — not started — [`docs/phase7-agent-prompt.md`](docs/phase7-agent-prompt.md) |
+| **Post-MVP** | Real camera driver, ESP32 CYD, firmware CI on deploy, production object storage on Railway |
+
+Before calling Phase 6 production-ready on your environment, run [`docs/phase6-verification.md`](docs/phase6-verification.md).
+
+**Staging devices:** use an admin-only **“Device staging”** site (do not assign to operators); calibrate there, then move devices to production sites.
+
 ## What Is Working
 
 - **Device telemetry ingest:** devices can `POST /ingest` with an API key and submit readings for temperature, pH, water level, and flow. After migration `0003`, ingest evaluates **out-of-range** readings, **MVP heuristics** (spikes, flatlines, pH drift, level/flow step issues — see `ingest-heuristics.util.ts`), upserts matching alerts for **enabled** site sensors, **recomputes `device_offline` per site** from all devices’ `last_seen_at`, and sets **`captureImageNow`** when the site has any **active** alert.
@@ -13,17 +27,7 @@ ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and
 - **Web dashboard shell:** TanStack Start is wired up with login, session loading, protected routes, site/measurement GraphQL reads, **site status** (OK / unknown / warning / critical from alerts + telemetry), an **alerts** page linked from the sidebar, **`/settings`** (account form + `updateMe`), and **`/admin/*`** (admin-only) for **users**, **sites** (sensors + thresholds + geo, optional **Google Maps** picker when `VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY` is set), **devices** (API key on create/rotate; **browser installer** at `/admin/devices/$deviceId/install`), and **global sensor catalog** CRUD via GraphQL admin operations and [`apps/web/src/hooks/useAdmin.ts`](apps/web/src/hooks/useAdmin.ts).
 - **Phase 6 — firmware + camera:** `POST /ingest/snapshot` (multipart JPEG), **`device_snapshots`** metadata in Postgres, image bytes in **S3-compatible storage** (use a **Railway Storage bucket** in production), presigned URLs on **`getSite.latestSnapshot`** and **`adminDevice.recentSnapshots`**, latest snapshot on site detail, esp-web-tools install wizard (catalog **wire colors/labels** → GPIO map; firmware config **`v: 2`** role pins; optional **`devices.pin_map`**), migration **`0008_sensor_wiring_template`** (`sensor_catalog.wiring_template`), PlatformIO firmware under [`firmware/aquaponics-node/`](firmware/aquaponics-node/) (v1 scalar + v2 role pin parsing). Installer binary at `apps/web/public/firmware/esp8266/firmware.bin` is **gitignored** — use `pnpm firmware:copy` after `pio run` (see **Firmware** below).
 
-## Where It Is Headed
-
-Phases **1–6** MVP scope from [`docs/greenfield-agent-handoff.md`](docs/greenfield-agent-handoff.md) is implemented.
-
-**Phase 7 (planned, deferred):** notifications and alert policy — production email (Resend), per-site **`suppress_notifications`** for staging sites, and a path toward **SMS / WhatsApp / Signal**. No notification provider is required to run the MVP today. See [`docs/phase7-agent-prompt.md`](docs/phase7-agent-prompt.md).
-
-Other post-MVP: real camera driver, ESP32 CYD board, firmware CI, production object storage on Railway.
-
-**Staging devices:** use a normal **“Device staging”** site visible only to admins (do not assign that site to operators); assign devices there for calibration, then move them to production sites when ready.
-
-The web app uses **directory-based routes** under `apps/web/src/routes/_authed/` with page UI in `apps/web/src/features/` so day-to-day edits hot-reload without regenerating `routeTree.gen.ts`.
+The web app uses **directory-based routes** under `apps/web/src/routes/_authed/` with page UI in `apps/web/src/features/` so day-to-day edits hot-reload without regenerating `routeTree.gen.ts`. Full product spec: [`docs/greenfield-agent-handoff.md`](docs/greenfield-agent-handoff.md).
 
 ## Tech Stack
 
@@ -87,11 +91,92 @@ Without `OBJECT_STORAGE_*`, `POST /ingest/snapshot` returns **503** (telemetry i
 
 ```bash
 VITE_PUBLIC_API_URL=http://localhost:4000
+# Required when flashing ESP8266 devices (installer apiOrigin). Use your Mac LAN IP — not localhost.
+# VITE_DEVICE_API_ORIGIN=http://192.168.1.106:4000
 # Optional: enables the admin site map picker (Google Maps JavaScript API).
 # VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY=
 ```
 
+Keep **`VITE_PUBLIC_API_URL`** on `http://localhost:4000` for dashboard login (cookies). Set **`VITE_DEVICE_API_ORIGIN`** to the API URL the ESP can reach on your LAN (`ipconfig getifaddr en0`). Restart `pnpm dev:web` after changes.
+
 Migration and seed commands read `DATABASE_PUBLIC_URL` from `packages/db/.env` when run through pnpm filters, so keep that file populated too.
+
+## Installing firmware (ESP8266)
+
+End-to-end flow: build a firmware image → serve it from the web app → flash in Chrome with Wi‑Fi and device config baked in → device posts telemetry to your API.
+
+### Prerequisites
+
+- **PlatformIO** — [`platformio.org`](https://platformio.org/) or `brew install platformio` (for a real on-device binary)
+- **Google Chrome or Microsoft Edge** — Web Serial for the install wizard (not Safari/Firefox)
+- **Dashboard** at **`http://localhost:3333`** (secure-enough context for Web Serial)
+- **API** running at `http://localhost:4000` and reachable from the ESP on Wi‑Fi (often your Mac’s LAN IP via `VITE_DEVICE_API_ORIGIN`)
+- **USB data cable** + serial driver on macOS if the port does not appear — [`docs/esp8266-usb-macos.md`](docs/esp8266-usb-macos.md)
+
+### 1. Build and publish `firmware.bin`
+
+The installer loads `/firmware/esp8266/firmware.bin` from `apps/web/public/`. That file is **not in git**.
+
+```bash
+# From repo root — real firmware (required for hardware)
+cd firmware/aquaponics-node && pio run && cd ../..
+pnpm firmware:copy
+```
+
+`pnpm dev:web` runs `firmware:ensure` first; if the file is missing it creates a **placeholder** (wizard UI only — **do not** flash that to hardware).
+
+After any C++ change under `firmware/aquaponics-node/`, repeat `pio run` and `pnpm firmware:copy`, then re-flash devices.
+
+### 2. Configure the web app for devices
+
+In `apps/web/.env`:
+
+```bash
+VITE_PUBLIC_API_URL=http://localhost:4000
+VITE_DEVICE_API_ORIGIN=http://<your-lan-ip>:4000
+```
+
+Restart `pnpm dev:web`. The install form shows the device API origin the firmware will use.
+
+### 3. Flash from the admin install wizard
+
+1. Sign in as **admin** → **Devices** → create or open a device → **Install**.
+2. Enter **Wi‑Fi SSID and password** (ESP8266 is **2.4 GHz only**).
+3. Map sensor wires to GPIO pins (catalog colors/labels; config version **`v: 2`**).
+4. **Continue to flash** → click **Connect and flash firmware** → pick the USB serial port (e.g. `/dev/cu.usbserial-…`).
+5. Complete esp-web-tools prompts. When done, the device reboots with patched JSON in the 2 KiB config region (`deviceId`, `apiKey`, `apiOrigin`, Wi‑Fi, pins).
+
+The device joins your router as a **client** (it does not create its own Wi‑Fi network). Check your router’s connected devices or serial output for an IP.
+
+### 4. Verify (serial + dashboard)
+
+**Serial monitor** (115200 baud; close Chrome/IDE first so only one app uses the port):
+
+```bash
+cd firmware/aquaponics-node
+pio device monitor -p /dev/cu.usbserial-XXXX
+```
+
+Press **RST** on the board. Expected lines:
+
+```text
+aquaponics-node starting
+Device <uuid> API http://192.168.x.x:4000
+Connecting WiFi........
+IP: 192.168.x.x
+Telemetry OK, next report in 300s
+```
+
+**Dashboard:** open the device’s site — `last_seen` and charts should update within the report interval (~300s by default).
+
+| Problem | What to check |
+| ------- | ------------- |
+| `Invalid or missing device config` / `Config: …` | Re-flash from Install after `firmware:copy`; hard-refresh the browser so it does not use a cached `firmware.bin` |
+| No Wi‑Fi / no `IP:` | 2.4 GHz SSID/password; serial logs; router client list |
+| `Telemetry HTTP 4xx/5xx` | API running; `VITE_DEVICE_API_ORIGIN` reachable from ESP; correct device API key |
+| No USB port in Chrome | [`docs/esp8266-usb-macos.md`](docs/esp8266-usb-macos.md) |
+
+More detail: [`firmware/aquaponics-node/README.md`](firmware/aquaponics-node/README.md), [`docs/esp-device-ingest.md`](docs/esp-device-ingest.md).
 
 ## Useful Commands
 
@@ -121,20 +206,15 @@ curl -X POST "http://localhost:4000/ingest/snapshot" \
 
 Full checklist: [`docs/phase6-verification.md`](docs/phase6-verification.md).
 
-### Firmware
+### Firmware scripts
 
-`firmware.bin` is a **build artifact** (not in git). The install wizard serves it from `apps/web/public/firmware/esp8266/`.
+| Command | Purpose |
+| ------- | ------- |
+| `pnpm firmware:ensure` | Create placeholder if `firmware.bin` is missing (`predev:web` / `prebuild:web`) |
+| `pnpm firmware:placeholder` | Force-regenerate placeholder (installer UI only) |
+| `pnpm firmware:copy` | Copy PlatformIO build → `apps/web/public/firmware/esp8266/firmware.bin` |
 
-```bash
-# Placeholder (auto-created by pnpm dev:web if missing; installer UI only, not for hardware)
-pnpm firmware:placeholder
-
-# Real firmware (requires PlatformIO)
-cd firmware/aquaponics-node && pio run
-pnpm firmware:copy
-```
-
-Production deploys should run `pio run` + `firmware:copy` (or equivalent) before `build:web`, or serve the image from object storage later.
+See **[Installing firmware (ESP8266)](#installing-firmware-esp8266)** above. Production deploys should run `pio run` + `firmware:copy` before `build:web` (CI not wired yet).
 
 ## Phase 6 verification
 
@@ -145,8 +225,10 @@ Phases 1–6 are implemented in code; run the smoke checklist before treating Ph
 
 ## Documentation
 
-- [`docs/development.md`](docs/development.md) — development commands, **folder-based routing** (`routes/_authed/…` + `features/*PageContent`), UI patterns (`PageBackLink`, loading)
+- [`docs/development.md`](docs/development.md) — development commands, env, firmware binary, routing/UI conventions
+- [`docs/esp8266-usb-macos.md`](docs/esp8266-usb-macos.md) — USB serial drivers and Chrome port picker on macOS
+- [`docs/esp-device-ingest.md`](docs/esp-device-ingest.md) — ingest contract for firmware authors
 - [`docs/greenfield-agent-handoff.md`](docs/greenfield-agent-handoff.md) — product spec and build phases
-- [`docs/phase6-agent-prompt.md`](docs/phase6-agent-prompt.md) — Phase 6 status and agent bootstrap
 - [`docs/phase6-verification.md`](docs/phase6-verification.md) — Phase 6 smoke test checklist
+- [`docs/phase6-agent-prompt.md`](docs/phase6-agent-prompt.md) — Phase 6 status and key paths
 - [`docs/phase7-agent-prompt.md`](docs/phase7-agent-prompt.md) — **planned** Phase 7 (notifications & alert policy; deferred)
