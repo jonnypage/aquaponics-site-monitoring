@@ -37,6 +37,7 @@ export interface SensorCatalogTable {
   physical_max: number | null;
   sort_order: number;
   icon: string | null;
+  wiring_template: import("./sensor-wiring.js").SensorWiringTemplate;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -52,7 +53,7 @@ export interface DevicesTable {
   has_camera: boolean;
   name: string | null;
   board: string | null;
-  pin_map: Record<string, number> | null;
+  pin_map: import("./sensor-wiring.js").DevicePinMap | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 }

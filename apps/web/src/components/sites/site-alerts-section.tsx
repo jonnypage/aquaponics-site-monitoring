@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { SensorIcon } from "~/components/sensor-icon";
 
 import { Badge } from "~/components/ui/badge";
+import { EntityKeyBadge } from "~/components/ui/entity-key-badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { ButtonPendingLabel } from "~/components/ui/loading-indicator";
@@ -113,7 +114,7 @@ export function SiteAlertsSection({ siteId, sensorReporting }: SiteAlertsSection
                         ? t("alertsPage.severity.critical")
                         : t("alertsPage.severity.warning")}
                     </Badge>
-                    <span className="font-mono text-xs text-muted-foreground">{a.type}</span>
+                    <EntityKeyBadge className="text-muted-foreground">{a.type}</EntityKeyBadge>
                   </div>
                   <p className="text-sm text-foreground">{a.message}</p>
                   <p className="text-xs text-muted-foreground">

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { PageBackLink } from '~/components/layout/page-back-link';
 import { PageHeader } from '~/components/layout/page-header';
 import { Button } from '~/components/ui/button';
+import { EntityKeyBadge } from '~/components/ui/entity-key-badge';
 import { Card, CardContent } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useAdminDevices, useAdminSites } from '~/hooks/useAdmin';
@@ -58,7 +59,11 @@ export function AdminDevicesIndexPageContent() {
               <CardContent className='flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between'>
                 <div>
                   <p className='text-sm font-medium'>
-                    {d.name?.trim() ? d.name : d.deviceId}
+                    {d.name?.trim() ? (
+                      d.name
+                    ) : (
+                      <EntityKeyBadge>{d.deviceId}</EntityKeyBadge>
+                    )}
                   </p>
                   <p className='text-xs text-muted-foreground'>
                     {siteName(d.siteId)} ·{' '}

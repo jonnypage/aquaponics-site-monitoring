@@ -7,7 +7,14 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import type { Database, UserRole } from "@aquaponics/db";
+import {
+  DEFAULT_SENSOR_WIRING_TEMPLATE,
+  normalizeSensorWiringTemplate,
+  type Database,
+  type DevicePinMap,
+  type SensorWiringTemplate,
+  type UserRole
+} from "@aquaponics/db";
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 import bcrypt from "bcryptjs";
@@ -31,6 +38,8 @@ import type {
   UpdateAdminUserInput,
   UpdateSensorCatalogEntryInput
 } from "./admin.types.js";
+import { normalizeDevicePinMap } from "./device-pin-map.util.js";
+import type { SensorWiringTemplateInput } from "./sensor-wiring.graphql-types.js";
 
 function sha256Hex(plaintext: string): string {
   return createHash("sha256").update(plaintext, "utf8").digest("hex");
@@ -86,6 +95,20 @@ export class AdminService {
     private readonly ingestAlerts: IngestAlertService
   ) {}
 
+  private parseWiringInput(input: SensorWiringTemplateInput | undefined): SensorWiringTemplate {
+    if (!input) {
+      return {
+        ...DEFAULT_SENSOR_WIRING_TEMPLATE,
+        wires: [...DEFAULT_SENSOR_WIRING_TEMPLATE.wires]
+      };
+    }
+    try {
+      return normalizeSensorWiringTemplate(input);
+    } catch (e: unknown) {
+      throw new BadRequestException(e instanceof Error ? e.message : "Invalid wiring template");
+    }
+  }
+
   private mapCatalogRow(row: {
     key: string;
     display_name: string;
@@ -94,9 +117,11 @@ export class AdminService {
     physical_max: number | null;
     sort_order: number;
     icon: string | null;
+    wiring_template: SensorWiringTemplate;
     created_at: Date;
     updated_at: Date;
   }): SensorCatalogEntryModel {
+    const wiring = normalizeSensorWiringTemplate(row.wiring_template);
     return {
       key: row.key,
       displayName: row.display_name,
@@ -105,6 +130,16 @@ export class AdminService {
       physicalMax: row.physical_max,
       sortOrder: row.sort_order,
       icon: row.icon,
+      wiringTemplate: {
+        wires: wiring.wires.map((w) => ({
+          id: w.id,
+          label: w.label,
+          color: w.color,
+          required: w.required !== false
+        })),
+        allowExtraWires: wiring.allowExtraWires ?? false,
+        maxExtraWires: wiring.maxExtraWires ?? 2
+      },
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };
@@ -127,6 +162,7 @@ export class AdminService {
     report_interval_seconds: number;
     snapshot_interval_seconds: number;
     has_camera: boolean;
+    pin_map: DevicePinMap | null;
     created_at: Date;
     updated_at: Date;
   }): AdminDeviceModel {
@@ -139,6 +175,7 @@ export class AdminService {
       reportIntervalSeconds: row.report_interval_seconds,
       snapshotIntervalSeconds: row.snapshot_interval_seconds,
       hasCamera: row.has_camera,
+      pinMap: row.pin_map,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };
@@ -170,6 +207,7 @@ export class AdminService {
     const sortOrder = input.sortOrder ?? nextSort;
 
     const sites = await this.db.selectFrom("sites").select("id").execute();
+    const wiringTemplate = this.parseWiringInput(input.wiringTemplate);
 
     try {
       const row = await this.db
@@ -182,6 +220,7 @@ export class AdminService {
           physical_max: input.physicalMax ?? null,
           sort_order: sortOrder,
           icon: normalizeStoredLucideIcon(input.icon),
+          wiring_template: wiringTemplate,
           updated_at: new Date()
         })
         .returningAll()
@@ -234,6 +273,10 @@ export class AdminService {
 
     const sortOrder =
       input.sortOrder !== undefined && input.sortOrder !== null ? input.sortOrder : existing.sort_order;
+    const wiringTemplate =
+      input.wiringTemplate !== undefined
+        ? this.parseWiringInput(input.wiringTemplate)
+        : normalizeSensorWiringTemplate(existing.wiring_template);
 
     const row = await this.db
       .updateTable("sensor_catalog")
@@ -244,6 +287,7 @@ export class AdminService {
         physical_max: physicalMax,
         sort_order: sortOrder,
         icon: input.icon !== undefined ? normalizeStoredLucideIcon(input.icon) : existing.icon,
+        wiring_template: wiringTemplate,
         updated_at: new Date()
       })
       .where("key", "=", input.key)
@@ -760,6 +804,7 @@ export class AdminService {
     const patch: {
       site_id: string | null;
       name?: string | null;
+      pin_map?: DevicePinMap | null;
       expected_interval_seconds: number;
       report_interval_seconds: number;
       snapshot_interval_seconds: number;
@@ -775,6 +820,9 @@ export class AdminService {
     };
     if (input.name !== undefined) {
       patch.name = this.normalizeDeviceName(input.name);
+    }
+    if (input.pinMap !== undefined) {
+      patch.pin_map = input.pinMap === null ? null : normalizeDevicePinMap(input.pinMap);
     }
 
     const row = await this.db

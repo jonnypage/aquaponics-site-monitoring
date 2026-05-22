@@ -1,34 +1,79 @@
-/** Default GPIO pins for MVP catalog sensors (when included in install). */
-export const DEFAULT_SENSOR_PINS: Record<string, string> = {
-  temperature: "4",
-  ph: "5",
-  waterLevel: "12",
-  waterFlow: "13"
-};
+import type { DevicePinMap, FirmwarePinsConfig, SensorWiringTemplate } from "~/utils/sensor-wiring";
+
+export type { SensorWireDef, SensorWiringTemplate, DevicePinMap, FirmwarePinsConfig } from "~/utils/sensor-wiring";
+export { DEFAULT_SENSOR_WIRING_TEMPLATE, slugWireIdFromLabel } from "~/utils/sensor-wiring";
+
+export interface InstallExtraWire {
+  id: string;
+  label: string;
+  color: string;
+  gpio: string;
+}
 
 export interface InstallSensorRow {
   sensorKey: string;
   displayName: string;
   icon: string | null;
   sortOrder: number;
-  /** Enabled for this site in admin site settings. */
   siteEnabled: boolean;
-  /** Included in this firmware flash (user toggle). */
   included: boolean;
-  pin: string;
+  wiringTemplate: SensorWiringTemplate;
+  wireMap: Record<string, string>;
+  extraWires: InstallExtraWire[];
 }
 
-export function buildFirmwarePins(rows: InstallSensorRow[]): Record<string, number | null> {
-  const pins: Record<string, number | null> = {};
+function parseGpio(s: string): number | null {
+  const n = Number.parseInt(s.trim(), 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+export function buildFirmwarePins(rows: InstallSensorRow[]): FirmwarePinsConfig {
+  const pins: FirmwarePinsConfig = {};
   for (const row of rows) {
     if (!row.siteEnabled || !row.included) {
       pins[row.sensorKey] = null;
       continue;
     }
-    const n = Number.parseInt(row.pin.trim(), 10);
-    pins[row.sensorKey] = Number.isFinite(n) && n >= 0 ? n : null;
+    const rolePins: Record<string, number | null> = {};
+    for (const wire of row.wiringTemplate.wires) {
+      const gpio = parseGpio(row.wireMap[wire.id] ?? "");
+      rolePins[wire.id] = gpio;
+    }
+    for (const extra of row.extraWires) {
+      const gpio = parseGpio(extra.gpio);
+      if (gpio != null && extra.id.trim()) {
+        rolePins[extra.id] = gpio;
+      }
+    }
+    const hasAny = Object.values(rolePins).some((v) => v != null);
+    pins[row.sensorKey] = hasAny ? rolePins : null;
   }
   return pins;
+}
+
+export function buildDevicePinMap(rows: InstallSensorRow[]): DevicePinMap {
+  const map: DevicePinMap = {};
+  for (const row of rows) {
+    if (!row.siteEnabled || !row.included) {
+      map[row.sensorKey] = null;
+      continue;
+    }
+    const roles: Record<string, number> = {};
+    for (const wire of row.wiringTemplate.wires) {
+      const gpio = parseGpio(row.wireMap[wire.id] ?? "");
+      if (gpio != null) {
+        roles[wire.id] = gpio;
+      }
+    }
+    for (const extra of row.extraWires) {
+      const gpio = parseGpio(extra.gpio);
+      if (gpio != null && extra.id.trim()) {
+        roles[extra.id] = gpio;
+      }
+    }
+    map[row.sensorKey] = Object.keys(roles).length > 0 ? roles : null;
+  }
+  return map;
 }
 
 export function hasIncludedPinnedSensor(rows: InstallSensorRow[]): boolean {
@@ -36,7 +81,54 @@ export function hasIncludedPinnedSensor(rows: InstallSensorRow[]): boolean {
     if (!row.siteEnabled || !row.included) {
       return false;
     }
-    const n = Number.parseInt(row.pin.trim(), 10);
-    return Number.isFinite(n) && n >= 0;
+    for (const wire of row.wiringTemplate.wires) {
+      if (wire.required === false) {
+        continue;
+      }
+      if (parseGpio(row.wireMap[wire.id] ?? "") != null) {
+        return true;
+      }
+    }
+    return false;
   });
+}
+
+export function emptyWireMap(template: SensorWiringTemplate): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const w of template.wires) {
+    map[w.id] = "";
+  }
+  return map;
+}
+
+export function applyPinMapToRow(
+  row: InstallSensorRow,
+  pinMap: DevicePinMap | null | undefined
+): InstallSensorRow {
+  if (!pinMap) {
+    return row;
+  }
+  const saved = pinMap[row.sensorKey];
+  if (saved == null || typeof saved !== "object") {
+    return row;
+  }
+  const wireMap = { ...row.wireMap };
+  const knownIds = new Set(row.wiringTemplate.wires.map((w) => w.id));
+  const extraWires: InstallExtraWire[] = [];
+
+  for (const [roleId, gpio] of Object.entries(saved)) {
+    const gpioStr = String(gpio);
+    if (knownIds.has(roleId)) {
+      wireMap[roleId] = gpioStr;
+    } else if (row.wiringTemplate.allowExtraWires) {
+      extraWires.push({
+        id: roleId,
+        label: roleId,
+        color: "#6b7280",
+        gpio: gpioStr
+      });
+    }
+  }
+
+  return { ...row, wireMap, extraWires };
 }

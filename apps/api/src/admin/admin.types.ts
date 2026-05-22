@@ -15,6 +15,7 @@ import {
   ValidateNested
 } from "class-validator";
 import { Role } from "../auth/auth.types.js";
+import { SensorWiringTemplateInput, SensorWiringTemplateModel } from "./sensor-wiring.graphql-types.js";
 
 @ObjectType()
 export class SensorCatalogEntryModel {
@@ -38,6 +39,9 @@ export class SensorCatalogEntryModel {
 
   @Field(() => String, { nullable: true })
   icon?: string | null;
+
+  @Field(() => SensorWiringTemplateModel)
+  wiringTemplate!: SensorWiringTemplateModel;
 
   @Field()
   createdAt!: Date;
@@ -156,6 +160,9 @@ export class AdminDeviceModel {
   @Field()
   hasCamera!: boolean;
 
+  @Field(() => Object, { nullable: true })
+  pinMap?: Record<string, unknown> | null;
+
   @Field()
   createdAt!: Date;
 
@@ -218,6 +225,12 @@ export class CreateSensorCatalogEntryInput {
   @IsString()
   @MaxLength(64)
   icon?: string | null;
+
+  @Field(() => SensorWiringTemplateInput, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SensorWiringTemplateInput)
+  wiringTemplate?: SensorWiringTemplateInput;
 }
 
 @InputType()
@@ -257,6 +270,12 @@ export class UpdateSensorCatalogEntryInput {
   @IsString()
   @MaxLength(64)
   icon?: string | null;
+
+  @Field(() => SensorWiringTemplateInput, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SensorWiringTemplateInput)
+  wiringTemplate?: SensorWiringTemplateInput;
 }
 
 @InputType()
@@ -501,4 +520,8 @@ export class UpdateAdminDeviceInput {
   @IsOptional()
   @IsBoolean()
   hasCamera?: boolean | null;
+
+  @Field(() => Object, { nullable: true })
+  @IsOptional()
+  pinMap?: Record<string, unknown> | null;
 }

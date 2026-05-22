@@ -11,6 +11,11 @@ import { classifyRangeAnomaly, effectiveNormalBounds } from "./range-anomaly.uti
 
 type DbExec = Kysely<Database>;
 
+function deviceDisplayLabel(deviceId: string, name: string | null | undefined): string {
+  const trimmed = name?.trim();
+  return trimmed ? trimmed : deviceId;
+}
+
 @Injectable()
 export class IngestAlertService {
   constructor(@Inject(DB_TOKEN) private readonly db: Kysely<Database>) {}
@@ -246,7 +251,7 @@ export class IngestAlertService {
   async syncDeviceOfflineStateForSite(executor: DbExec, siteId: string, nowMs: number = Date.now()): Promise<void> {
     const devices = await executor
       .selectFrom("devices")
-      .select(["device_id", "last_seen_at", "expected_interval_seconds"])
+      .select(["device_id", "name", "last_seen_at", "expected_interval_seconds"])
       .where("site_id", "=", siteId)
       .execute();
 
@@ -270,15 +275,16 @@ export class IngestAlertService {
       return;
     }
 
-    const ids = stale.map((d) => d.device_id).sort();
+    const staleSorted = [...stale].sort((a, b) => a.device_id.localeCompare(b.device_id));
+    const labels = staleSorted.map((d) => deviceDisplayLabel(d.device_id, d.name)).sort((a, b) => a.localeCompare(b));
     const message =
       stale.length === 1
-        ? `Device ${ids[0]} has not reported within its offline threshold.`
-        : `Devices offline (no recent telemetry): ${ids.join(", ")}.`;
+        ? `Device ${labels[0]} has not reported within its offline threshold.`
+        : `Devices offline (no recent telemetry): ${labels.join(", ")}.`;
 
     await this.upsertActiveAlert(executor, {
       siteId,
-      deviceId: ids[0]!,
+      deviceId: staleSorted[0]!.device_id,
       type: "device_offline",
       severity: "critical",
       message

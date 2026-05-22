@@ -2,6 +2,7 @@ import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { FormSectionHeading } from '~/components/layout/form-section-heading';
 import { Spinner } from '~/components/ui/spinner';
 import { cn } from '~/utils/cn';
 import {
@@ -65,7 +66,8 @@ function SiteLocationMapPickerInner({
   const zoom = hasPoint ? 12 : 4;
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-3', className)}>
+      <FormSectionHeading>{t('admin.sites.mapTitle')}</FormSectionHeading>
       <p className='text-xs text-muted-foreground'>
         {t('admin.sites.mapHint')}
       </p>

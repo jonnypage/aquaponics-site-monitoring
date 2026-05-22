@@ -1,12 +1,19 @@
+import { Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CircleDot } from "lucide-react";
 
 import { SensorIcon } from "~/components/sensor-icon";
+import { Button } from "~/components/ui/button";
+import { EntityKeyBadge } from "~/components/ui/entity-key-badge";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { cn } from "~/utils/cn";
-import type { InstallSensorRow } from "~/utils/firmware-sensor-pins";
+import type { InstallExtraWire, InstallSensorRow } from "~/utils/firmware-sensor-pins";
+import { slugWireIdFromLabel } from "~/utils/sensor-wiring";
+import { WireColorPicker } from "~/components/admin/wire-color-picker";
+import { resolveWireColorCss } from "~/utils/wire-color";
 
 export interface InstallSensorPinsFieldsetProps {
   rows: InstallSensorRow[];
@@ -20,9 +27,45 @@ export function InstallSensorPinsFieldset({
   unassignedSite = false
 }: InstallSensorPinsFieldsetProps) {
   const { t } = useTranslation();
+  const [addingExtraFor, setAddingExtraFor] = useState<string | null>(null);
+  const [extraLabel, setExtraLabel] = useState("");
+  const [extraColor, setExtraColor] = useState("gray");
 
   function updateRow(sensorKey: string, patch: Partial<InstallSensorRow>) {
     onChange(rows.map((r) => (r.sensorKey === sensorKey ? { ...r, ...patch } : r)));
+  }
+
+  function setWireGpio(sensorKey: string, wireId: string, gpio: string) {
+    const row = rows.find((r) => r.sensorKey === sensorKey);
+    if (!row) {
+      return;
+    }
+    updateRow(sensorKey, { wireMap: { ...row.wireMap, [wireId]: gpio } });
+  }
+
+  function confirmAddExtra(sensorKey: string) {
+    const row = rows.find((r) => r.sensorKey === sensorKey);
+    if (!row || !extraLabel.trim()) {
+      return;
+    }
+    const max = row.wiringTemplate.maxExtraWires ?? 2;
+    if (row.extraWires.length >= max) {
+      return;
+    }
+    const id = slugWireIdFromLabel(extraLabel);
+    const exists = row.extraWires.some((e) => e.id === id);
+    if (exists) {
+      return;
+    }
+    updateRow(sensorKey, {
+      extraWires: [
+        ...row.extraWires,
+        { id, label: extraLabel.trim(), color: extraColor, gpio: "" }
+      ]
+    });
+    setAddingExtraFor(null);
+    setExtraLabel("");
+    setExtraColor("gray");
   }
 
   if (rows.length === 0) {
@@ -37,22 +80,22 @@ export function InstallSensorPinsFieldset({
       {unassignedSite ? (
         <p className="text-xs text-muted-foreground">{t("admin.devices.installSensorsUnassignedHint")}</p>
       ) : null}
-      <ul className="space-y-2">
+      <ul className="space-y-3">
         {rows.map((row) => {
           const canInclude = row.siteEnabled;
-          const showPin = canInclude && row.included;
+          const showWiring = canInclude && row.included;
 
           return (
             <li
               key={row.sensorKey}
               className={cn(
-                "flex flex-wrap items-center gap-3 rounded-md border border-transparent px-1 py-1",
+                "rounded-md border px-3 py-2",
                 !row.siteEnabled && "opacity-50"
               )}
             >
               <label
                 className={cn(
-                  "flex min-w-0 flex-1 items-center gap-2 text-sm",
+                  "flex items-center gap-2 text-sm",
                   canInclude ? "cursor-pointer" : "cursor-not-allowed"
                 )}
               >
@@ -68,24 +111,109 @@ export function InstallSensorPinsFieldset({
                 ) : (
                   <CircleDot className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 )}
-                <span className="truncate font-medium">{row.displayName}</span>
-                <span className="font-mono text-xs text-muted-foreground">{row.sensorKey}</span>
+                <span className="font-medium">{row.displayName}</span>
+                <EntityKeyBadge>{row.sensorKey}</EntityKeyBadge>
               </label>
+
               {!row.siteEnabled ? (
-                <span className="text-xs text-muted-foreground">{t("admin.devices.installSensorOffAtSite")}</span>
-              ) : showPin ? (
-                <div className="flex items-center gap-2">
-                  <Label className="sr-only" htmlFor={`pin-${row.sensorKey}`}>
-                    {t("admin.devices.installPinGpio", { sensor: row.displayName })}
-                  </Label>
-                  <span className="text-xs text-muted-foreground">GPIO</span>
-                  <Input
-                    id={`pin-${row.sensorKey}`}
-                    className="w-20"
-                    inputMode="numeric"
-                    value={row.pin}
-                    onChange={(e) => updateRow(row.sensorKey, { pin: e.target.value })}
-                  />
+                <p className="mt-2 text-xs text-muted-foreground">{t("admin.devices.installSensorOffAtSite")}</p>
+              ) : null}
+
+              {showWiring ? (
+                <div className="mt-3 space-y-2 border-l-2 border-muted pl-3">
+                  {row.wiringTemplate.wires.map((wire) => (
+                    <div key={wire.id} className="flex flex-wrap items-center gap-2">
+                      <span
+                        className="h-4 w-4 shrink-0 rounded-full border border-border"
+                        style={{ backgroundColor: resolveWireColorCss(wire.color) }}
+                        title={wire.label}
+                      />
+                      <span className="min-w-[5rem] text-sm">{wire.label}</span>
+                      <span className="text-xs text-muted-foreground">GPIO</span>
+                      <Input
+                        className="w-20"
+                        inputMode="numeric"
+                        aria-label={t("admin.devices.installMapWireGpio", { label: wire.label })}
+                        value={row.wireMap[wire.id] ?? ""}
+                        onChange={(e) => setWireGpio(row.sensorKey, wire.id, e.target.value)}
+                      />
+                      {wire.required === false ? (
+                        <span className="text-xs text-muted-foreground">({t("admin.sensors.wiringOptional")})</span>
+                      ) : null}
+                    </div>
+                  ))}
+
+                  {row.extraWires.map((extra) => (
+                    <div key={extra.id} className="flex flex-wrap items-center gap-2">
+                      <span
+                        className="h-4 w-4 shrink-0 rounded-full border"
+                        style={{ backgroundColor: resolveWireColorCss(extra.color) }}
+                      />
+                      <span className="text-sm">{extra.label}</span>
+                      <span className="text-xs text-muted-foreground">GPIO</span>
+                      <Input
+                        className="w-20"
+                        inputMode="numeric"
+                        value={extra.gpio}
+                        onChange={(e) => {
+                          updateRow(row.sensorKey, {
+                            extraWires: row.extraWires.map((x) =>
+                              x.id === extra.id ? { ...x, gpio: e.target.value } : x
+                            )
+                          });
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() =>
+                          updateRow(row.sensorKey, {
+                            extraWires: row.extraWires.filter((x) => x.id !== extra.id)
+                          })
+                        }
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+
+                  {row.wiringTemplate.allowExtraWires &&
+                  row.extraWires.length < (row.wiringTemplate.maxExtraWires ?? 2) ? (
+                    addingExtraFor === row.sensorKey ? (
+                      <div className="flex flex-wrap items-end gap-2 rounded-md bg-muted/40 p-2">
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs leading-none">{t("admin.devices.installExtraWireLabel")}</Label>
+                          <Input value={extraLabel} onChange={(e) => setExtraLabel(e.target.value)} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs leading-none">{t("admin.sensors.wiringWireColor")}</Label>
+                          <div className="flex h-10 items-center">
+                            <WireColorPicker value={extraColor} onChange={setExtraColor} />
+                          </div>
+                        </div>
+                        <div className="flex h-10 items-center gap-2">
+                          <Button type="button" size="sm" onClick={() => confirmAddExtra(row.sensorKey)}>
+                            {t("admin.sensors.wiringAddWire")}
+                          </Button>
+                          <Button type="button" size="sm" variant="ghost" onClick={() => setAddingExtraFor(null)}>
+                            {t("admin.shared.cancel")}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAddingExtraFor(row.sensorKey)}
+                      >
+                        <Plus className="mr-1 h-3 w-3" />
+                        {t("admin.devices.installAddWire")}
+                      </Button>
+                    )
+                  ) : null}
                 </div>
               ) : null}
             </li>

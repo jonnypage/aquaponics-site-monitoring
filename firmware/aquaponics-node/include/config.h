@@ -4,6 +4,7 @@
 
 struct SensorPinEntry {
   String key;
+  String role;
   int pin;
 };
 
@@ -14,7 +15,7 @@ struct DeviceConfig {
   String wifiSsid;
   String wifiPassword;
   bool hasCamera = false;
-  SensorPinEntry sensors[12];
+  SensorPinEntry sensors[24];
   uint8_t sensorCount = 0;
 };
 

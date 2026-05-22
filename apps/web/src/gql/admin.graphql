@@ -7,6 +7,16 @@ query SensorCatalog {
     physicalMax
     sortOrder
     icon
+    wiringTemplate {
+      wires {
+        id
+        label
+        color
+        required
+      }
+      allowExtraWires
+      maxExtraWires
+    }
     createdAt
     updatedAt
   }
@@ -73,6 +83,7 @@ query AdminDevice($id: String!) {
     reportIntervalSeconds
     snapshotIntervalSeconds
     hasCamera
+    pinMap
     createdAt
     updatedAt
     recentSnapshots {
@@ -93,6 +104,16 @@ mutation CreateSensorCatalogEntry($input: CreateSensorCatalogEntryInput!) {
     physicalMax
     sortOrder
     icon
+    wiringTemplate {
+      wires {
+        id
+        label
+        color
+        required
+      }
+      allowExtraWires
+      maxExtraWires
+    }
     createdAt
     updatedAt
   }
@@ -107,6 +128,16 @@ mutation UpdateSensorCatalogEntry($input: UpdateSensorCatalogEntryInput!) {
     physicalMax
     sortOrder
     icon
+    wiringTemplate {
+      wires {
+        id
+        label
+        color
+        required
+      }
+      allowExtraWires
+      maxExtraWires
+    }
     createdAt
     updatedAt
   }
@@ -215,6 +246,7 @@ mutation UpdateAdminDevice($input: UpdateAdminDeviceInput!) {
     deviceId
     name
     siteId
+    pinMap
     lastSeenAt
     expectedIntervalSeconds
     reportIntervalSeconds

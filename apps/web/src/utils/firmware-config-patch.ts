@@ -2,16 +2,22 @@ export const CONFIG_BEGIN_MARKER = "__UD_CFG_BEGIN__";
 export const CONFIG_END_MARKER = "__UD_CFG_END__";
 export const CONFIG_REGION_SIZE = 2048;
 
+import type { FirmwarePinsConfig } from "~/utils/sensor-wiring";
+
 export interface FirmwareDeviceConfig {
-  v: 1;
+  v: 2;
   deviceId: string;
   apiKey: string;
   apiOrigin: string;
   wifiSsid: string;
   wifiPassword: string;
-  /** Per sensor key: GPIO pin number, or `null` to omit from firmware telemetry. */
-  pins: Record<string, number | null>;
+  /** Per sensor: null = disabled; object = wire role id → GPIO; number = legacy v1 single pin. */
+  pins: FirmwarePinsConfig;
   hasCamera: boolean;
+}
+
+export function estimateFirmwareConfigBytes(config: FirmwareDeviceConfig): number {
+  return new TextEncoder().encode(JSON.stringify(config)).length;
 }
 
 export interface EspWebToolsManifest {

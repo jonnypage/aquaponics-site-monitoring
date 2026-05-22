@@ -6,9 +6,10 @@ import { SnapshotsModule } from "../snapshots/snapshots.module.js";
 import { AdminDeviceResolver } from "./admin-device.resolver.js";
 import { AdminResolver } from "./admin.resolver.js";
 import { AdminService } from "./admin.service.js";
+import { JsonScalar } from "../graphql/json.scalar.js";
 
 @Module({
   imports: [DatabaseModule, AuthModule, IngestModule, SnapshotsModule],
-  providers: [AdminResolver, AdminDeviceResolver, AdminService]
+  providers: [AdminResolver, AdminDeviceResolver, AdminService, JsonScalar]
 })
 export class AdminModule {}

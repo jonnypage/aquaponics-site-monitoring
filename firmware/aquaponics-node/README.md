@@ -30,6 +30,7 @@ The admin install wizard patches a 2 KiB region between `__UD_CFG_BEGIN__` and `
 
 - `deviceId`, `apiKey`, `apiOrigin` (e.g. `http://192.168.1.10:4000` or your Railway API URL)
 - Wi-Fi credentials and GPIO `pins` for MVP sensors
+- **`v: 2`** (preferred): per-sensor role map, e.g. `"ph": { "signal": 5 }`; `null` disables a sensor. Legacy **`v: 1`** scalar pins (`"ph": 5`) map to role `signal`.
 - `hasCamera` (snapshot uploads use a stub JPEG until a camera driver is added)
 
 Telemetry intervals come from the server via `POST /ingest` `commands` — not from the flashed JSON.

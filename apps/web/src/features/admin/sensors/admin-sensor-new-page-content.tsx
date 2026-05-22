@@ -10,7 +10,13 @@ import { Card, CardContent } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { AdminSensorIconField } from "~/components/admin/admin-sensor-icon-field";
+import { SensorWiringEditor } from "~/components/admin/sensor-wiring-editor";
 import { useCreateSensorCatalogEntryMutate } from "~/hooks/useAdmin";
+import {
+  DEFAULT_SENSOR_WIRING_TEMPLATE,
+  wiringTemplateForGraphql,
+  type SensorWiringTemplate
+} from "~/utils/sensor-wiring";
 
 function parseOptFloat(s: string): number | null | undefined {
   const t = s.trim();
@@ -33,6 +39,10 @@ export function AdminSensorNewPageContent() {
   const [physicalMax, setPhysicalMax] = useState("");
   const [sortOrder, setSortOrder] = useState("");
   const [icon, setIcon] = useState("");
+  const [wiringTemplate, setWiringTemplate] = useState<SensorWiringTemplate>({
+    ...DEFAULT_SENSOR_WIRING_TEMPLATE,
+    wires: [...DEFAULT_SENSOR_WIRING_TEMPLATE.wires]
+  });
   const [formError, setFormError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
@@ -46,7 +56,8 @@ export function AdminSensorNewPageContent() {
         physicalMin: parseOptFloat(physicalMin) ?? null,
         physicalMax: parseOptFloat(physicalMax) ?? null,
         sortOrder: sortOrder.trim() ? Number.parseInt(sortOrder, 10) : null,
-        icon: icon.trim() || null
+        icon: icon.trim() || null,
+        wiringTemplate: wiringTemplateForGraphql(wiringTemplate)
       });
       await navigate({ to: "/admin/sensors" });
     } catch (err) {
@@ -90,6 +101,7 @@ export function AdminSensorNewPageContent() {
               </div>
             </div>
             <AdminSensorIconField id="ic" value={icon} onChange={setIcon} />
+            <SensorWiringEditor value={wiringTemplate} onChange={setWiringTemplate} />
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             <Button type="submit" disabled={isPending}>
               <ButtonPendingLabel pending={isPending}>{t("admin.shared.create")}</ButtonPendingLabel>

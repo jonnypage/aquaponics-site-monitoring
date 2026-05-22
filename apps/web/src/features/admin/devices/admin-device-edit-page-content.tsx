@@ -7,6 +7,7 @@ import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
 import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
 import { Card, CardContent } from "~/components/ui/card";
+import { EntityKeyBadge } from "~/components/ui/entity-key-badge";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { useAdminDevice, useAdminSites, useDeleteAdminDeviceMutate, useUpdateAdminDeviceMutate } from "~/hooks/useAdmin";
@@ -116,7 +117,7 @@ export function AdminDeviceEditPageContent() {
       </div>
       <Card className="w-full">
         <CardContent className="space-y-4 pt-6">
-          <p className="font-mono text-xs text-muted-foreground">{device.deviceId}</p>
+          <EntityKeyBadge>{device.deviceId}</EntityKeyBadge>
           <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
             <div className="space-y-2">
               <Label htmlFor="name">{t("admin.devices.name")}</Label>

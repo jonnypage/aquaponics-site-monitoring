@@ -227,7 +227,7 @@ Canonical table map to recreate in Kysely (`Database` interface):
 | `sites`               | Name, location, optional `latitude` / `longitude`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `devices`             | `device_id`, `api_key_hash` (SHA-256), `site_id` (nullable), `last_seen_at`, `expected_interval_seconds`, optional `report_interval_seconds`, `snapshot_interval_seconds`, `has_camera`, optional `name`, `board`, `pin_map` jsonb                                                                                                                                                                                                                                                                                                                  |
 | `user_sites`          | Many-to-many site assignments for non-admins                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `sensor_catalog`      | Global sensor definitions: `key`, display name, unit, physical min/max, sort order, optional `icon`                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `sensor_catalog`      | Global sensor definitions: `key`, display name, unit, physical min/max, sort order, optional `icon`, **`wiring_template` jsonb** (wire labels/colors for install UI — see **Sensor wiring** below)                                                                                                                                                                                                                                                                                                                                                   |
 | `site_sensor_catalog` | Per-site enablement per catalog sensor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `sensor_thresholds`   | Per-site threshold configuration keyed by `(site_id, sensor)` where `sensor` = catalog `key`. Columns: `normal_min`, `normal_max` (the target operating range, nullable — fall back to `sensor_catalog.physical_min/max`), `warning_delta` (± buffer beyond normal bounds that triggers a **warning** alert, nullable), `critical_delta` (± buffer beyond normal bounds that triggers a **critical** alert, nullable; should be ≥ `warning_delta` for sensible semantics)                                                                           |
 | `measurements`        | Time series: `id UUID DEFAULT gen_random_uuid()`, `site_id`, `device_id` (nullable), `sensor`, `value` (**PostgreSQL `double precision`**), `taken_at` (`timestamptz`), `ingested_at`. Composite primary key `(taken_at, id)` (TimescaleDB-ready). **Required indexes (add in initial migration — chart queries will be slow without them):** `(site_id, sensor, taken_at DESC)` for sensor history; `(device_id, taken_at DESC)` for device detail. Do not add unique constraints that exclude `taken_at`; that would break hypertable conversion. |
@@ -604,6 +604,45 @@ Gate `/admin/*` server- or client-side: non-`admin` → redirect `/sites`.
 
 - `VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY` (or equivalent): Maps Embed on site detail; Maps JavaScript API on admin site form picker.
 - Firmware: static `public/firmware/<board>/firmware.bin`; patch 2 KiB config region (`__UD_CFG_BEGIN__` / `__UD_CFG_END__`); esp-web-tools manifest from in-memory patched bytes; placeholder binary acceptable until PlatformIO build is wired. Installer/config must support MVP sensors (`temperature`, `ph`, `waterLevel`, `waterFlow`) and optional **camera** flag + default intervals.
+
+### Sensor wiring (multi-pin)
+
+Catalog rows define how wires appear on the device install wizard; only GPIO numbers are stored on the device and in flashed JSON.
+
+**`sensor_catalog.wiring_template` (jsonb):**
+
+```json
+{
+  "wires": [
+    { "id": "signal", "label": "Signal", "color": "#3b82f6", "required": true },
+    { "id": "sda", "label": "SDA", "color": "green", "required": true }
+  ],
+  "allowExtraWires": false,
+  "maxExtraWires": 2
+}
+```
+
+- `wires[].id` — stable firmware role key (`[a-z][a-z0-9_]*`), e.g. `signal`, `sda`, `scl`.
+- `wires[].label` — human label on install UI.
+- `wires[].color` — hex (`#rrggbb`) or preset key (`red`, `black`, `yellow`, `green`, `blue`, `white`, `orange`).
+- `allowExtraWires` / `maxExtraWires` — optional “+ Add wire” rows on install (custom label + color + GPIO).
+
+Admins edit templates on **`/admin/sensors/new`** and **`/admin/sensors/$key/edit`** (`SensorWiringEditor`). Validation: 1–8 wires, unique `id`, valid colors.
+
+**Install wizard** (`/admin/devices/$deviceId/install`): for each included site sensor, map each catalog wire (colored dot + label) to a GPIO number. On “Continue to flash”, the patched firmware JSON uses **`v: 2`** and role-keyed pins:
+
+```json
+"pins": {
+  "ph": { "signal": 5 },
+  "waterLevel": null
+}
+```
+
+Legacy **`v: 1`** scalar pins (`"ph": 5`) still parse in firmware as `{ "signal": 5 }`.
+
+**`devices.pin_map` (jsonb, optional):** mirrors the GPIO map only (no labels/colors), e.g. `{ "ph": { "signal": 5 } }`. Persisted via `updateAdminDevice(pinMap)` when preparing flash; pre-fills install when re-opened.
+
+Shared types/validation: `packages/db/src/sensor-wiring.ts`. Web: `apps/web/src/utils/sensor-wiring.ts`, `firmware-sensor-pins.ts`, `firmware-config-patch.ts` (2 KiB size guard).
 
 ---
 

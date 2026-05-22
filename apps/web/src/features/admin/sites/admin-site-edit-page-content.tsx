@@ -3,16 +3,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { SiteLocationMapPicker } from '~/components/admin/site-location-map-picker';
-import { SiteAlertsSection } from '~/components/sites/site-alerts-section';
+import { SiteSensorThresholdOverrideRow } from '~/components/admin/site-sensor-threshold-override-row';
 
+import { FormSectionHeading } from '~/components/layout/form-section-heading';
 import { PageBackLink } from '~/components/layout/page-back-link';
 import { PageHeader } from '~/components/layout/page-header';
 import { Button } from '~/components/ui/button';
-import { ButtonPendingLabel, LoadingIndicator } from '~/components/ui/loading-indicator';
+import {
+  ButtonPendingLabel,
+  LoadingIndicator,
+} from '~/components/ui/loading-indicator';
 import { Card, CardContent } from '~/components/ui/card';
+import { EntityKeyBadge } from '~/components/ui/entity-key-badge';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
-import { useAdminSites, useUpdateAdminSiteMutate } from '~/hooks/useAdmin';
+import {
+  useAdminSites,
+  useSensorCatalog,
+  useUpdateAdminSiteMutate,
+} from '~/hooks/useAdmin';
 
 const routeApi = getRouteApi('/_authed/admin/sites/$siteId/edit');
 
@@ -30,12 +39,45 @@ export function AdminSiteEditPageContent() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: sites, isLoading } = useAdminSites();
+  const { data: catalog } = useSensorCatalog();
   const { mutateAsync: updateSite, isPending } = useUpdateAdminSiteMutate();
 
   const site = useMemo(
     () => sites?.find((s) => s.id === siteId),
     [sites, siteId],
   );
+
+  const catalogByKey = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        physicalMin?: number | null;
+        physicalMax?: number | null;
+        displayName: string;
+        icon?: string | null;
+      }
+    >();
+    for (const c of catalog ?? []) {
+      map.set(c.key, {
+        physicalMin: c.physicalMin,
+        physicalMax: c.physicalMax,
+        displayName: c.displayName,
+        icon: c.icon,
+      });
+    }
+    return map;
+  }, [catalog]);
+
+  const reportingByKey = useMemo(() => {
+    const map = new Map<
+      string,
+      { displayName: string; icon?: string | null }
+    >();
+    for (const r of site?.sensorReporting ?? []) {
+      map.set(r.sensorKey, { displayName: r.displayName, icon: r.icon });
+    }
+    return map;
+  }, [site?.sensorReporting]);
   const keys = useMemo(
     () => site?.sensorReporting.map((r) => r.sensorKey) ?? [],
     [site],
@@ -140,7 +182,9 @@ export function AdminSiteEditPageContent() {
   return (
     <>
       <PageHeader title={t('admin.sites.editTitle')} />
-      <PageBackLink to='/admin/sites'>{t('admin.sites.backToSites')}</PageBackLink>
+      <PageBackLink to='/admin/sites'>
+        {t('admin.sites.backToSites')}
+      </PageBackLink>
       {/* <div className='mb-6'>
         <SiteAlertsSection
           siteId={site.id}
@@ -150,15 +194,23 @@ export function AdminSiteEditPageContent() {
       <Card className='w-full'>
         <CardContent className='pt-6'>
           <form className='space-y-6' onSubmit={(e) => void onSubmit(e)}>
-            <div className='space-y-2'>
-              <Label htmlFor='sname'>{t('admin.sites.name')}</Label>
+            <div className='space-y-3'>
+              <FormSectionHeading id='site-name-heading'>
+                {t('admin.sites.name')}
+              </FormSectionHeading>
               <Input
                 id='sname'
+                aria-labelledby='site-name-heading'
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
               />
             </div>
+            <SiteLocationMapPicker
+              latitude={lat}
+              longitude={lng}
+              onPick={onMapPick}
+            />
             <div className='grid gap-4 sm:grid-cols-2'>
               <div className='space-y-2'>
                 <Label htmlFor='lat'>{t('admin.sites.latitude')}</Label>
@@ -178,9 +230,7 @@ export function AdminSiteEditPageContent() {
               </div>
             </div>
             <div className='space-y-3'>
-              <p className='text-sm font-medium'>
-                {t('admin.sites.sensorEnabled')}
-              </p>
+              <FormSectionHeading>{t('admin.sites.sensorEnabled')}</FormSectionHeading>
               {keys.map((k) => (
                 <label key={k} className='flex items-center gap-2 text-sm'>
                   <input
@@ -190,95 +240,40 @@ export function AdminSiteEditPageContent() {
                       setEnabled((p) => ({ ...p, [k]: !(p[k] ?? true) }))
                     }
                   />
-                  <span className='font-mono'>{k}</span>
+                  <EntityKeyBadge>{k}</EntityKeyBadge>
                 </label>
               ))}
             </div>
             <div className='space-y-3'>
-              <p className='text-sm font-medium'>
-                {t('admin.sites.thresholds')}
-              </p>
+              <FormSectionHeading>{t('admin.sites.thresholds')}</FormSectionHeading>
               <div className='space-y-4'>
                 {keys.map((k) => {
                   const row = th[k] ?? { nm: '', nM: '', wd: '', cd: '' };
+                  const cat = catalogByKey.get(k);
+                  const reporting = reportingByKey.get(k);
                   return (
-                    <div key={k} className='rounded-md border p-3'>
-                      <p className='mb-2 font-mono text-xs text-muted-foreground'>
-                        {k}
-                      </p>
-                      <div className='grid gap-2 sm:grid-cols-2'>
-                        <div>
-                          <Label className='text-xs'>
-                            {t('admin.sites.normalMin')}
-                          </Label>
-                          <Input
-                            value={row.nm}
-                            onChange={(e) =>
-                              setTh((p) => ({
-                                ...p,
-                                [k]: { ...row, nm: e.target.value },
-                              }))
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label className='text-xs'>
-                            {t('admin.sites.normalMax')}
-                          </Label>
-                          <Input
-                            value={row.nM}
-                            onChange={(e) =>
-                              setTh((p) => ({
-                                ...p,
-                                [k]: { ...row, nM: e.target.value },
-                              }))
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label className='text-xs'>
-                            {t('admin.sites.warningDelta')}
-                          </Label>
-                          <Input
-                            value={row.wd}
-                            onChange={(e) =>
-                              setTh((p) => ({
-                                ...p,
-                                [k]: { ...row, wd: e.target.value },
-                              }))
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label className='text-xs'>
-                            {t('admin.sites.criticalDelta')}
-                          </Label>
-                          <Input
-                            value={row.cd}
-                            onChange={(e) =>
-                              setTh((p) => ({
-                                ...p,
-                                [k]: { ...row, cd: e.target.value },
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <SiteSensorThresholdOverrideRow
+                      key={k}
+                      sensorKey={k}
+                      sensorLabel={reporting?.displayName ?? cat?.displayName}
+                      icon={reporting?.icon ?? cat?.icon}
+                      catalogPhysicalMin={cat?.physicalMin}
+                      catalogPhysicalMax={cat?.physicalMax}
+                      row={row}
+                      onChange={(next) => setTh((p) => ({ ...p, [k]: next }))}
+                    />
                   );
                 })}
               </div>
             </div>
-            <SiteLocationMapPicker
-              latitude={lat}
-              longitude={lng}
-              onPick={onMapPick}
-            />
+
             {formError ? (
               <p className='text-sm text-destructive'>{formError}</p>
             ) : null}
             <Button type='submit' disabled={isPending}>
-              <ButtonPendingLabel pending={isPending}>{t('admin.shared.save')}</ButtonPendingLabel>
+              <ButtonPendingLabel pending={isPending}>
+                {t('admin.shared.save')}
+              </ButtonPendingLabel>
             </Button>
           </form>
         </CardContent>

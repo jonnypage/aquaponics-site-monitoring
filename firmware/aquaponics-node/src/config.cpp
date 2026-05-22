@@ -19,6 +19,55 @@ static int parsePinValue(JsonVariantConst v) {
   return pin >= 0 ? pin : -1;
 }
 
+static bool addSensorPin(DeviceConfig &out, const char *sensorKey, const char *role, int pin) {
+  if (pin < 0 || out.sensorCount >= sizeof(out.sensors) / sizeof(out.sensors[0])) {
+    return false;
+  }
+  out.sensors[out.sensorCount].key = sensorKey;
+  out.sensors[out.sensorCount].role = role;
+  out.sensors[out.sensorCount].pin = pin;
+  out.sensorCount++;
+  return true;
+}
+
+static void loadSensorFromPins(DeviceConfig &out, const char *sensorKey, JsonVariantConst value) {
+  if (value.isNull()) {
+    return;
+  }
+  if (value.is<int>()) {
+    const int pin = parsePinValue(value);
+    if (pin >= 0) {
+      addSensorPin(out, sensorKey, "signal", pin);
+    }
+    return;
+  }
+  JsonObjectConst roles = value.as<JsonObjectConst>();
+  if (roles.isNull()) {
+    return;
+  }
+  int signalPin = -1;
+  int firstPin = -1;
+  const char *firstRole = "signal";
+  for (JsonPairConst role : roles) {
+    const int pin = parsePinValue(role.value());
+    if (pin < 0) {
+      continue;
+    }
+    if (strcmp(role.key().c_str(), "signal") == 0) {
+      signalPin = pin;
+    }
+    if (firstPin < 0) {
+      firstPin = pin;
+      firstRole = role.key().c_str();
+    }
+  }
+  if (signalPin >= 0) {
+    addSensorPin(out, sensorKey, "signal", signalPin);
+  } else if (firstPin >= 0) {
+    addSensorPin(out, sensorKey, firstRole, firstPin);
+  }
+}
+
 bool loadDeviceConfig(DeviceConfig &out) {
   ud_touch_cfg_region();
 
@@ -49,7 +98,8 @@ bool loadDeviceConfig(DeviceConfig &out) {
     return false;
   }
 
-  if (doc["v"].as<int>() != 1) {
+  const int version = doc["v"].as<int>();
+  if (version != 1 && version != 2) {
     return false;
   }
 
@@ -64,16 +114,7 @@ bool loadDeviceConfig(DeviceConfig &out) {
   JsonObjectConst pins = doc["pins"].as<JsonObjectConst>();
   if (!pins.isNull()) {
     for (JsonPairConst kv : pins) {
-      if (out.sensorCount >= sizeof(out.sensors) / sizeof(out.sensors[0])) {
-        break;
-      }
-      const int pin = parsePinValue(kv.value());
-      if (pin < 0) {
-        continue;
-      }
-      out.sensors[out.sensorCount].key = kv.key().c_str();
-      out.sensors[out.sensorCount].pin = pin;
-      out.sensorCount++;
+      loadSensorFromPins(out, kv.key().c_str(), kv.value());
     }
   }
 

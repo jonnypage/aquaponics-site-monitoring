@@ -2,6 +2,7 @@ import { Camera } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { EntityKeyBadge } from '~/components/ui/entity-key-badge';
 import { formatRelativeTime } from '~/utils/format';
 
 export interface SiteLatestSnapshotProps {
@@ -26,11 +27,13 @@ export function SiteLatestSnapshot({ imageUrl, takenAt, deviceId }: SiteLatestSn
           alt={t('siteDetailPage.snapshotAlt')}
           className="max-h-80 w-full rounded-md border object-contain bg-muted/30"
         />
-        <p className="text-xs text-muted-foreground">
-          {t('siteDetailPage.snapshotMeta', {
-            time: formatRelativeTime(taken),
-            deviceId,
-          })}
+        <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span>
+            {t('siteDetailPage.snapshotCaptured', {
+              time: formatRelativeTime(taken),
+            })}
+          </span>
+          <EntityKeyBadge>{deviceId}</EntityKeyBadge>
         </p>
       </CardContent>
     </Card>
