@@ -53,11 +53,29 @@ Without storage env vars, telemetry still works; snapshots return **503**.
 
 ## Web service
 
+### Build, start, and Railpack (required)
+
+TanStack Start is a **Node SSR** app (`apps/web/.output/server/index.mjs`), not a static Vite `dist/` site. If the page is blank or never loads JS, check these first:
+
+| Setting | Value |
+|---------|--------|
+| **Root directory** | Repository root |
+| **Build command** | `bash scripts/railway-build-web.sh` (or `pnpm build:web:railway`) |
+| **Start command** | `pnpm start:web` — **not** root `pnpm start` (that starts the API) |
+| **Env (web service)** | `RAILPACK_CONFIG_FILE=railpack.web.json` |
+| **Env (web service)** | `RAILPACK_NO_SPA=1` — disables Railpack Caddy static mode for Vite |
+
+**Build-time variable (required):** `VITE_PUBLIC_API_URL` = public API URL (e.g. `https://your-api.up.railway.app`, no trailing slash). Vite bakes this into the bundle at **build** time; changing it later requires a **redeploy/rebuild**.
+
+**API service (for login / GraphQL):** `WEB_ORIGIN` = exact web URL (e.g. `https://your-web.up.railway.app`, no trailing slash). Must match the browser origin or CORS blocks requests and the app looks empty after login.
+
+After deploy, open browser devtools → Network: HTML should come from the web service; `/graphql` requests should go to your API URL (not `localhost:4000`).
+
 ### Real firmware binary (required for hardware install)
 
 `firmware.bin` is **not in git**. Production must run PlatformIO during build.
 
-**Builder:** Railway uses **Railpack** (not Nixpacks). Commit [`railpack.json`](../railpack.json) so **build-only** apt packages install (`python3`, `pip`, `build-essential`, …). They are **not** added to the running web container — deploy memory stays Node-only.
+**Builder:** Railway uses **Railpack** (not Nixpacks). On the **web** service set `RAILPACK_CONFIG_FILE=railpack.web.json` ([`railpack.web.json`](../railpack.web.json)) so **build-only** apt packages install for PlatformIO (`python3`, `pip`, …). They are **not** in the runtime container.
 
 **Build command:**
 
@@ -69,7 +87,7 @@ bash scripts/railway-build-web.sh
 
 **Do not use** `pip install platformio` as the build command — Railpack has no `pip` until apt packages install.
 
-**Optional env** (if `railpack.json` is not picked up): on the **web** service only:
+**Optional env** (if `railpack.web.json` is not picked up): on the **web** service only:
 
 `RAILPACK_BUILD_APT_PACKAGES` = `python3,python3-pip,python3-venv,build-essential,git,curl,xz-utils`
 

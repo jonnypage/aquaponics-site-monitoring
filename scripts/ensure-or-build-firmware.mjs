@@ -47,7 +47,7 @@ if (wantsRealFirmware()) {
     await runNodeScript("build-firmware.mjs");
   } catch (e) {
     console.error(
-      "Real firmware build failed. Ensure `pio` is on PATH (Railway: railpack.json buildAptPackages + scripts/railway-build-web.sh), or unset FIRMWARE_BUILD for a local placeholder."
+      "Real firmware build failed. Ensure `pio` is on PATH (Railway: railpack.web.json + scripts/railway-build-web.sh), or unset FIRMWARE_BUILD for a local placeholder."
     );
     throw e;
   }

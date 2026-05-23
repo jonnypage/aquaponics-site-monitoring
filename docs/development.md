@@ -380,7 +380,7 @@ Required env vars (API): `DATABASE_PUBLIC_URL`, `AUTH_SECRET`, `NODE_ENV=product
 - **Local** (`pnpm dev:web` / `pnpm build:web`): placeholder if the file is missing (installer UI only).
 - **CI / Railway**: builds real firmware when `RAILWAY_ENVIRONMENT` is set, `CI=true`, or `FIRMWARE_BUILD=real`.
 
-**Recommended Railway web build** (Railpack — see [`railpack.json`](../railpack.json) for build-only apt deps):
+**Recommended Railway web build** (Railpack — web service: `RAILPACK_CONFIG_FILE=railpack.web.json`, `RAILPACK_NO_SPA=1`; see [`railpack.web.json`](../railpack.web.json)):
 
 ```bash
 bash scripts/railway-build-web.sh
