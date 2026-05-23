@@ -4,6 +4,23 @@ Use this when closing Phase 6 on a Railway deployment. Local smoke tests remain 
 
 ## API service
 
+### Build and start (required)
+
+`apps/api/dist/` is **gitignored** — it only exists after a compile step. If start fails with `Cannot find module .../dist/main.js`, the API service **did not run** `pnpm build:api` (or build logs were skipped).
+
+| Setting | Value |
+|---------|--------|
+| **Root directory** | Repository root (not `apps/api`) |
+| **Build command** | `pnpm build:api` or `bash scripts/railway-build-api.sh` |
+| **Start command** | `pnpm start:api` |
+| **Release command** | `pnpm migrate:deploy` |
+
+Do **not** use the web firmware build (`bash scripts/railway-build-web.sh`) on the API service — that builds the dashboard, not Nest.
+
+**Optional (API service env):** `RAILPACK_CONFIG_FILE=railpack.api.json` — forces API compile and copies `dist/` into the deploy image (see [`railpack.api.json`](../railpack.api.json)).
+
+Build logs should show TypeScript compiling `packages/db` and `apps/api`. After deploy, `GET /health` on the API URL should return `{"ok":true}`.
+
 ### Postgres (required)
 
 - `DATABASE_PUBLIC_URL` — variable reference from Postgres plugin

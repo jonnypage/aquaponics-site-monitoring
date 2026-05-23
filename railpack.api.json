@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "build": {
+      "commands": ["...", "bash scripts/railway-build-api.sh"]
+    }
+  },
+  "deploy": {
+    "inputs": [
+      "...",
+      {
+        "step": "build",
+        "include": ["apps/api/dist", "packages/db/dist"]
+      }
+    ]
+  }
+}

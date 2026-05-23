@@ -364,7 +364,7 @@ Both services use **repo root** as the root directory so builds can access `pack
 
 | Setting | API service | Web service |
 | ------- | ----------- | ----------- |
-| Build command | `pnpm build:api` | See **Web firmware build** below |
+| Build command | `pnpm build:api` or `bash scripts/railway-build-api.sh` | See **Web firmware build** below — **not** the web script on API |
 | Start command | `pnpm start:api` | `pnpm start:web` |
 | Release command | `pnpm migrate:deploy` | — |
 | Watch paths | `apps/api/**`, `packages/db/**`, `pnpm-lock.yaml` | `apps/web/**`, `firmware/**`, `packages/db/**`, `pnpm-lock.yaml`, `scripts/**` |

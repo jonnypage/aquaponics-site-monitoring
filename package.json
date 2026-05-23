@@ -20,6 +20,7 @@
     "prebuild:web": "node scripts/ensure-or-build-firmware.mjs",
     "dev:web": "pnpm --filter @aquaponics/web dev",
     "build:web": "pnpm --filter @aquaponics/web build",
+    "build:api:railway": "bash scripts/railway-build-api.sh",
     "build:web:railway": "bash scripts/railway-build-web.sh",
     "start:web": "pnpm --filter @aquaponics/web start",
     "typecheck": "pnpm -r typecheck",
