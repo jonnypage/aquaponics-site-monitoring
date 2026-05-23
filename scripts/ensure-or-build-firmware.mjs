@@ -47,7 +47,7 @@ if (wantsRealFirmware()) {
     await runNodeScript("build-firmware.mjs");
   } catch (e) {
     console.error(
-      "Real firmware build failed. Install PlatformIO (`pip install platformio`) and ensure `pio` is on PATH, or set FIRMWARE_BUILD unset for a local placeholder build."
+      "Real firmware build failed. Ensure `pio` is on PATH (Railway: railpack.json buildAptPackages + scripts/railway-build-web.sh), or unset FIRMWARE_BUILD for a local placeholder."
     );
     throw e;
   }

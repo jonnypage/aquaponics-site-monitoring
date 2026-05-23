@@ -380,14 +380,14 @@ Required env vars (API): `DATABASE_PUBLIC_URL`, `AUTH_SECRET`, `NODE_ENV=product
 - **Local** (`pnpm dev:web` / `pnpm build:web`): placeholder if the file is missing (installer UI only).
 - **CI / Railway**: builds real firmware when `RAILWAY_ENVIRONMENT` is set, `CI=true`, or `FIRMWARE_BUILD=real`.
 
-**Recommended Railway web build command** (Nixpacks provides `pio` via [`nixpacks.toml`](../nixpacks.toml)):
+**Recommended Railway web build** (Railpack — see [`railpack.json`](../railpack.json) for build-only apt deps):
 
 ```bash
 bash scripts/railway-build-web.sh
 ```
 
-or `pnpm build:web:railway`. Plain `pnpm build:web` works on Railway when `nixpacks.toml` is applied.
+or `pnpm build:web:railway`. Fallback env on web service: `RAILPACK_BUILD_APT_PACKAGES=python3,python3-pip,python3-venv,build-essential,git,curl,xz-utils` (not `RAILPACK_DEPLOY_APT_PACKAGES`).
 
-**Avoid** `pip install platformio` — the default Node build image has no `pip`. If `pio` is missing, set web service variable `NIXPACKS_PKGS=platformio`.
+**Avoid** `pip install platformio && …` as the build command — use the script after apt packages install.
 
 Do not flash the placeholder binary to hardware.

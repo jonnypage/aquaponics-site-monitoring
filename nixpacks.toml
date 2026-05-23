@@ -1,4 +1,0 @@
-# Railway / Nixpacks: expose `pio` for web prebuild (real firmware.bin).
-# API service builds ignore firmware; extra setup cost is small.
-[phases.setup]
-nixPkgs = ["platformio"]

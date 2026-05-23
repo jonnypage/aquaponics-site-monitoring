@@ -40,23 +40,25 @@ Without storage env vars, telemetry still works; snapshots return **503**.
 
 `firmware.bin` is **not in git**. Production must run PlatformIO during build.
 
-**Build command (recommended)** — Railway’s Node image has no `pip`. Use one of:
+**Builder:** Railway uses **Railpack** (not Nixpacks). Commit [`railpack.json`](../railpack.json) so **build-only** apt packages install (`python3`, `pip`, `build-essential`, …). They are **not** added to the running web container — deploy memory stays Node-only.
+
+**Build command:**
 
 ```bash
 bash scripts/railway-build-web.sh
 ```
 
-or:
+(or `pnpm build:web:railway`)
 
-```bash
-pnpm build:web:railway
-```
+**Do not use** `pip install platformio` as the build command — Railpack has no `pip` until apt packages install.
 
-The repo includes [`nixpacks.toml`](../nixpacks.toml) (`platformio` in setup) so `pio` is on `PATH`; then a plain `pnpm build:web` also works on Railway.
+**Optional env** (if `railpack.json` is not picked up): on the **web** service only:
 
-**Do not use** `pip install platformio` unless you add Python to the build image yourself.
+`RAILPACK_BUILD_APT_PACKAGES` = `python3,python3-pip,python3-venv,build-essential,git,curl,xz-utils`
 
-`RAILWAY_ENVIRONMENT` triggers a real firmware build via [`scripts/ensure-or-build-firmware.mjs`](../scripts/ensure-or-build-firmware.mjs). Build logs should show `Building ESP8266 firmware`.
+Do **not** set `RAILPACK_DEPLOY_APT_PACKAGES` (would bloat runtime).
+
+`RAILWAY_ENVIRONMENT` triggers a real firmware build via [`scripts/ensure-or-build-firmware.mjs`](../scripts/ensure-or-build-firmware.mjs). Build logs should show `Building ESP8266 firmware` then `pio run`.
 
 **Watch paths:** include `firmware/**` and `scripts/**` so firmware changes redeploy web.
 
