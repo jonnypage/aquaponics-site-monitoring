@@ -95,7 +95,7 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 - **esp-web-tools** install wizard (Wi‑Fi, catalog wire→GPIO, firmware config **v2**, optional **`devices.pin_map`**); migration **`0008_sensor_wiring_template`**.
 - **`firmware/aquaponics-node/`** (telemetry, stub JPEG snapshots, command handling); gitignored **`apps/web/public/firmware/esp8266/firmware.bin`** (`pnpm firmware:build`; `firmware:placeholder` for installer UI dev).
 
-**Still to validate / optional gaps:** real object storage env, real PlatformIO binary on device, admin UI for `recentSnapshots`, real camera hardware, firmware CI, ESP32 CYD.
+**Operator / post-MVP:** Railway `OBJECT_STORAGE_*` and web build with PlatformIO ([`phase6-railway-production.md`](phase6-railway-production.md)); §8 hardware snapshot reflash. **Done in code:** admin `recentSnapshots` gallery, firmware deploy hook (`ensure-or-build-firmware.mjs`), ESP32 CYD roadmap stub. **Deferred:** real camera hardware, ESP32 CYD flash.
 
 - **Exit criteria:** install wizard flashes device; ingest returns commands; snapshot upload stores object + metadata; alert sets `captureImageNow`; site detail shows latest snapshot when present.
 

@@ -7,6 +7,7 @@ import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
 import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
 import { Card, CardContent } from "~/components/ui/card";
+import { AdminDeviceRecentSnapshots } from "~/components/admin/admin-device-recent-snapshots";
 import { EntityKeyBadge } from "~/components/ui/entity-key-badge";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -170,6 +171,15 @@ export function AdminDeviceEditPageContent() {
           </form>
         </CardContent>
       </Card>
+
+      {device.hasCamera || (device.recentSnapshots?.length ?? 0) > 0 ? (
+        <div className="mt-6">
+          <AdminDeviceRecentSnapshots
+            deviceId={device.deviceId}
+            snapshots={device.recentSnapshots ?? []}
+          />
+        </div>
+      ) : null}
     </>
   );
 }

@@ -364,9 +364,30 @@ Both services use **repo root** as the root directory so builds can access `pack
 
 | Setting | API service | Web service |
 | ------- | ----------- | ----------- |
-| Build command | `pnpm build:api` | `pnpm build:web` |
+| Build command | `pnpm build:api` | See **Web firmware build** below |
 | Start command | `pnpm start:api` | `pnpm start:web` |
 | Release command | `pnpm migrate:deploy` | — |
-| Watch paths | `apps/api/**`, `packages/db/**`, `pnpm-lock.yaml` | `apps/web/**`, `packages/db/**`, `pnpm-lock.yaml` |
+| Watch paths | `apps/api/**`, `packages/db/**`, `pnpm-lock.yaml` | `apps/web/**`, `firmware/**`, `packages/db/**`, `pnpm-lock.yaml`, `scripts/**` |
 
 Required env vars (API): `DATABASE_PUBLIC_URL`, `AUTH_SECRET`, `NODE_ENV=production`, `WEB_ORIGIN`, `PG_POOL_MAX=3`. Railway sets `PORT` automatically. Node 22.12+ must match the `engines` field.
+
+**API snapshots (Phase 6):** set `OBJECT_STORAGE_ENDPOINT`, `OBJECT_STORAGE_REGION`, `OBJECT_STORAGE_BUCKET`, `OBJECT_STORAGE_ACCESS_KEY_ID`, `OBJECT_STORAGE_SECRET_ACCESS_KEY` on the API service (Railway Storage bucket credentials). Without these, `POST /ingest/snapshot` returns **503**.
+
+### Web firmware build
+
+`firmware.bin` is **gitignored**. `prebuild:web` runs [`scripts/ensure-or-build-firmware.mjs`](../scripts/ensure-or-build-firmware.mjs):
+
+- **Local** (`pnpm dev:web` / `pnpm build:web`): placeholder if the file is missing (installer UI only).
+- **CI / Railway**: builds real firmware when `RAILWAY_ENVIRONMENT` is set, `CI=true`, or `FIRMWARE_BUILD=real`.
+
+**Recommended Railway web build command** (Nixpacks provides `pio` via [`nixpacks.toml`](../nixpacks.toml)):
+
+```bash
+bash scripts/railway-build-web.sh
+```
+
+or `pnpm build:web:railway`. Plain `pnpm build:web` works on Railway when `nixpacks.toml` is applied.
+
+**Avoid** `pip install platformio` — the default Node build image has no `pip`. If `pio` is missing, set web service variable `NIXPACKS_PKGS=platformio`.
+
+Do not flash the placeholder binary to hardware.

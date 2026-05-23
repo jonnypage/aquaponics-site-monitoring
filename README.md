@@ -12,9 +12,10 @@ ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and
 | **Hardware (ESP8266 D1 mini)** | Validated locally: browser flash via esp-web-tools, Wi‑Fi join, `POST /ingest` to a LAN API, serial logs at 115200 |
 | **Firmware in git** | **No** — source in [`firmware/aquaponics-node/`](firmware/aquaponics-node/); built `firmware.bin` is gitignored and copied into the web app for the installer |
 | **Phase 7** | Planned (notifications / alert policy) — not started — [`docs/phase7-agent-prompt.md`](docs/phase7-agent-prompt.md) |
-| **Post-MVP** | Real camera driver, ESP32 CYD, firmware CI on deploy, production object storage on Railway |
+| **Post-MVP** | Real camera driver, ESP32 CYD flash ([`docs/esp32-cyd-roadmap.md`](docs/esp32-cyd-roadmap.md)) |
+| **Production** | Railway: [`docs/phase6-railway-production.md`](docs/phase6-railway-production.md) — `OBJECT_STORAGE_*` on API; web build with PlatformIO (`FIRMWARE_BUILD=real` or `RAILWAY_ENVIRONMENT`) |
 
-Before calling Phase 6 production-ready on your environment, run [`docs/phase6-verification.md`](docs/phase6-verification.md).
+Before calling Phase 6 production-ready on your environment, run [`docs/phase6-verification.md`](docs/phase6-verification.md) (§8 snapshot upload after latest firmware reflash).
 
 **Staging devices:** use an admin-only **“Device staging”** site (do not assign to operators); calibrate there, then move devices to production sites.
 
@@ -25,7 +26,7 @@ Before calling Phase 6 production-ready on your environment, run [`docs/phase6-v
 - **Database foundation:** migrations, seed data, users, sites, devices, sensor catalog, measurements, and **Phase 4 alert tables** (`site_sensor_catalog`, `sensor_thresholds`, `alerts` — migrate to `0003` to enable) are managed through `packages/db`. Migration **`0004`** adds optional **`sites.latitude`** / **`sites.longitude`** for admin site forms.
 - **Authenticated API:** the dashboard API uses GraphQL, HTTP-only JWT cookies, bcrypt password hashing, and role-aware access checks. **Profile updates** use **`updateMe`** (current password required; clears the session cookie so the client signs in again). **Admin-only** GraphQL (`sensorCatalog`, `adminUsers` with assignments, `adminSites`, `adminDevices`, catalog and admin CRUD mutations) is implemented in [`apps/api/src/admin/`](apps/api/src/admin/).
 - **Web dashboard shell:** TanStack Start is wired up with login, session loading, protected routes, site/measurement GraphQL reads, **site status** (OK / unknown / warning / critical from alerts + telemetry), an **alerts** page linked from the sidebar, **`/settings`** (account form + `updateMe`), and **`/admin/*`** (admin-only) for **users**, **sites** (sensors + thresholds + geo, optional **Google Maps** picker when `VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY` is set), **devices** (API key on create/rotate; **browser installer** at `/admin/devices/$deviceId/install`), and **global sensor catalog** CRUD via GraphQL admin operations and [`apps/web/src/hooks/useAdmin.ts`](apps/web/src/hooks/useAdmin.ts).
-- **Phase 6 — firmware + camera:** `POST /ingest/snapshot` (multipart JPEG), **`device_snapshots`** metadata in Postgres, image bytes in **S3-compatible storage** (use a **Railway Storage bucket** in production), presigned URLs on **`getSite.latestSnapshot`** and **`adminDevice.recentSnapshots`**, latest snapshot on site detail, esp-web-tools install wizard (catalog **wire colors/labels** → GPIO map; firmware config **`v: 2`** role pins; optional **`devices.pin_map`**), migration **`0008_sensor_wiring_template`** (`sensor_catalog.wiring_template`), PlatformIO firmware under [`firmware/aquaponics-node/`](firmware/aquaponics-node/) (v1 scalar + v2 role pin parsing). Installer binary at `apps/web/public/firmware/esp8266/firmware.bin` is **gitignored** — use `pnpm firmware:build` (see **Firmware** below).
+- **Phase 6 — firmware + camera:** `POST /ingest/snapshot` (multipart JPEG), **`device_snapshots`** + S3 storage, presigned URLs on **`getSite.latestSnapshot`** and **`adminDevice.recentSnapshots`**, site detail map/snapshot layout, **admin device snapshot gallery**, esp-web-tools install wizard (wiring v2), admin **reset measurements** / **clear snapshots**, PlatformIO firmware ([`firmware/aquaponics-node/`](firmware/aquaponics-node/)). Gitignored **`firmware.bin`** — `pnpm firmware:build`; deploy hook [`scripts/ensure-or-build-firmware.mjs`](scripts/ensure-or-build-firmware.mjs).
 
 The web app uses **directory-based routes** under `apps/web/src/routes/_authed/` with page UI in `apps/web/src/features/` so day-to-day edits hot-reload without regenerating `routeTree.gen.ts`. Full product spec: [`docs/greenfield-agent-handoff.md`](docs/greenfield-agent-handoff.md).
 
@@ -122,7 +123,7 @@ The installer loads `/firmware/esp8266/firmware.bin` from `apps/web/public/`. Th
 pnpm firmware:build
 ```
 
-`pnpm dev:web` runs `firmware:ensure` first; if the file is missing it creates a **placeholder** (wizard UI only — **do not** flash that to hardware).
+`pnpm dev:web` runs `ensure-or-build-firmware` first; locally it creates a **placeholder** if missing (wizard UI only — **do not** flash that to hardware). On **Railway/CI**, the same hook runs **`pnpm firmware:build`** (requires PlatformIO on the build image).
 
 After any C++ change under `firmware/aquaponics-node/`, run `pnpm firmware:build` again, then re-flash devices.
 
@@ -215,7 +216,7 @@ Full checklist: [`docs/phase6-verification.md`](docs/phase6-verification.md).
 | `pnpm firmware:build` | `pio run` in `firmware/aquaponics-node` + copy to `apps/web/public/…/firmware.bin` |
 | `pnpm firmware:copy` | Copy only (if you already ran `pio run`) |
 
-See **[Installing firmware (ESP8266)](#installing-firmware-esp8266)** above. Production deploys should run `pnpm firmware:build` before `build:web` (CI not wired yet).
+See **[Installing firmware (ESP8266)](#installing-firmware-esp8266)** above and **[`docs/phase6-railway-production.md`](docs/phase6-railway-production.md)** for Railway (web build: `bash scripts/railway-build-web.sh` or `pnpm build:web:railway` — not `pip`).
 
 ## Phase 6 verification
 

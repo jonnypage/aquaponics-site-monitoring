@@ -456,6 +456,7 @@ export function AdminDeviceInstallPageContent() {
                     ESP32 CYD — {t("admin.devices.installBoardComingSoon")}
                   </option>
                 </select>
+                <p className="text-xs text-muted-foreground">{t("admin.devices.installBoardRoadmap")}</p>
               </div>
 
               <div className="space-y-2">
