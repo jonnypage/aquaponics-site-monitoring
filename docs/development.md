@@ -233,7 +233,7 @@ The route id string must match the `createFileRoute('…')` literal in the corre
 
 ### Session and GraphQL (SSR)
 
-- **`graphqlRequest`** (`src/utils/graphql.ts`) uses `credentials: "include"` in the browser. During **SSR / server render**, the session cookie is not sent automatically on `fetch` to a different origin, so the helper forwards the incoming **`Cookie`** header from **`getRequest()`** (`@tanstack/react-start/server`) when `document` is undefined. Without that, full reloads look logged out while client-side navigations can still work.
+- **Session / SSR:** root `beforeLoad` loads the user via **`loadSessionUserFn`** (`src/api/load-session-user.server.ts`, a `createServerFn` using `getRequestHeader('cookie')`). Do not call `getRequest()` from route `beforeLoad` — Nitro SSR throws and hangs the stream. Client hooks use **`graphqlRequest`** with `credentials: "include"`. When the API is on a different host than the web app, the session cookie is API-scoped; SSR may see no user until the client hydrates (expected).
 
 ### Hook rules (`src/hooks/`)
 

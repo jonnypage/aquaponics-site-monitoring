@@ -2,12 +2,21 @@ import { redirect } from "@tanstack/react-router";
 import { GetMeDocument, Role, type GetMeQuery } from "~/gql/generated/graphql";
 import { graphqlRequest } from "~/utils/graphql";
 import type { RouterContext } from "~/router";
+import { loadSessionUserFn } from "./load-session-user.server";
 
 /** Shared query key for the session user; use with `queryClient.invalidateQueries` after login/logout. */
 export const sessionUserQueryKey = ["me"] as const;
 
 /** Internal fetcher; shared by `useMe` and the root route loader. */
 export async function loadSessionUser(): Promise<GetMeQuery["getMe"] | null> {
+  if (import.meta.env.SSR) {
+    try {
+      return await loadSessionUserFn();
+    } catch {
+      return null;
+    }
+  }
+
   const r = await graphqlRequest<GetMeQuery>(GetMeDocument);
   if (r.errors?.length) {
     return null;
@@ -20,7 +29,11 @@ export async function loadSessionUser(): Promise<GetMeQuery["getMe"] | null> {
  * All child routes read `context.user` instead of fetching independently.
  */
 export async function loadRootContext(): Promise<RouterContext> {
-  return { user: await loadSessionUser() };
+  try {
+    return { user: await loadSessionUser() };
+  } catch {
+    return { user: null };
+  }
 }
 
 /**
