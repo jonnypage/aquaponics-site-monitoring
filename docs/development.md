@@ -233,7 +233,7 @@ The route id string must match the `createFileRoute('…')` literal in the corre
 
 ### Session and GraphQL (SSR)
 
-- **Session / SSR:** root `beforeLoad` loads the user via **`loadSessionUserFn`** (`src/api/load-session-user.server.ts`, a `createServerFn` using `getRequestHeader('cookie')`). Do not call `getRequest()` from route `beforeLoad` — Nitro SSR throws and hangs the stream. Client hooks use **`graphqlRequest`** with `credentials: "include"`. When the API is on a different host than the web app, the session cookie is API-scoped; SSR may see no user until the client hydrates (expected).
+- **Session / SSR:** root `beforeLoad` loads the user via **`loadSessionUserFn`** (`src/api/load-session-user.ts`, a `createServerFn` using `getRequestHeader('cookie')`). Do not import `*.server.ts` from `session.ts` (TanStack client build fails). Do not call `getRequest()` from route `beforeLoad` directly. Client hooks use **`graphqlRequest`** with `credentials: "include"`. When the API is on a different host than the web app, the session cookie is API-scoped; SSR may see no user until the client hydrates (expected).
 
 ### Hook rules (`src/hooks/`)
 

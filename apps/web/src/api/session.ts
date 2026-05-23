@@ -2,7 +2,7 @@ import { redirect } from "@tanstack/react-router";
 import { GetMeDocument, Role, type GetMeQuery } from "~/gql/generated/graphql";
 import { graphqlRequest } from "~/utils/graphql";
 import type { RouterContext } from "~/router";
-import { loadSessionUserFn } from "./load-session-user.server";
+import { loadSessionUserFn } from "./load-session-user";
 
 /** Shared query key for the session user; use with `queryClient.invalidateQueries` after login/logout. */
 export const sessionUserQueryKey = ["me"] as const;

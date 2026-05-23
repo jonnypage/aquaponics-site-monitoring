@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestHeader } from "@tanstack/react-start/server";
 import { print } from "graphql";
 
 import { GetMeDocument, type GetMeQuery } from "~/gql/generated/graphql";
@@ -12,9 +11,10 @@ function apiBase(): string {
   return base.replace(/\/$/, "");
 }
 
-/** SSR-only session fetch — must run inside a server function (not route `beforeLoad` directly). */
+/** SSR session fetch — RPC stub on the client, runs on the server during SSR. */
 export const loadSessionUserFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<GetMeQuery["getMe"] | null> => {
+    const { getRequestHeader } = await import("@tanstack/react-start/server");
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const cookie = getRequestHeader("cookie");
     if (cookie) {
