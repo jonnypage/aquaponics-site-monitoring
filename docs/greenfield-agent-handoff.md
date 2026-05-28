@@ -43,7 +43,7 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 ### Phase 1 — Backend foundation
 
 - pnpm monorepo: `apps/api` (NestJS), `packages/db`, root scripts.
-- Railway PostgreSQL (or local Postgres); `DATABASE_PUBLIC_URL` (public URL; Railway’s `DATABASE_PUBLIC_URL` is often internal-only).
+- Railway PostgreSQL (or local Postgres); `DATABASE_PUBLIC_URL` (env name in repo — on Railway API, value = Postgres private `DATABASE_URL`, not the public TCP proxy).
 - Kysely client in `packages/db`; migration CLI; initial migrations for `users`, roles, `user_sites`, `sites` (minimal columns OK until later phases).
 - Nest bootstrap: `DatabaseModule`, `HealthModule` (`GET /health`), GraphQL module shell, CORS, production logging.
 - **Auth:** signed **JWT session cookie** only (HTTP-only); password hashing (bcrypt). See **Auth (greenfield)**.
@@ -667,7 +667,7 @@ Copy pattern: per-package `.env` for local dev (`packages/db`, `apps/api`, `apps
 
 | Variable                                 | API      | Web      | Notes                                                                                                                                                                                            |
 | ---------------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DATABASE_PUBLIC_URL`                    | yes      | yes\*    | Postgres connection string; on Railway prefer the **public** URL variable, not internal-only `DATABASE_PUBLIC_URL`. \*Web only if login verifies passwords in-process; prefer API-only DB access |
+| `DATABASE_PUBLIC_URL`                    | yes      | —        | Postgres connection string; env name in repo. **Railway API:** reference Postgres **`DATABASE_URL`** (private), not public proxy — avoids egress. Local: `localhost`. Web service does not need DB. |
 | `AUTH_SECRET`                            | yes      | yes      | Signs JWT session cookies (30-day rolling lifetime)                                                                                                                                              |
 | `WEB_ORIGIN`                             | yes      | —        | CORS production                                                                                                                                                                                  |
 | `PUBLIC_API_URL` / `VITE_PUBLIC_API_URL` | —        | yes      | Browser GraphQL base                                                                                                                                                                             |

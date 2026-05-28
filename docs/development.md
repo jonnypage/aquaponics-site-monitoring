@@ -13,7 +13,7 @@ pnpm install
 
 ## Environment
 
-The app uses **`DATABASE_PUBLIC_URL`** for Postgres. On Railway this is the externally-reachable URL; do not substitute `DATABASE_URL` without an explicit decision.
+The app uses **`DATABASE_PUBLIC_URL`** for Postgres (env name is fixed in code). On Railway, point that variable at the Postgres **private** URL (`DATABASE_URL` reference), not the public TCP proxy — see [`phase6-railway-production.md`](phase6-railway-production.md). Local dev uses `localhost`.
 
 Copy the relevant example files and fill in real values:
 
@@ -369,7 +369,7 @@ Both services use **repo root** as the root directory so builds can access `pack
 | Release command | `pnpm migrate:deploy` | — |
 | Watch paths | `apps/api/**`, `packages/db/**`, `pnpm-lock.yaml` | `apps/web/**`, `firmware/**`, `packages/db/**`, `pnpm-lock.yaml`, `scripts/**` |
 
-Required env vars (API): `DATABASE_PUBLIC_URL`, `AUTH_SECRET`, `NODE_ENV=production`, `WEB_ORIGIN`, `PG_POOL_MAX=3`. Railway sets `PORT` automatically. Node 22.12+ must match the `engines` field.
+Required env vars (API): `DATABASE_PUBLIC_URL` (on Railway: reference Postgres **`DATABASE_URL`**, private — not the public proxy), `AUTH_SECRET`, `NODE_ENV=production`, `WEB_ORIGIN`, `PG_POOL_MAX=3`. Railway sets `PORT` automatically. Node 22.12+ must match the `engines` field.
 
 **API snapshots (Phase 6):** set `OBJECT_STORAGE_ENDPOINT`, `OBJECT_STORAGE_REGION`, `OBJECT_STORAGE_BUCKET`, `OBJECT_STORAGE_ACCESS_KEY_ID`, `OBJECT_STORAGE_SECRET_ACCESS_KEY` on the API service (Railway Storage bucket credentials). Without these, `POST /ingest/snapshot` returns **503**.
 

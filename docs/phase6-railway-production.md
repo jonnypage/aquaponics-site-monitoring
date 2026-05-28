@@ -23,7 +23,26 @@ Build logs should show TypeScript compiling `packages/db` and `apps/api`. After 
 
 ### Postgres (required)
 
-- `DATABASE_PUBLIC_URL` — variable reference from Postgres plugin
+The app reads **`DATABASE_PUBLIC_URL`** (env name is historical — the **value** can be a private URL on Railway).
+
+| Where | What to set |
+| ----- | ----------- |
+| **Local dev** | `postgres://…@localhost:5432/…` in `apps/api/.env` and `packages/db/.env` |
+| **Railway API service** | Variable **`DATABASE_PUBLIC_URL`** → reference **`Postgres` → `DATABASE_URL`** (private network), **not** `DATABASE_PUBLIC_URL` from the plugin |
+
+**Why Railway warns about egress:** if `DATABASE_PUBLIC_URL` on the API service references the plugin’s **public** URL (`DATABASE_PUBLIC_URL` / TCP proxy), traffic from your API container to Postgres leaves the private network and can incur [egress fees](https://docs.railway.com/networking/private-networking). The API and Postgres are in the same project — use the **private** connection string instead ([private networking](https://docs.railway.com/networking/private-networking)).
+
+**Steps (API service only — web does not need Postgres):**
+
+1. Open **API service → Variables**.
+2. Edit **`DATABASE_PUBLIC_URL`**.
+3. Replace the reference chain that ends in `RAILWAY_TCP_PROXY_DOMAIN` / public host with **`${{Postgres.DATABASE_URL}}`** (or pick **`DATABASE_URL`** from the Postgres service in the variable reference UI).
+4. Redeploy API (release command `pnpm migrate:deploy` uses the same env).
+
+No code change required — only the Railway variable **value**. Keep the env name `DATABASE_PUBLIC_URL` so `packages/db` migrate/seed and the API stay aligned.
+
+Other API env:
+
 - `AUTH_SECRET` — stable across deploys (`openssl rand -hex 32`)
 - `WEB_ORIGIN` — exact web app URL (no trailing slash)
 - `SESSION_COOKIE_DOMAIN` — **required when web and API are on different subdomains** (e.g. web `https://app.example.com`, API `https://api.example.com` → set `.example.com`). Without this, refresh sends you to login until the client recovers; with it, SSR can read the session too. **Log in once** after adding/changing this so the browser gets a new cookie scope.
