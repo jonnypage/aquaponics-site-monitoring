@@ -21,7 +21,7 @@ Before calling Phase 6 production-ready on your environment, run [`docs/phase6-v
 
 ## What Is Working
 
-- **Device telemetry ingest:** devices can `POST /ingest` with an API key and submit readings for temperature, pH, water level, and flow. After migration `0003`, ingest evaluates **out-of-range** readings, **MVP heuristics** (spikes, flatlines, pH drift, level/flow step issues — see `ingest-heuristics.util.ts`), upserts matching alerts for **enabled** site sensors, **recomputes `device_offline` per site** from all devices’ `last_seen_at`, and sets **`captureImageNow`** when the site has any **active** alert.
+- **Device telemetry ingest:** devices can `POST /ingest` with an API key and submit readings keyed by catalog slug (`ds18b20`, `bncPhModule`, `floatSwitch`, `yfs201`, …). Each catalog row has a measurement **`sensorType`** (family) plus optional hardware **`model`**; heuristics and chart labels use the family, ingest uses the slug key.
 - **Alerts API & UI:** GraphQL **`getAlerts`** (optional `siteId`, `type`, `status`; site RBAC) and **`resolveAlert`**; dashboard **`/alerts`** (active/all tabs) plus **active alerts** on each **`/sites/$siteId`** page with a link to the global list. In-process **`@nestjs/schedule`** (~60s) keeps **`device_offline`** in sync and emails **critical** alerts via **Resend** when `RESEND_API_KEY` and `ALERT_FROM_EMAIL` are set (`COOLDOWN_MINUTES`, default 45).
 - **Database foundation:** migrations, seed data, users, sites, devices, sensor catalog, measurements, and **Phase 4 alert tables** (`site_sensor_catalog`, `sensor_thresholds`, `alerts` — migrate to `0003` to enable) are managed through `packages/db`. Migration **`0004`** adds optional **`sites.latitude`** / **`sites.longitude`** for admin site forms.
 - **Authenticated API:** the dashboard API uses GraphQL, HTTP-only JWT cookies, bcrypt password hashing, and role-aware access checks. **Profile updates** use **`updateMe`** (current password required; clears the session cookie so the client signs in again). **Admin-only** GraphQL (`sensorCatalog`, `adminUsers` with assignments, `adminSites`, `adminDevices`, catalog and admin CRUD mutations) is implemented in [`apps/api/src/admin/`](apps/api/src/admin/).
@@ -54,7 +54,7 @@ cp packages/db/.env.example packages/db/.env
 pnpm db:setup
 ```
 
-`pnpm db:setup` runs the migrations and seeds an admin user, a demo site, and a demo device. The seed script prints the demo device's plaintext API key once; save it if you want to test device ingestion.
+`pnpm db:setup` runs migrations, then seeds users and demo data. Use **`pnpm seed:demo`** alone to reset the demo site/device without touching user accounts. **`pnpm seed:users`** only creates missing users (existing passwords are not changed).
 
 Start the API and web app in separate terminals:
 
@@ -186,7 +186,9 @@ pnpm typecheck
 pnpm build:api
 pnpm build:web
 pnpm migrate:deploy
-pnpm seed
+pnpm seed              # users + demo data (first-time setup)
+pnpm seed:users        # admin + viewer only; skips existing users
+pnpm seed:demo         # demo site, device, sensor enablement (no user changes)
 pnpm db:setup
 ```
 
@@ -197,7 +199,7 @@ pnpm db:setup
 curl -sS -X POST "http://localhost:4000/ingest" \
   -H "Content-Type: application/json" \
   -H "x-api-key: local-dev-ingest-key-change-in-prod-32chars" \
-  -d '{"deviceId":"seed-device-1","timestamp":"2026-05-21T12:00:00.000Z","readings":{"temperature":24.5,"ph":7.0}}'
+  -d '{"deviceId":"seed-device-1","timestamp":"2026-05-21T12:00:00.000Z","readings":{"ds18b20":24.5,"bncPhModule":7.0,"floatSwitch":72,"yfs201":1.2}}'
 
 curl -X POST "http://localhost:4000/ingest/snapshot" \
   -H "x-api-key: <device-api-key>" \

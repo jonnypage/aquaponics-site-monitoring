@@ -1,7 +1,9 @@
 /**
- * MVP ingest heuristics for catalog keys in the Phase 4 spec.
+ * MVP ingest heuristics keyed by measurement family (`sensorType`).
  * Thresholds are fixed constants (no DB config) until admin tuning exists.
  */
+
+import type { SensorType } from "@aquaponics/db";
 
 export type HeuristicSeverity = "warning" | "critical";
 
@@ -83,7 +85,7 @@ function inDriftWindowOldestFirst(newestFirst: HistoryPoint[], windowMs: number,
 }
 
 export function evaluateHeuristicsForSensor(
-  sensorKey: string,
+  sensorType: SensorType,
   historyNewestFirst: HistoryPoint[],
   now: Date
 ): HeuristicFinding[] {
@@ -96,7 +98,7 @@ export function evaluateHeuristicsForSensor(
   const latest = historyNewestFirst[0]!;
   const prev = historyNewestFirst[1];
 
-  switch (sensorKey) {
+  switch (sensorType) {
     case "temperature": {
       if (prev) {
         const delta = Math.abs(latest.value - prev.value);
@@ -210,17 +212,18 @@ export function evaluateHeuristicsForSensor(
   return out;
 }
 
-/** All heuristic alert `type` values we may create for a sensor (for resolve-on-disable). */
-export function heuristicTypesForSensor(sensorKey: string): string[] {
-  switch (sensorKey) {
+/** All heuristic alert `type` values we may create for a device + measurement family. */
+export function heuristicTypesForSensorType(sensorType: SensorType, deviceId?: string): string[] {
+  const suffix = deviceId ? `:${deviceId}` : "";
+  switch (sensorType) {
     case "temperature":
-      return ["temperature_spike", "temperature_flatline"];
+      return [`temperature_spike${suffix}`, `temperature_flatline${suffix}`];
     case "ph":
-      return ["ph_drift", "ph_flatline"];
+      return [`ph_drift${suffix}`, `ph_flatline${suffix}`];
     case "waterLevel":
-      return ["water_level_issue", "water_level_flatline"];
+      return [`water_level_issue${suffix}`, `water_level_flatline${suffix}`];
     case "waterFlow":
-      return ["water_flow_issue", "water_flow_flatline"];
+      return [`water_flow_issue${suffix}`, `water_flow_flatline${suffix}`];
     default:
       return [];
   }

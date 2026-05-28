@@ -4,6 +4,7 @@
 
 struct SensorPinEntry {
   String key;
+  String sensorType;
   String role;
   int pin;
 };

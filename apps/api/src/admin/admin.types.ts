@@ -16,12 +16,19 @@ import {
   ValidateNested
 } from "class-validator";
 import { Role } from "../auth/auth.types.js";
+import { SensorType } from "../sensors/sensor-type.types.js";
 import { SensorWiringTemplateInput, SensorWiringTemplateModel } from "./sensor-wiring.graphql-types.js";
 
 @ObjectType()
 export class SensorCatalogEntryModel {
   @Field()
   key!: string;
+
+  @Field(() => SensorType)
+  sensorType!: SensorType;
+
+  @Field()
+  model!: string;
 
   @Field()
   displayName!: string;
@@ -78,7 +85,19 @@ export class AdminUserModel {
 @ObjectType()
 export class SiteSensorReportingModel {
   @Field()
+  deviceId!: string;
+
+  @Field(() => String, { nullable: true })
+  deviceName?: string | null;
+
+  @Field()
   sensorKey!: string;
+
+  @Field(() => SensorType)
+  sensorType!: SensorType;
+
+  @Field()
+  model!: string;
 
   @Field()
   enabled!: boolean;
@@ -98,6 +117,9 @@ export class SiteSensorReportingModel {
 
 @ObjectType()
 export class SiteSensorThresholdModel {
+  @Field()
+  deviceId!: string;
+
   @Field()
   sensorKey!: string;
 
@@ -196,6 +218,16 @@ export class CreateSensorCatalogEntryInput {
   @MinLength(1)
   key!: string;
 
+  @Field(() => SensorType)
+  @IsEnum(SensorType)
+  sensorType!: SensorType;
+
+  @Field()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  model!: string;
+
   @Field()
   @IsString()
   @MinLength(1)
@@ -240,6 +272,12 @@ export class UpdateSensorCatalogEntryInput {
   @IsString()
   @MinLength(1)
   key!: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  model?: string;
 
   @Field(() => String, { nullable: true })
   @IsOptional()
@@ -339,6 +377,11 @@ export class SiteSensorReportingInput {
   @Field()
   @IsString()
   @MinLength(1)
+  deviceId!: string;
+
+  @Field()
+  @IsString()
+  @MinLength(1)
   sensorKey!: string;
 
   @Field()
@@ -348,6 +391,11 @@ export class SiteSensorReportingInput {
 
 @InputType()
 export class SiteSensorThresholdInput {
+  @Field()
+  @IsString()
+  @MinLength(1)
+  deviceId!: string;
+
   @Field()
   @IsString()
   @MinLength(1)
@@ -391,18 +439,19 @@ export class CreateAdminSiteInput {
   @IsNumber()
   longitude?: number | null;
 
-  @Field(() => [SiteSensorReportingInput])
+  @Field(() => [SiteSensorReportingInput], { nullable: true })
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => SiteSensorReportingInput)
-  sensorReporting!: SiteSensorReportingInput[];
+  sensorReporting?: SiteSensorReportingInput[];
 
-  @Field(() => [SiteSensorThresholdInput])
+  @Field(() => [SiteSensorThresholdInput], { nullable: true })
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SiteSensorThresholdInput)
-  sensorThresholds!: SiteSensorThresholdInput[];
+  sensorThresholds?: SiteSensorThresholdInput[];
 
   @Field(() => String, { nullable: true })
   @IsOptional()

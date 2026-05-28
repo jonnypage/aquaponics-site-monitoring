@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { PageBackLink } from "~/components/layout/page-back-link";
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
 import { Card, CardContent } from "~/components/ui/card";
 import { AdminDeviceRecentSnapshots } from "~/components/admin/admin-device-recent-snapshots";
@@ -35,11 +36,11 @@ export function AdminDeviceEditPageContent() {
 
   const [name, setName] = useState("");
   const [siteId, setSiteId] = useState("");
-  const [expected, setExpected] = useState("");
-  const [report, setReport] = useState("");
+  const [telemetryInterval, setTelemetryInterval] = useState("");
   const [snapshot, setSnapshot] = useState("");
   const [hasCamera, setHasCamera] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!device) {
@@ -47,8 +48,7 @@ export function AdminDeviceEditPageContent() {
     }
     setName(device.name ?? "");
     setSiteId(device.siteId ?? "");
-    setExpected(String(device.expectedIntervalSeconds));
-    setReport(String(device.reportIntervalSeconds));
+    setTelemetryInterval(String(device.reportIntervalSeconds));
     setSnapshot(String(device.snapshotIntervalSeconds));
     setHasCamera(device.hasCamera);
   }, [device]);
@@ -64,8 +64,8 @@ export function AdminDeviceEditPageContent() {
         deviceId: device.deviceId,
         name: name.trim() ? name.trim() : null,
         siteId: siteId === "" ? null : siteId,
-        expectedIntervalSeconds: parseOptInt(expected, device.expectedIntervalSeconds),
-        reportIntervalSeconds: parseOptInt(report, device.reportIntervalSeconds),
+        expectedIntervalSeconds: parseOptInt(telemetryInterval, device.reportIntervalSeconds),
+        reportIntervalSeconds: parseOptInt(telemetryInterval, device.reportIntervalSeconds),
         snapshotIntervalSeconds: parseOptInt(snapshot, device.snapshotIntervalSeconds),
         hasCamera
       });
@@ -76,11 +76,9 @@ export function AdminDeviceEditPageContent() {
   }
 
   async function onDelete() {
-    if (!window.confirm(t("admin.devices.deleteConfirm"))) {
-      return;
-    }
     try {
       await deleteDevice(deviceId);
+      setDeleteConfirmOpen(false);
       await navigate({ to: "/admin/devices" });
     } catch (err) {
       setFormError(err instanceof Error ? err.message : t("shared.unknownError"));
@@ -142,17 +140,19 @@ export function AdminDeviceEditPageContent() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="exp">{t("admin.devices.expectedInterval")}</Label>
-              <Input id="exp" value={expected} onChange={(e) => setExpected(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="rep">{t("admin.devices.reportInterval")}</Label>
-              <Input id="rep" value={report} onChange={(e) => setReport(e.target.value)} />
+              <Label htmlFor="telemetry-interval">{t("admin.devices.telemetryInterval")}</Label>
+              <p className="text-xs text-muted-foreground">{t("admin.devices.telemetryIntervalHint")}</p>
+              <Input
+                id="telemetry-interval"
+                value={telemetryInterval}
+                onChange={(e) => setTelemetryInterval(e.target.value)}
+              />
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={hasCamera} onChange={() => setHasCamera((v) => !v)} />
               {t("admin.devices.hasCamera")}
             </label>
+            <p className="text-xs text-muted-foreground">{t("admin.devices.hasCameraHint")}</p>
             {hasCamera ? (
               <div className="space-y-2">
                 <Label htmlFor="snap">{t("admin.devices.snapshotInterval")}</Label>
@@ -164,7 +164,7 @@ export function AdminDeviceEditPageContent() {
               <Button type="submit" disabled={isSaving}>
                 <ButtonPendingLabel pending={isSaving}>{t("admin.shared.save")}</ButtonPendingLabel>
               </Button>
-              <Button type="button" variant="destructive" disabled={isDeleting} onClick={() => void onDelete()}>
+              <Button type="button" variant="destructive" disabled={isDeleting} onClick={() => setDeleteConfirmOpen(true)}>
                 <ButtonPendingLabel pending={isDeleting}>{t("admin.shared.delete")}</ButtonPendingLabel>
               </Button>
             </div>
@@ -180,6 +180,19 @@ export function AdminDeviceEditPageContent() {
           />
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title={t("admin.shared.delete")}
+        confirmLabel={t("admin.shared.delete")}
+        confirmTone="destructive"
+        pending={isDeleting}
+        pendingLabel={t("admin.shared.delete")}
+        onConfirm={() => void onDelete()}
+      >
+        {t("admin.devices.deleteConfirm")}
+      </ConfirmDialog>
     </>
   );
 }

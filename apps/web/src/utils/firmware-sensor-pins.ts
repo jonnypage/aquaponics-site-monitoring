@@ -1,4 +1,5 @@
 import type { DevicePinMap, FirmwarePinsConfig, SensorWiringTemplate } from "~/utils/sensor-wiring";
+import type { SensorType } from "~/utils/sensor-types";
 
 export type { SensorWireDef, SensorWiringTemplate, DevicePinMap, FirmwarePinsConfig } from "~/utils/sensor-wiring";
 export { DEFAULT_SENSOR_WIRING_TEMPLATE, slugWireIdFromLabel } from "~/utils/sensor-wiring";
@@ -12,6 +13,8 @@ export interface InstallExtraWire {
 
 export interface InstallSensorRow {
   sensorKey: string;
+  sensorType: SensorType;
+  model: string;
   displayName: string;
   icon: string | null;
   sortOrder: number;
@@ -25,6 +28,18 @@ export interface InstallSensorRow {
 function parseGpio(s: string): number | null {
   const n = Number.parseInt(s.trim(), 10);
   return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+export function buildFirmwareSensorTypes(rows: InstallSensorRow[]): Record<string, SensorType | null> {
+  const sensorTypes: Record<string, SensorType | null> = {};
+  for (const row of rows) {
+    if (!row.siteEnabled || !row.included) {
+      sensorTypes[row.sensorKey] = null;
+      continue;
+    }
+    sensorTypes[row.sensorKey] = row.sensorType;
+  }
+  return sensorTypes;
 }
 
 export function buildFirmwarePins(rows: InstallSensorRow[]): FirmwarePinsConfig {

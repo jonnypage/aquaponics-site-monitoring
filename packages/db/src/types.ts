@@ -1,4 +1,5 @@
 import type { ColumnType, Generated, Insertable, Selectable, Updateable } from "kysely";
+import type { SensorType } from "./sensor-types.js";
 
 export type UserRole = "admin" | "site_manager" | "site_viewer";
 
@@ -31,6 +32,8 @@ export interface UserSitesTable {
 
 export interface SensorCatalogTable {
   key: string;
+  sensor_type: SensorType;
+  model: string;
   display_name: string;
   unit: string;
   physical_min: number | null;
@@ -82,6 +85,7 @@ export interface MeasurementsTable {
 
 export interface SiteSensorCatalogTable {
   site_id: string;
+  device_id: string;
   sensor: string;
   enabled: boolean;
   created_at: Timestamp;
@@ -90,6 +94,7 @@ export interface SiteSensorCatalogTable {
 
 export interface SensorThresholdsTable {
   site_id: string;
+  device_id: string;
   sensor: string;
   normal_min: number | null;
   normal_max: number | null;

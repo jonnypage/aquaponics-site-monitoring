@@ -90,7 +90,9 @@ pnpm start:api
 pnpm start:web            # production server from apps/web/.output
 
 pnpm migrate:deploy       # run before seed on a new / empty database
-pnpm seed
+pnpm seed                 # users + demo data
+pnpm seed:users           # admin + viewer only (existing users unchanged)
+pnpm seed:demo            # demo site/device only
 pnpm db:setup             # migrate + seed in one shot
 
 pnpm --filter @aquaponics/web codegen   # regenerate web GraphQL types after API schema changes
@@ -333,7 +335,13 @@ Core tables: `users`, `sites`, `user_sites`
 
 Ingest tables: `sensor_catalog`, `devices`, `measurements` (composite PK `(taken_at, id)`; Timescale-upgrade-ready)
 
-`pnpm seed` creates admin + viewer users, a demo site, MVP catalog rows, and a demo device. The device's **plaintext API key is printed once** — only the SHA-256 hash is stored. Re-seed on a fresh DB to get a new key.
+| Command | Purpose |
+| ------- | ------- |
+| `pnpm seed` | Users + demo site/device (same as `seed:users` then `seed:demo`) |
+| `pnpm seed:users` | Create admin/viewer if missing; does **not** reset passwords on existing users |
+| `pnpm seed:demo` | Upsert demo site, seed device, pin map, enabled sensors; assigns viewer to demo site if that user exists |
+
+`pnpm seed:demo` prints the demo device **plaintext API key** — only the SHA-256 hash is stored in the DB.
 
 If seed fails with _relation "sites" does not exist_, run `pnpm migrate:deploy` first.
 
@@ -355,7 +363,7 @@ GraphQL operations: `login`, `logout`, `getMe`, `adminUsers` (admin only), `getS
 curl -sS -X POST "$API/ingest" \
   -H "content-type: application/json" \
   -H "x-api-key: YOUR_SEED_DEVICE_API_KEY" \
-  -d '{"deviceId":"seed-device-1","timestamp":"2026-05-15T16:00:00.000Z","readings":{"temperature":22.1}}'
+  -d '{"deviceId":"seed-device-1","timestamp":"2026-05-15T16:00:00.000Z","readings":{"ds18b20":22.1,"bncPhModule":6.9}}'
 ```
 
 ## Railway deployment

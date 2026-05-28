@@ -19,6 +19,18 @@ export const DEFAULT_SENSOR_WIRING_TEMPLATE: SensorWiringTemplate = {
 
 export type DevicePinMap = Record<string, Record<string, number> | null>;
 
+/** Catalog sensor keys with at least one GPIO role saved on the device. */
+export function sensorKeysWithPinsFromDeviceMap(
+  pinMap: DevicePinMap | null | undefined
+): string[] {
+  if (pinMap == null) {
+    return [];
+  }
+  return Object.entries(pinMap)
+    .filter(([, roles]) => roles != null && Object.keys(roles).length > 0)
+    .map(([key]) => key);
+}
+
 export type FirmwarePinsConfig = Record<string, number | null | Record<string, number | null>>;
 
 const WIRE_ID_RE = /^[a-z][a-z0-9_]*$/;

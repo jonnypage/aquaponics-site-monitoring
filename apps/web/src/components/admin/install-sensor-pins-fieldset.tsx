@@ -14,6 +14,7 @@ import { cn } from "~/utils/cn";
 import { formatAllowedGpioList, validateGpioForBoard, type DeviceBoardId } from "~/utils/device-board-gpio";
 import type { InstallExtraWire, InstallSensorRow } from "~/utils/firmware-sensor-pins";
 import { slugWireIdFromLabel } from "~/utils/sensor-wiring";
+import { sensorTypeLabelKey } from "~/utils/sensor-display-label";
 import { WireColorPicker } from "~/components/admin/wire-color-picker";
 import { resolveWireColorCss } from "~/utils/wire-color";
 
@@ -118,7 +119,12 @@ export function InstallSensorPinsFieldset({
                 ) : (
                   <CircleDot className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 )}
-                <span className="font-medium">{row.displayName}</span>
+                <span className="font-medium">
+                  {t(sensorTypeLabelKey(row.sensorType))}
+                  {row.model.trim() ? (
+                    <span className="font-normal text-muted-foreground"> ({row.model})</span>
+                  ) : null}
+                </span>
                 <EntityKeyBadge>{row.sensorKey}</EntityKeyBadge>
               </label>
 

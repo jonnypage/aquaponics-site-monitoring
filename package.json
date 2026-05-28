@@ -27,6 +27,8 @@
     "migrate:deploy": "pnpm --filter @aquaponics/db migrate:deploy",
     "migrate:dev": "pnpm --filter @aquaponics/db migrate:dev",
     "seed": "pnpm --filter @aquaponics/db seed",
+    "seed:users": "pnpm --filter @aquaponics/db seed:users",
+    "seed:demo": "pnpm --filter @aquaponics/db seed:demo",
     "db:setup": "pnpm migrate:deploy && pnpm seed"
   }
 }

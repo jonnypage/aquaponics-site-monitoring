@@ -25,9 +25,7 @@ import {
   GOOGLE_MAPS_LOADER_ID,
 } from '~/utils/google-maps';
 import { cn } from '~/utils/cn';
-
-const mapPinLabelClassName =
-  'border-2 border-destructive bg-destructive text-destructive-foreground shadow-md';
+import { siteStatusMapPinLabelClassName } from '~/utils/site-status-theme';
 
 const DEFAULT_CENTER: google.maps.LatLngLiteral = {
   lat: 39.8283,
@@ -217,8 +215,8 @@ function SitesOverviewMapLoaded({
                   <button
                     type='button'
                     className={cn(
-                      'pointer-events-auto w-full rounded-md border px-2 py-1 text-center text-xs font-medium leading-snug shadow-sm hover:brightness-[0.97] dark:hover:brightness-110',
-                      mapPinLabelClassName,
+                      'pointer-events-auto w-full rounded-md border px-2 py-1 text-center text-xs font-medium leading-snug shadow-md hover:brightness-[0.97] dark:hover:brightness-110',
+                      siteStatusMapPinLabelClassName(p.status),
                     )}
                     onClick={() => openSite(p.id)}
                   >

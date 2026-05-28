@@ -34,6 +34,7 @@ import {
   applyPinMapToRow,
   buildDevicePinMap,
   buildFirmwarePins,
+  buildFirmwareSensorTypes,
   emptyWireMap,
   flattenInstallGpioEntries,
   hasIncludedPinnedSensor,
@@ -60,6 +61,7 @@ import {
   type DevicePinMap,
   type SensorWiringTemplate
 } from "~/utils/sensor-wiring";
+import type { SensorType } from "~/utils/sensor-types";
 import { getEspWebInstallSupport, type EspWebInstallSupport } from "~/utils/esp-web-install";
 
 const FIRMWARE_URL = "/firmware/esp8266/firmware.bin";
@@ -68,6 +70,8 @@ const routeApi = getRouteApi("/_authed/admin/devices/$deviceId/install");
 
 type CatalogRow = {
   key: string;
+  sensorType: SensorType;
+  model: string;
   displayName: string;
   sortOrder: number;
   icon?: string | null;
@@ -86,6 +90,8 @@ function buildInitialSensorRows(
   siteReporting:
     | ReadonlyArray<{
         sensorKey: string;
+        sensorType: SensorType;
+        model: string;
         enabled: boolean;
         displayName: string;
         sortOrder: number;
@@ -108,6 +114,8 @@ function buildInitialSensorRows(
           : normalizeWiringTemplateFromGraphql(undefined);
         const base: InstallSensorRow = {
           sensorKey: r.sensorKey,
+          sensorType: r.sensorType ?? cat?.sensorType ?? "temperature",
+          model: r.model ?? cat?.model ?? r.displayName,
           displayName: r.displayName,
           icon: r.icon ?? cat?.icon ?? null,
           sortOrder: r.sortOrder,
@@ -132,6 +140,8 @@ function buildInitialSensorRows(
       const wiringTemplate = normalizeWiringTemplateFromGraphql(c.wiringTemplate);
       const base: InstallSensorRow = {
         sensorKey: c.key,
+        sensorType: c.sensorType,
+        model: c.model,
         displayName: c.displayName,
         icon: c.icon ?? null,
         sortOrder: c.sortOrder,
@@ -182,6 +192,8 @@ export function AdminDeviceInstallPageContent() {
     () =>
       (catalog ?? []).map((c) => ({
         key: c.key,
+        sensorType: c.sensorType as SensorType,
+        model: c.model,
         displayName: c.displayName,
         sortOrder: c.sortOrder,
         icon: c.icon,
@@ -330,6 +342,7 @@ export function AdminDeviceInstallPageContent() {
     try {
       await updateDevice({
         deviceId: device.deviceId,
+        expectedIntervalSeconds: reportIntervalSeconds,
         reportIntervalSeconds,
         snapshotIntervalSeconds,
         hasCamera,
@@ -344,13 +357,14 @@ export function AdminDeviceInstallPageContent() {
     try {
       const installApiKey = await resolveInstallApiKey();
       const config: FirmwareDeviceConfig = {
-        v: 2,
+        v: 3,
         deviceId,
         apiKey: installApiKey,
         apiOrigin,
         wifiSsid: wifiSsid.trim(),
         wifiPassword: wifiPassword,
         pins: buildFirmwarePins(sensorRows),
+        sensorTypes: buildFirmwareSensorTypes(sensorRows),
         hasCamera
       };
 
@@ -522,7 +536,7 @@ export function AdminDeviceInstallPageContent() {
               >
                 <DurationField
                   id="report"
-                  label={t("admin.devices.reportInterval")}
+                  label={t("admin.devices.telemetryInterval")}
                   value={reportDuration}
                   onChange={setReportDuration}
                 />

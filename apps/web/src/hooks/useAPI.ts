@@ -29,8 +29,12 @@ import { graphqlRequest } from "~/utils/graphql";
 
 export const sitesQueryKey = ["sites"] as const;
 export const siteQueryKey = (id: string) => ["site", id] as const;
-export const sensorMeasurementsQueryKey = (siteId: string, sensorKey: string, range: TimeRange) =>
-  ["sensorMeasurements", siteId, sensorKey, range] as const;
+export const sensorMeasurementsQueryKey = (
+  siteId: string,
+  deviceId: string,
+  sensorKey: string,
+  range: TimeRange
+) => ["sensorMeasurements", siteId, deviceId, sensorKey, range] as const;
 
 export const alertsQueryKey = (vars: Pick<GetAlertsQueryVariables, "siteId" | "type" | "status">) =>
   ["alerts", vars.siteId ?? null, vars.type ?? null, vars.status ?? null] as const;
@@ -98,18 +102,24 @@ export function useSite(id: string) {
 
 export function useSensorMeasurements(
   siteId: string,
+  deviceId: string,
   sensorKey: string,
   range: TimeRange,
   options?: { refetchIntervalMs?: number }
 ) {
   return useQuery({
-    queryKey: sensorMeasurementsQueryKey(siteId, sensorKey, range),
+    queryKey: sensorMeasurementsQueryKey(siteId, deviceId, sensorKey, range),
     queryFn: async () => {
-      const variables: GetSensorMeasurementsQueryVariables = { siteId, sensorKey, range };
+      const variables: GetSensorMeasurementsQueryVariables = {
+        siteId,
+        deviceId,
+        sensorKey,
+        range
+      };
       const r = await graphqlRequest<GetSensorMeasurementsQuery>(GetSensorMeasurementsDocument, variables);
       return unwrap("getSensorMeasurements", r).getSensorMeasurements;
     },
-    enabled: Boolean(siteId && sensorKey),
+    enabled: Boolean(siteId && deviceId && sensorKey),
     refetchInterval: options?.refetchIntervalMs
   });
 }

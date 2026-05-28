@@ -10,6 +10,7 @@ import {
   CreateSensorCatalogEntryDocument,
   ClearAdminSiteSnapshotsDocument,
   DeleteAdminDeviceDocument,
+  DeleteAdminSiteDocument,
   DeleteSensorCatalogEntryDocument,
   ResetAdminSiteMeasurementsDocument,
   ResetAdminUserPasswordDocument,
@@ -37,6 +38,8 @@ import {
   type ClearAdminSiteSnapshotsMutationVariables,
   type DeleteAdminDeviceMutation,
   type DeleteAdminDeviceMutationVariables,
+  type DeleteAdminSiteMutation,
+  type DeleteAdminSiteMutationVariables,
   type ResetAdminSiteMeasurementsMutation,
   type ResetAdminSiteMeasurementsMutationVariables,
   type DeleteSensorCatalogEntryMutation,
@@ -242,6 +245,25 @@ export function useUpdateAdminSiteMutate() {
       void queryClient.invalidateQueries({ queryKey: adminSitesQueryKey });
       void queryClient.invalidateQueries({ queryKey: sitesQueryKey });
       void queryClient.invalidateQueries({ queryKey: siteQueryKey(variables.id) });
+    }
+  });
+}
+
+export function useDeleteAdminSiteMutate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (siteId: string) => {
+      const variables: DeleteAdminSiteMutationVariables = { siteId };
+      const r = await graphqlRequest<DeleteAdminSiteMutation>(DeleteAdminSiteDocument, variables);
+      return unwrap("deleteAdminSite", r).deleteAdminSite;
+    },
+    onSuccess: (_data, siteId) => {
+      void queryClient.invalidateQueries({ queryKey: adminSitesQueryKey });
+      void queryClient.invalidateQueries({ queryKey: sitesQueryKey });
+      void queryClient.invalidateQueries({ queryKey: adminDevicesQueryKey(undefined) });
+      void queryClient.invalidateQueries({ queryKey: adminDevicesQueryKey(siteId) });
+      invalidateSiteDetailQueries(queryClient, siteId);
+      void queryClient.invalidateQueries({ queryKey: ["alerts"] });
     }
   });
 }

@@ -18,6 +18,8 @@ export interface SiteSensorThresholdRowState {
 
 export interface SiteSensorThresholdOverrideRowProps {
   sensorKey: string;
+  /** Unique id for accordion panel (defaults to `sensorKey`). */
+  rowId?: string;
   sensorLabel?: string;
   icon?: string | null;
   catalogPhysicalMin?: number | null;
@@ -39,6 +41,7 @@ function catalogDefaultText(
 
 export function SiteSensorThresholdOverrideRow({
   sensorKey,
+  rowId,
   sensorLabel,
   icon,
   catalogPhysicalMin,
@@ -48,17 +51,18 @@ export function SiteSensorThresholdOverrideRow({
 }: SiteSensorThresholdOverrideRowProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  const panelId = rowId ?? sensorKey;
   const defaultLabel = t("admin.sites.catalogDefaultLabel");
   const unset = t("admin.sites.catalogDefaultNone");
   const title = sensorLabel ?? sensorKey;
 
   return (
-    <div className="w-full rounded-md border">
+    <div className="min-w-0 w-full rounded-md border">
       <button
         type="button"
-        className="flex w-full items-center gap-2 rounded-md p-3 text-left hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="flex w-full min-w-0 items-center gap-2 rounded-md p-3 text-left hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         aria-expanded={expanded}
-        aria-controls={`threshold-panel-${sensorKey}`}
+        aria-controls={`threshold-panel-${panelId}`}
         onClick={() => setExpanded((open) => !open)}
       >
         <ChevronRight
@@ -73,10 +77,10 @@ export function SiteSensorThresholdOverrideRow({
         ) : (
           <CircleDot className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
         )}
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-sm font-medium">
+        <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
           {sensorLabel && sensorLabel !== sensorKey ? (
             <>
-              <span>{sensorLabel}</span>
+              <span className="truncate">{sensorLabel}</span>
               <EntityKeyBadge>{sensorKey}</EntityKeyBadge>
             </>
           ) : (
@@ -91,10 +95,10 @@ export function SiteSensorThresholdOverrideRow({
       </button>
       {expanded ? (
         <div
-          id={`threshold-panel-${sensorKey}`}
+          id={`threshold-panel-${panelId}`}
           className="border-t px-3 pb-3 pt-3"
         >
-      <div className="grid w-full grid-cols-4 items-end gap-3">
+      <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:items-end">
         <div className="min-w-0 space-y-1">
           <Label className="text-xs leading-none">{t("admin.sites.normalMin")}</Label>
           <p className="text-[11px] leading-tight text-muted-foreground">

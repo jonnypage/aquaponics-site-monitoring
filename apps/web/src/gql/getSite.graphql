@@ -8,7 +8,11 @@ query GetSite($id: String!) {
     latitude
     longitude
     sensorReporting {
+      deviceId
+      deviceName
       sensorKey
+      sensorType
+      model
       enabled
       displayName
       unit

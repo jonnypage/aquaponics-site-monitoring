@@ -60,14 +60,25 @@ export class MeasurementsResolver {
 
     let q = this.db
       .selectFrom("measurements")
-      .select(["id", "sensor", "value", "taken_at"])
+      .select(["id", "sensor", "value", "taken_at", "device_id"])
       .where("site_id", "=", siteId)
       .where("taken_at", ">=", since)
       .orderBy("taken_at", "desc")
       .limit(limit);
 
     if (disabledKeys.length > 0) {
-      q = q.where("sensor", "not in", disabledKeys);
+      q = q.where((eb) =>
+        eb.not(
+          eb.or(
+            disabledKeys.map((key) => {
+              const colon = key.indexOf(":");
+              const deviceId = key.slice(0, colon);
+              const sensorKey = key.slice(colon + 1);
+              return eb.and([eb("device_id", "=", deviceId), eb("sensor", "=", sensorKey)]);
+            })
+          )
+        )
+      );
     }
 
     const rows = await q.execute();
@@ -84,6 +95,7 @@ export class MeasurementsResolver {
   @Query(() => [MeasurementModel])
   async getSensorMeasurements(
     @Args("siteId") siteId: string,
+    @Args("deviceId") deviceId: string,
     @Args("sensorKey") sensorKey: string,
     @Args("range", { type: () => TimeRange }) range: TimeRange,
     @CurrentUser() user: User
@@ -93,7 +105,7 @@ export class MeasurementsResolver {
     }
 
     const disabledBySite = await loadDisabledSensorsBySite(this.db, [siteId]);
-    if (isSensorDisabledForSite(siteId, sensorKey, disabledBySite)) {
+    if (isSensorDisabledForSite(siteId, deviceId, sensorKey, disabledBySite)) {
       return [];
     }
 
@@ -103,6 +115,7 @@ export class MeasurementsResolver {
       .selectFrom("measurements")
       .select(["id", "sensor", "value", "taken_at"])
       .where("site_id", "=", siteId)
+      .where("device_id", "=", deviceId)
       .where("sensor", "=", sensorKey)
       .where("taken_at", ">=", since)
       .orderBy("taken_at", "desc")

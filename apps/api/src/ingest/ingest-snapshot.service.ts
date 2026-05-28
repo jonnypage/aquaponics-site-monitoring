@@ -100,7 +100,10 @@ export class IngestSnapshotService {
     const takenAt = new Date(parsed.timestamp);
     const ingestedAt = new Date();
 
-    this.rateLimiter.assertAllowed(device.device_id, device.expected_interval_seconds);
+    this.rateLimiter.assertAllowed(
+      `${device.device_id}:snapshot`,
+      device.snapshot_interval_seconds
+    );
 
     const storageKey = this.storage.buildSnapshotKey(siteId, device.device_id, takenAt);
     const bucket = this.storage.getBucketName();
@@ -133,7 +136,7 @@ export class IngestSnapshotService {
           .execute();
       });
     } catch (e) {
-      this.rateLimiter.rollbackLast(device.device_id);
+      this.rateLimiter.rollbackLast(`${device.device_id}:snapshot`);
       throw e;
     }
 

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { PageBackLink } from '~/components/layout/page-back-link';
 import { PageHeader } from '~/components/layout/page-header';
 import { Button } from '~/components/ui/button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
   ButtonPendingLabel,
   LoadingIndicator,
@@ -44,6 +45,7 @@ export function AdminSensorEditPageContent() {
   );
 
   const [displayName, setDisplayName] = useState('');
+  const [model, setModel] = useState('');
   const [unit, setUnit] = useState('');
   const [physicalMin, setPhysicalMin] = useState('');
   const [physicalMax, setPhysicalMax] = useState('');
@@ -55,12 +57,14 @@ export function AdminSensorEditPageContent() {
     ],
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!row) {
       return;
     }
     setDisplayName(row.displayName);
+    setModel(row.model);
     setUnit(row.unit);
     setPhysicalMin(row.physicalMin != null ? String(row.physicalMin) : '');
     setPhysicalMax(row.physicalMax != null ? String(row.physicalMax) : '');
@@ -78,6 +82,7 @@ export function AdminSensorEditPageContent() {
     try {
       await updateRow({
         key: row.key,
+        model,
         displayName,
         unit,
         physicalMin: physicalMin.trim() === '' ? null : Number(physicalMin),
@@ -95,11 +100,9 @@ export function AdminSensorEditPageContent() {
   }
 
   async function onDelete() {
-    if (!window.confirm(t('admin.sensors.deleteConfirm'))) {
-      return;
-    }
     try {
       await deleteRow(sensorKey);
+      setDeleteConfirmOpen(false);
       await navigate({ to: '/admin/sensors' });
     } catch (err) {
       setFormError(
@@ -131,7 +134,19 @@ export function AdminSensorEditPageContent() {
       <Card className='w-full'>
         <CardContent className='pt-6'>
           <EntityKeyBadge className='mb-4'>{row.key}</EntityKeyBadge>
+          <p className='mb-4 text-sm text-muted-foreground'>
+            {t('admin.sensors.sensorType')}: {t(`sensorType.${row.sensorType}`)}
+          </p>
           <form className='space-y-4' onSubmit={(e) => void onSubmit(e)}>
+            <div className='space-y-2'>
+              <Label htmlFor='model'>{t('admin.sensors.model')}</Label>
+              <Input
+                id='model'
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                required
+              />
+            </div>
             <div className='space-y-2'>
               <Label htmlFor='dn'>{t('admin.sensors.displayName')}</Label>
               <Input
@@ -186,7 +201,7 @@ export function AdminSensorEditPageContent() {
                 type='button'
                 variant='destructive'
                 disabled={isDeleting}
-                onClick={() => void onDelete()}
+                onClick={() => setDeleteConfirmOpen(true)}
               >
                 <ButtonPendingLabel pending={isDeleting}>
                   {t('admin.shared.delete')}
@@ -196,6 +211,19 @@ export function AdminSensorEditPageContent() {
           </form>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title={t('admin.shared.delete')}
+        confirmLabel={t('admin.shared.delete')}
+        confirmTone="destructive"
+        pending={isDeleting}
+        pendingLabel={t('admin.shared.delete')}
+        onConfirm={() => void onDelete()}
+      >
+        {t('admin.sensors.deleteConfirm')}
+      </ConfirmDialog>
     </>
   );
 }

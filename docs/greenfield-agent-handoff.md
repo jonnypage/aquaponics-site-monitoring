@@ -54,7 +54,7 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 
 - `devices` table: `device_id`, `api_key_hash` (SHA-256), `site_id`, `last_seen_at`, `expected_interval_seconds`.
 - `measurements` table + indexes (Timescale-ready `(taken_at, id)` PK).
-- Seed `sensor_catalog` with MVP keys: `temperature`, `ph`, `waterLevel`, `waterFlow`.
+- Seed `sensor_catalog` with hardware slug keys and **`sensor_type`** / **`model`** (default seed: `ds18b20`, `bncPhModule`, `floatSwitch`, `yfs201`).
 - **`POST /ingest`:** `x-api-key`, zod payload validation, catalog key checks, partial readings allowed; **per-device rate limit** (see **Data and operational policies**).
 - Persist measurements; update `devices.last_seen_at`.
 - **Exit criteria:** curl ingest with seeded device key inserts rows; invalid key or unknown sensor key returns 4xx.
@@ -240,7 +240,7 @@ Canonical table map to recreate in Kysely (`Database` interface):
 
 ### Migration sequence (intent)
 
-Greenfield **does not** copy legacy dissolved-oxygen assumptions. Seed the global `sensor_catalog` with exactly these MVP keys: **`temperature`**, **`ph`**, **`waterLevel`**, **`waterFlow`** (units and physical bounds are admin-defined; typical units: °C, pH, % or cm, L/min or GPM).
+Greenfield **does not** copy legacy dissolved-oxygen assumptions. Seed the global `sensor_catalog` with one row per default hardware variant; each row has a unique **`key`** (ingest slug), **`sensor_type`** (measurement family: `temperature`, `ph`, `waterLevel`, `waterFlow`), and **`model`** (hardware label). Multiple catalog rows may share a **`sensor_type`** when stocking alternate probes.
 
 Mirror legacy migration **shape** where still applicable (`0001`–`0011` in the reference repo): auth + roles → core sites/devices/user_sites/thresholds → measurements → alerts → geo → sensor catalog + site_sensor_catalog → flexible catalog keys on measurements/thresholds → device admin fields → nullable device `site_id` → sensor `icon` → **device snapshots + device interval/camera columns** (new in greenfield).
 
@@ -508,6 +508,7 @@ Every successful ingest response includes telemetry ack fields **and** optional 
   "commands": {
     "reportIntervalSeconds": 300,
     "snapshotIntervalSeconds": 900,
+    "hasCamera": true,
     "captureImageNow": false
   }
 }
@@ -517,6 +518,7 @@ Every successful ingest response includes telemetry ack fields **and** optional 
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `reportIntervalSeconds`   | Server-authoritative telemetry POST interval. Admins change this in the device manager; firmware should replace its local interval when this field is present.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `snapshotIntervalSeconds` | Interval for **unsolicited** snapshot uploads when `has_camera` is true.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `hasCamera`               | Server-authoritative camera flag. Firmware must apply when present so admin toggles take effect without re-flash (initial flash still sets the first value).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `captureImageNow`         | When `true`, device must **POST a new image** to `POST /ingest/snapshot` as soon as practical (before the next snapshot interval). **This field is derived on every response** — the server queries whether the device's site has any active alert (`alerts.status = 'active'`). There is no server-side state or TTL for this flag; it reappears on every ingest response as long as any active alert exists, so the device will receive it again on its next telemetry POST if the alert has not cleared. Firmware should attempt one snapshot per received `true`, then wait for the next ingest response before deciding to send another. |
 
 Admins **manually** change `reportIntervalSeconds` / `snapshotIntervalSeconds` via admin device update; the next ingest response reflects the new values.

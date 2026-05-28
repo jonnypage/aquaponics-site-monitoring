@@ -25,6 +25,9 @@ export class AlertModel {
   @Field(() => String, { nullable: true })
   deviceId?: string | null;
 
+  @Field(() => String, { nullable: true })
+  deviceName?: string | null;
+
   @Field()
   type!: string;
 
@@ -51,6 +54,7 @@ export function toAlertModel(row: {
   id: string;
   site_id: string;
   device_id: string | null;
+  device_name?: string | null;
   type: string;
   severity: "warning" | "critical";
   status: "active" | "resolved";
@@ -63,6 +67,7 @@ export function toAlertModel(row: {
     id: row.id,
     siteId: row.site_id,
     deviceId: row.device_id,
+    deviceName: row.device_name ?? null,
     type: row.type,
     severity: row.severity === "critical" ? GqlAlertSeverity.CRITICAL : GqlAlertSeverity.WARNING,
     status: row.status === "active" ? GqlAlertStatus.ACTIVE : GqlAlertStatus.RESOLVED,

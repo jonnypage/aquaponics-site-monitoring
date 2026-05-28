@@ -9,23 +9,44 @@ import { FormSectionHeading } from '~/components/layout/form-section-heading';
 import { PageBackLink } from '~/components/layout/page-back-link';
 import { PageHeader } from '~/components/layout/page-header';
 import { Button } from '~/components/ui/button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
   ButtonPendingLabel,
   LoadingIndicator,
 } from '~/components/ui/loading-indicator';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card';
 import { EntityKeyBadge } from '~/components/ui/entity-key-badge';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
+  useAdminDevices,
   useAdminSites,
   useClearAdminSiteSnapshotsMutate,
+  useDeleteAdminSiteMutate,
   useResetAdminSiteMeasurementsMutate,
   useSensorCatalog,
   useUpdateAdminSiteMutate,
 } from '~/hooks/useAdmin';
+import { sensorTypeLabelKey } from '~/utils/sensor-display-label';
+import type { SensorType } from '~/utils/sensor-types';
+import { siteSensorInstanceKey } from '~/utils/site-sensor-instance';
 
 const routeApi = getRouteApi('/_authed/admin/sites/$siteId/edit');
+
+type PendingConfirm = {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  confirmTone: 'default' | 'destructive';
+  pendingLabel?: string;
+  action: () => Promise<void>;
+};
 
 function parseOptFloat(s: string): number | null {
   const t = s.trim();
@@ -42,17 +63,21 @@ export function AdminSiteEditPageContent() {
   const navigate = useNavigate();
   const { data: sites, isLoading } = useAdminSites();
   const { data: catalog } = useSensorCatalog();
+  const { data: siteDevices } = useAdminDevices(siteId);
   const { mutateAsync: updateSite, isPending } = useUpdateAdminSiteMutate();
-  const {
-    mutateAsync: resetMeasurements,
-    isPending: isResettingMeasurements
-  } = useResetAdminSiteMeasurementsMutate();
-  const {
-    mutateAsync: clearSnapshots,
-    isPending: isClearingSnapshots
-  } = useClearAdminSiteSnapshotsMutate();
-  const [dataActionMessage, setDataActionMessage] = useState<string | null>(null);
+  const { mutateAsync: resetMeasurements, isPending: isResettingMeasurements } =
+    useResetAdminSiteMeasurementsMutate();
+  const { mutateAsync: clearSnapshots, isPending: isClearingSnapshots } =
+    useClearAdminSiteSnapshotsMutate();
+  const { mutateAsync: deleteSite, isPending: isDeletingSite } =
+    useDeleteAdminSiteMutate();
+  const [dataActionMessage, setDataActionMessage] = useState<string | null>(
+    null,
+  );
   const [dataActionError, setDataActionError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
+  const [confirmPending, setConfirmPending] = useState(false);
 
   const site = useMemo(
     () => sites?.find((s) => s.id === siteId),
@@ -80,20 +105,39 @@ export function AdminSiteEditPageContent() {
     return map;
   }, [catalog]);
 
-  const reportingByKey = useMemo(() => {
+  const reportingByInstance = useMemo(() => {
     const map = new Map<
       string,
-      { displayName: string; icon?: string | null }
+      {
+        displayName: string;
+        icon?: string | null;
+        deviceName?: string | null;
+      }
     >();
     for (const r of site?.sensorReporting ?? []) {
-      map.set(r.sensorKey, { displayName: r.displayName, icon: r.icon });
+      map.set(siteSensorInstanceKey(r.deviceId, r.sensorKey), {
+        displayName: r.displayName,
+        icon: r.icon,
+        deviceName: r.deviceName,
+      });
     }
     return map;
   }, [site?.sensorReporting]);
-  const keys = useMemo(
-    () => site?.sensorReporting.map((r) => r.sensorKey) ?? [],
-    [site],
+
+  const reportingRows = useMemo(
+    () => site?.sensorReporting ?? [],
+    [site?.sensorReporting],
   );
+
+  const reportingByDevice = useMemo(() => {
+    const map = new Map<string, typeof reportingRows>();
+    for (const row of reportingRows) {
+      const list = map.get(row.deviceId) ?? [];
+      list.push(row);
+      map.set(row.deviceId, list);
+    }
+    return map;
+  }, [reportingRows]);
 
   const [name, setName] = useState('');
   const [lat, setLat] = useState('');
@@ -104,6 +148,21 @@ export function AdminSiteEditPageContent() {
   >({});
   const [formError, setFormError] = useState<string | null>(null);
 
+  function deviceLabel(deviceId: string, name?: string | null) {
+    const trimmed = name?.trim();
+    return trimmed ? `${trimmed} (${deviceId})` : deviceId;
+  }
+
+  function applyEnabledForDevice(deviceId: string) {
+    const rows = reportingByDevice.get(deviceId) ?? [];
+    setEnabled((prev) => {
+      const next = { ...prev };
+      for (const row of rows) {
+        next[siteSensorInstanceKey(deviceId, row.sensorKey)] = true;
+      }
+      return next;
+    });
+  }
   const onMapPick = useCallback((la: number, ln: number) => {
     setLat(la.toFixed(6));
     setLng(ln.toFixed(6));
@@ -122,10 +181,10 @@ export function AdminSiteEditPageContent() {
       { nm: string; nM: string; wd: string; cd: string }
     > = {};
     for (const r of site.sensorReporting) {
-      en[r.sensorKey] = r.enabled;
+      en[siteSensorInstanceKey(r.deviceId, r.sensorKey)] = r.enabled;
     }
     for (const r of site.sensorThresholds) {
-      th0[r.sensorKey] = {
+      th0[siteSensorInstanceKey(r.deviceId, r.sensorKey)] = {
         nm: r.normalMin != null ? String(r.normalMin) : '',
         nM: r.normalMax != null ? String(r.normalMax) : '',
         wd: r.warningDelta != null ? String(r.warningDelta) : '',
@@ -154,14 +213,18 @@ export function AdminSiteEditPageContent() {
         name,
         latitude: latN,
         longitude: lngN,
-        sensorReporting: keys.map((k) => ({
-          sensorKey: k,
-          enabled: enabled[k] ?? false,
+        sensorReporting: reportingRows.map((r) => ({
+          deviceId: r.deviceId,
+          sensorKey: r.sensorKey,
+          enabled:
+            enabled[siteSensorInstanceKey(r.deviceId, r.sensorKey)] ?? false,
         })),
-        sensorThresholds: keys.map((k) => {
-          const row = th[k] ?? { nm: '', nM: '', wd: '', cd: '' };
+        sensorThresholds: reportingRows.map((r) => {
+          const key = siteSensorInstanceKey(r.deviceId, r.sensorKey);
+          const row = th[key] ?? { nm: '', nM: '', wd: '', cd: '' };
           return {
-            sensorKey: k,
+            deviceId: r.deviceId,
+            sensorKey: r.sensorKey,
             normalMin: parseOptFloat(row.nm),
             normalMax: parseOptFloat(row.nM),
             warningDelta: parseOptFloat(row.wd),
@@ -191,10 +254,7 @@ export function AdminSiteEditPageContent() {
     );
   }
 
-  async function onResetMeasurements() {
-    if (!window.confirm(t('admin.sites.resetMeasurementsConfirm'))) {
-      return;
-    }
+  async function performResetMeasurements() {
     setDataActionError(null);
     setDataActionMessage(null);
     try {
@@ -202,22 +262,20 @@ export function AdminSiteEditPageContent() {
       setDataActionMessage(
         t('admin.sites.resetMeasurementsSuccess', {
           count: result.deletedMeasurements,
-          alerts: result.resolvedAlerts
-        })
+          alerts: result.resolvedAlerts,
+        }),
       );
     } catch (err) {
       setDataActionError(
         t('admin.sites.dataActionError', {
-          message: err instanceof Error ? err.message : t('shared.unknownError')
-        })
+          message:
+            err instanceof Error ? err.message : t('shared.unknownError'),
+        }),
       );
     }
   }
 
-  async function onClearSnapshots() {
-    if (!window.confirm(t('admin.sites.clearSnapshotsConfirm'))) {
-      return;
-    }
+  async function performClearSnapshots() {
     setDataActionError(null);
     setDataActionMessage(null);
     try {
@@ -225,28 +283,94 @@ export function AdminSiteEditPageContent() {
       setDataActionMessage(
         result.storageSkipped
           ? t('admin.sites.clearSnapshotsSuccessStorageSkipped', {
-              snapshots: result.deletedSnapshots
+              snapshots: result.deletedSnapshots,
             })
           : t('admin.sites.clearSnapshotsSuccess', {
               snapshots: result.deletedSnapshots,
-              objects: result.deletedStorageObjects
-            })
+              objects: result.deletedStorageObjects,
+            }),
       );
     } catch (err) {
       setDataActionError(
         t('admin.sites.dataActionError', {
-          message: err instanceof Error ? err.message : t('shared.unknownError')
-        })
+          message:
+            err instanceof Error ? err.message : t('shared.unknownError'),
+        }),
       );
     }
+  }
+
+  async function performDeleteSite() {
+    setDeleteError(null);
+    try {
+      await deleteSite(siteId);
+      await navigate({ to: '/admin/sites' });
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error ? err.message : t('shared.unknownError'),
+      );
+    }
+  }
+
+  async function runPendingConfirm() {
+    if (!pendingConfirm) {
+      return;
+    }
+    setConfirmPending(true);
+    try {
+      await pendingConfirm.action();
+      setPendingConfirm(null);
+    } finally {
+      setConfirmPending(false);
+    }
+  }
+
+  function openResetMeasurementsConfirm() {
+    setPendingConfirm({
+      title: t('admin.sites.resetMeasurements'),
+      description: t('admin.sites.resetMeasurementsConfirm'),
+      confirmLabel: t('admin.sites.resetMeasurements'),
+      confirmTone: 'default',
+      action: performResetMeasurements,
+    });
+  }
+
+  function openClearSnapshotsConfirm() {
+    setPendingConfirm({
+      title: t('admin.sites.clearSnapshots'),
+      description: t('admin.sites.clearSnapshotsConfirm'),
+      confirmLabel: t('admin.sites.clearSnapshots'),
+      confirmTone: 'destructive',
+      pendingLabel: t('admin.sites.clearSnapshots'),
+      action: performClearSnapshots,
+    });
+  }
+
+  function openDeleteSiteConfirm() {
+    setPendingConfirm({
+      title: t('admin.sites.deleteSiteTitle'),
+      description: t('admin.sites.deleteSiteConfirm'),
+      confirmLabel: t('admin.shared.delete'),
+      confirmTone: 'destructive',
+      pendingLabel: t('admin.shared.delete'),
+      action: performDeleteSite,
+    });
   }
 
   return (
     <>
       <PageHeader title={t('admin.sites.editTitle')} />
-      <PageBackLink to='/admin/sites'>
-        {t('admin.sites.backToSites')}
-      </PageBackLink>
+      <div className='mb-6 flex flex-wrap items-center gap-2'>
+        <PageBackLink to='/admin/sites' className='mb-0'>
+          {t('admin.sites.backToSites')}
+        </PageBackLink>
+        <Button variant='outline' size='sm' asChild>
+          <Link to='/admin/sensors'>{t('admin.sensors.listTitle')}</Link>
+        </Button>
+        <Button variant='outline' size='sm' asChild>
+          <Link to='/admin/devices'>{t('admin.devices.listTitle')}</Link>
+        </Button>
+      </div>
       {/* <div className='mb-6'>
         <SiteAlertsSection
           siteId={site.id}
@@ -291,38 +415,136 @@ export function AdminSiteEditPageContent() {
                 />
               </div>
             </div>
-            <div className='space-y-3'>
-              <FormSectionHeading>{t('admin.sites.sensorEnabled')}</FormSectionHeading>
-              {keys.map((k) => (
-                <label key={k} className='flex items-center gap-2 text-sm'>
-                  <input
-                    type='checkbox'
-                    checked={enabled[k] ?? true}
-                    onChange={() =>
-                      setEnabled((p) => ({ ...p, [k]: !(p[k] ?? true) }))
-                    }
-                  />
-                  <EntityKeyBadge>{k}</EntityKeyBadge>
-                </label>
-              ))}
+            <div className='space-y-4'>
+              <FormSectionHeading>
+                {t('admin.sites.sensorEnabled')}
+              </FormSectionHeading>
+              <p className='text-sm text-muted-foreground'>
+                {t('admin.sites.deviceForSensorsHint')}
+              </p>
+              {!siteDevices?.length ? (
+                <p className='text-sm text-muted-foreground'>
+                  {t('admin.sites.deviceForSensorsNone')}{' '}
+                  <Link to='/admin/devices' className='underline'>
+                    {t('admin.devices.listTitle')}
+                  </Link>
+                </p>
+              ) : reportingRows.length === 0 ? (
+                <p className='text-sm text-muted-foreground'>
+                  {t('admin.sites.deviceForSensorsNoWired')}{' '}
+                  <Link to='/admin/devices' className='underline'>
+                    {t('admin.devices.listTitle')}
+                  </Link>
+                </p>
+              ) : (
+                [...reportingByDevice.entries()].map(([deviceId, rows]) => {
+                  const deviceName =
+                    rows[0]?.deviceName ??
+                    siteDevices.find((d) => d.deviceId === deviceId)?.name;
+                  return (
+                    <div
+                      key={deviceId}
+                      className='min-w-0 space-y-3 rounded-md border border-border p-4'
+                    >
+                      <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+                        <p className='text-sm font-medium'>
+                          {deviceLabel(deviceId, deviceName)}
+                        </p>
+                        <div className='flex flex-wrap gap-2'>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='sm'
+                            onClick={() => applyEnabledForDevice(deviceId)}
+                          >
+                            {t('admin.sites.enableDeviceSensors')}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className='space-y-2'>
+                        {rows.map((r) => {
+                          const instanceKey = siteSensorInstanceKey(
+                            r.deviceId,
+                            r.sensorKey,
+                          );
+                          return (
+                            <label
+                              key={instanceKey}
+                              className='flex flex-wrap items-center gap-x-2 gap-y-1 text-sm'
+                            >
+                              <input
+                                type='checkbox'
+                                checked={enabled[instanceKey] ?? false}
+                                onChange={() =>
+                                  setEnabled((p) => ({
+                                    ...p,
+                                    [instanceKey]: !(p[instanceKey] ?? false),
+                                  }))
+                                }
+                              />
+                              <span className='font-medium'>
+                                {t(
+                                  sensorTypeLabelKey(
+                                    r.sensorType as SensorType,
+                                  ),
+                                )}
+                                {r.model.trim() ? (
+                                  <span className='font-normal text-muted-foreground'>
+                                    {' '}
+                                    ({r.model})
+                                  </span>
+                                ) : null}
+                              </span>
+                              <EntityKeyBadge>{r.sensorKey}</EntityKeyBadge>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
             <div className='space-y-3'>
-              <FormSectionHeading>{t('admin.sites.thresholds')}</FormSectionHeading>
+              <FormSectionHeading>
+                {t('admin.sites.thresholds')}
+              </FormSectionHeading>
               <div className='space-y-4'>
-                {keys.map((k) => {
-                  const row = th[k] ?? { nm: '', nM: '', wd: '', cd: '' };
-                  const cat = catalogByKey.get(k);
-                  const reporting = reportingByKey.get(k);
+                {reportingRows.map((r) => {
+                  const instanceKey = siteSensorInstanceKey(
+                    r.deviceId,
+                    r.sensorKey,
+                  );
+                  const row = th[instanceKey] ?? {
+                    nm: '',
+                    nM: '',
+                    wd: '',
+                    cd: '',
+                  };
+                  const cat = catalogByKey.get(r.sensorKey);
+                  const reporting = reportingByInstance.get(instanceKey);
+                  const deviceName =
+                    r.deviceName ??
+                    siteDevices?.find((d) => d.deviceId === r.deviceId)?.name;
+                  const sensorLabel = `${deviceLabel(
+                    r.deviceId,
+                    deviceName,
+                  )} · ${
+                    reporting?.displayName ?? cat?.displayName ?? r.sensorKey
+                  }`;
                   return (
                     <SiteSensorThresholdOverrideRow
-                      key={k}
-                      sensorKey={k}
-                      sensorLabel={reporting?.displayName ?? cat?.displayName}
+                      key={instanceKey}
+                      rowId={instanceKey}
+                      sensorKey={r.sensorKey}
+                      sensorLabel={sensorLabel}
                       icon={reporting?.icon ?? cat?.icon}
                       catalogPhysicalMin={cat?.physicalMin}
                       catalogPhysicalMax={cat?.physicalMax}
                       row={row}
-                      onChange={(next) => setTh((p) => ({ ...p, [k]: next }))}
+                      onChange={(next) =>
+                        setTh((p) => ({ ...p, [instanceKey]: next }))
+                      }
                     />
                   );
                 })}
@@ -343,8 +565,12 @@ export function AdminSiteEditPageContent() {
 
       <Card className='mt-6 border-destructive/30'>
         <CardHeader>
-          <CardTitle className='text-base'>{t('admin.sites.dataManagementTitle')}</CardTitle>
-          <CardDescription>{t('admin.sites.dataManagementDescription')}</CardDescription>
+          <CardTitle className='text-base'>
+            {t('admin.sites.dataManagementTitle')}
+          </CardTitle>
+          <CardDescription>
+            {t('admin.sites.dataManagementDescription')}
+          </CardDescription>
         </CardHeader>
         <CardContent className='space-y-3'>
           <div className='flex flex-col gap-2 sm:flex-row sm:flex-wrap'>
@@ -352,7 +578,7 @@ export function AdminSiteEditPageContent() {
               type='button'
               variant='outline'
               disabled={isResettingMeasurements || isClearingSnapshots}
-              onClick={() => void onResetMeasurements()}
+              onClick={openResetMeasurementsConfirm}
             >
               <ButtonPendingLabel pending={isResettingMeasurements}>
                 {t('admin.sites.resetMeasurements')}
@@ -362,10 +588,22 @@ export function AdminSiteEditPageContent() {
               type='button'
               variant='destructive'
               disabled={isResettingMeasurements || isClearingSnapshots}
-              onClick={() => void onClearSnapshots()}
+              onClick={openClearSnapshotsConfirm}
             >
               <ButtonPendingLabel pending={isClearingSnapshots}>
                 {t('admin.sites.clearSnapshots')}
+              </ButtonPendingLabel>
+            </Button>
+            <Button
+              type='button'
+              variant='destructive'
+              disabled={
+                isDeletingSite || isResettingMeasurements || isClearingSnapshots
+              }
+              onClick={openDeleteSiteConfirm}
+            >
+              <ButtonPendingLabel pending={isDeletingSite}>
+                {t('admin.shared.delete') + ' ' + t('admin.devices.site')}
               </ButtonPendingLabel>
             </Button>
           </div>
@@ -375,8 +613,28 @@ export function AdminSiteEditPageContent() {
           {dataActionError ? (
             <p className='text-sm text-destructive'>{dataActionError}</p>
           ) : null}
+          {deleteError ? (
+            <p className='text-sm text-destructive'>{deleteError}</p>
+          ) : null}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={pendingConfirm !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingConfirm(null);
+          }
+        }}
+        title={pendingConfirm?.title ?? ''}
+        confirmLabel={pendingConfirm?.confirmLabel}
+        confirmTone={pendingConfirm?.confirmTone}
+        pending={confirmPending}
+        pendingLabel={pendingConfirm?.pendingLabel}
+        onConfirm={() => void runPendingConfirm()}
+      >
+        {pendingConfirm?.description}
+      </ConfirmDialog>
     </>
   );
 }

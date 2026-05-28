@@ -67,7 +67,7 @@ export function AppSidebar({
     <aside
       inert={inert === true ? true : undefined}
       className={cn(
-        'flex h-full w-60 shrink-0 flex-col border-r border-border bg-background text-foreground',
+        'flex h-full min-h-0 w-60 shrink-0 flex-col border-r border-border bg-background text-foreground',
         className,
       )}
     >
@@ -81,7 +81,7 @@ export function AppSidebar({
         </Link>
       </div>
 
-      <nav className='flex-1 space-y-6 overflow-y-auto px-3 py-6'>
+      <nav className='min-h-0 flex-1 space-y-6 overflow-y-auto px-3 py-6'>
         {sections.map((section) => (
           <div key={section.sectionKey} className='space-y-1'>
             <p className='px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground'>

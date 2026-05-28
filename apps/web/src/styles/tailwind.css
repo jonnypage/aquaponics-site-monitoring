@@ -5,10 +5,11 @@
 /*
  * Core tokens aligned with Underdog / reference app.
  *
- * Layout (see dashboard-shell):
+ * Layout (see dashboard-shell + _authed route):
+ *   Authed shell → h-svh overflow-hidden on route wrapper; DashboardShell fills h-full
  *   Sidenav     → bg-background  (light: white; dark: 222.2 84% 4.9%)
  *   Main shell  → bg-muted/30   (light: 30% of 210 40% 96.1%; dark: 30% of 217.2 32.6% 17.5%)
- *   body        → bg-background
+ *   body        → bg-background (document scroll on login/guest only)
  */
 
 :root {

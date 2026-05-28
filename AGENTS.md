@@ -14,7 +14,7 @@ Concise context for AI coding agents and developers who need orientation before 
 ## Current baseline (update when you ship work)
 
 - **Active phase:** Phases **1–6** MVP **code complete** — operator sign-off: **[docs/phase6-verification.md](docs/phase6-verification.md)** + **[docs/phase6-railway-production.md](docs/phase6-railway-production.md)**. **Phase 7** (notifications) **planned** — **[docs/phase7-agent-prompt.md](docs/phase7-agent-prompt.md)**. Post-MVP: ESP32 CYD flash ([docs/esp32-cyd-roadmap.md](docs/esp32-cyd-roadmap.md)), real camera driver.
-- **Implemented:** (Phases 1–5 as before.) **Phase 6:** snapshots + S3 ingest; **`getSite.latestSnapshot`** / **`adminDevice.recentSnapshots`**; site detail map/snapshot row; **`AdminDeviceRecentSnapshots`** on device edit; admin **reset site measurements** / **clear site snapshots**; install wizard + **`scripts/ensure-or-build-firmware.mjs`** (real `firmware.bin` on CI/Railway); ESP8266 firmware (chunked placekitten snapshot download); wiring v2 + **`0008`**.
+- **Implemented:** (Phases 1–5 as before.) **Sensor catalog:** migration **`0009_sensor_type_model`** — `sensor_type` + `model` on `sensor_catalog`; default keys `ds18b20`, `bncPhModule`, `floatSwitch`, `yfs201`; heuristics/charts by family, ingest by slug **`key`**. **Phase 6:** snapshots + S3 ingest; **`getSite.latestSnapshot`** / **`adminDevice.recentSnapshots`**; site detail map/snapshot row; **`AdminDeviceRecentSnapshots`** on device edit; admin **reset site measurements** / **clear site snapshots**; install wizard + **`scripts/ensure-or-build-firmware.mjs`** (real `firmware.bin` on CI/Railway); ESP8266 firmware config **`v: 3`** (`sensorTypes` map); wiring v2 + **`0008`**.
 - **Not implemented yet:** Phase 7 notifications; ESP32 CYD installer (roadmap only); real camera hardware driver.
 - **Staging sites (ops, no code):** use an admin-only **“Device staging”** site — do not assign to non-admins; assign devices there for calibration ingest; reassign to production when ready.
 - **Env contract:** use **`DATABASE_PUBLIC_URL`** for Postgres (see `README.md`). Do not reintroduce `DATABASE_URL` as the primary app variable without an explicit project decision.
@@ -61,7 +61,8 @@ Concise context for AI coding agents and developers who need orientation before 
 | `apps/web/src/routes/_authed.tsx`  | Pathless layout; `requireAuth` + `DashboardShell`. |
 | `apps/web/`                        | TanStack Start dashboard; `pnpm dev:web` / `pnpm build:web` / `pnpm start:web` |
 | `packages/db/src/migrations/`      | SQL migrations via Kysely Migrator                                    |
-| `packages/db/src/scripts/`         | `migrate.ts`, `seed.ts`                                               |
+| `packages/db/src/sensor-types.ts`    | `SENSOR_TYPES`, default seed catalog rows                             |
+| `packages/db/src/scripts/`         | `migrate.ts`, `seed.ts`, `seed-users.ts`, `seed-demo.ts`              |
 | `README.md`                        | **Update** when behavior, commands, env vars, or phase status changes |
 | `docs/greenfield-agent-handoff.md` | Spec; edit only when product/contracts change                         |
 | `docs/phase6-agent-prompt.md`      | Phase 6 agent bootstrap (snapshots, storage, esp-web-tools)           |
@@ -81,6 +82,8 @@ pnpm firmware:build       # pio run + copy to web public
 pnpm firmware:copy        # copy only (after manual pio run)
 pnpm migrate:deploy
 pnpm seed
+pnpm seed:users
+pnpm seed:demo
 pnpm db:setup
 ```
 

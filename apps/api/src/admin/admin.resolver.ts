@@ -161,6 +161,13 @@ export class AdminResolver {
 
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles("admin")
+  @Mutation(() => Boolean)
+  async deleteAdminSite(@Args("siteId") siteId: string): Promise<boolean> {
+    return this.admin.deleteAdminSite(siteId);
+  }
+
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles("admin")
   @Mutation(() => ResetAdminSiteMeasurementsPayload)
   async resetAdminSiteMeasurements(
     @Args("siteId") siteId: string

@@ -1,6 +1,8 @@
 query SensorCatalog {
   sensorCatalog {
     key
+    sensorType
+    model
     displayName
     unit
     physicalMin
@@ -41,7 +43,11 @@ query AdminSites {
     latitude
     longitude
     sensorReporting {
+      deviceId
+      deviceName
       sensorKey
+      sensorType
+      model
       enabled
       displayName
       unit
@@ -49,6 +55,7 @@ query AdminSites {
       icon
     }
     sensorThresholds {
+      deviceId
       sensorKey
       normalMin
       normalMax
@@ -98,6 +105,8 @@ query AdminDevice($id: String!) {
 mutation CreateSensorCatalogEntry($input: CreateSensorCatalogEntryInput!) {
   createSensorCatalogEntry(input: $input) {
     key
+    sensorType
+    model
     displayName
     unit
     physicalMin
@@ -122,6 +131,8 @@ mutation CreateSensorCatalogEntry($input: CreateSensorCatalogEntryInput!) {
 mutation UpdateSensorCatalogEntry($input: UpdateSensorCatalogEntryInput!) {
   updateSensorCatalogEntry(input: $input) {
     key
+    sensorType
+    model
     displayName
     unit
     physicalMin
@@ -182,7 +193,11 @@ mutation CreateAdminSite($input: CreateAdminSiteInput!) {
     latitude
     longitude
     sensorReporting {
+      deviceId
+      deviceName
       sensorKey
+      sensorType
+      model
       enabled
       displayName
       unit
@@ -190,6 +205,7 @@ mutation CreateAdminSite($input: CreateAdminSiteInput!) {
       icon
     }
     sensorThresholds {
+      deviceId
       sensorKey
       normalMin
       normalMax
@@ -206,7 +222,11 @@ mutation UpdateAdminSite($input: UpdateAdminSiteInput!) {
     latitude
     longitude
     sensorReporting {
+      deviceId
+      deviceName
       sensorKey
+      sensorType
+      model
       enabled
       displayName
       unit
@@ -214,6 +234,7 @@ mutation UpdateAdminSite($input: UpdateAdminSiteInput!) {
       icon
     }
     sensorThresholds {
+      deviceId
       sensorKey
       normalMin
       normalMax
@@ -265,6 +286,10 @@ mutation RotateAdminDeviceApiKey($deviceId: String!) {
 
 mutation DeleteAdminDevice($deviceId: String!) {
   deleteAdminDevice(deviceId: $deviceId)
+}
+
+mutation DeleteAdminSite($siteId: String!) {
+  deleteAdminSite(siteId: $siteId)
 }
 
 mutation ResetAdminSiteMeasurements($siteId: String!) {

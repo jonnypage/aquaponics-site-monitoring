@@ -3,9 +3,10 @@ export const CONFIG_END_MARKER = "__UD_CFG_END__";
 export const CONFIG_REGION_SIZE = 2048;
 
 import type { FirmwarePinsConfig } from "~/utils/sensor-wiring";
+import type { SensorType } from "~/utils/sensor-types";
 
 export interface FirmwareDeviceConfig {
-  v: 2;
+  v: 3;
   deviceId: string;
   apiKey: string;
   apiOrigin: string;
@@ -13,6 +14,8 @@ export interface FirmwareDeviceConfig {
   wifiPassword: string;
   /** Per sensor: null = disabled; object = wire role id → GPIO; number = legacy v1 single pin. */
   pins: FirmwarePinsConfig;
+  /** Per catalog key: measurement family for dummy/driver routing (null when disabled). */
+  sensorTypes: Record<string, SensorType | null>;
   hasCamera: boolean;
 }
 

@@ -35,10 +35,41 @@ static bool addSensorPin(DeviceConfig &out, const char *sensorKey, const char *r
     return false;
   }
   out.sensors[out.sensorCount].key = sensorKey;
+  out.sensors[out.sensorCount].sensorType = "";
   out.sensors[out.sensorCount].role = role;
   out.sensors[out.sensorCount].pin = pin;
   out.sensorCount++;
   return true;
+}
+
+static String inferSensorTypeFromKey(const char *sensorKey) {
+  if (strcmp(sensorKey, "temperature") == 0 || strcmp(sensorKey, "ds18b20") == 0) {
+    return String("temperature");
+  }
+  if (strcmp(sensorKey, "ph") == 0 || strcmp(sensorKey, "bncPhModule") == 0) {
+    return String("ph");
+  }
+  if (strcmp(sensorKey, "waterLevel") == 0 || strcmp(sensorKey, "floatSwitch") == 0) {
+    return String("waterLevel");
+  }
+  if (strcmp(sensorKey, "waterFlow") == 0 || strcmp(sensorKey, "yfs201") == 0) {
+    return String("waterFlow");
+  }
+  return String("");
+}
+
+static void applySensorTypes(DeviceConfig &out, JsonObjectConst sensorTypes) {
+  for (uint8_t i = 0; i < out.sensorCount; ++i) {
+    const char *key = out.sensors[i].key.c_str();
+    if (!sensorTypes.isNull()) {
+      JsonVariantConst typed = sensorTypes[key];
+      if (!typed.isNull() && typed.is<const char *>()) {
+        out.sensors[i].sensorType = typed.as<const char *>();
+        continue;
+      }
+    }
+    out.sensors[i].sensorType = inferSensorTypeFromKey(key);
+  }
 }
 
 static void loadSensorFromPins(DeviceConfig &out, const char *sensorKey, JsonVariantConst value) {
@@ -116,7 +147,7 @@ bool loadDeviceConfig(DeviceConfig &out) {
   }
 
   const int version = doc["v"].as<int>();
-  if (version != 1 && version != 2) {
+  if (version != 1 && version != 2 && version != 3) {
     Serial.print("Config: unsupported version ");
     Serial.println(version);
     return false;
@@ -136,6 +167,9 @@ bool loadDeviceConfig(DeviceConfig &out) {
       loadSensorFromPins(out, kv.key().c_str(), kv.value());
     }
   }
+
+  JsonObjectConst sensorTypes = doc["sensorTypes"].as<JsonObjectConst>();
+  applySensorTypes(out, sensorTypes);
 
   if (out.deviceId.length() == 0 || out.apiKey.length() == 0 || out.apiOrigin.length() == 0 ||
       out.wifiSsid.length() == 0) {

@@ -36,10 +36,10 @@ The admin install wizard patches a 2 KiB region between `__UD_CFG_BEGIN__` and `
 
 - `deviceId`, `apiKey`, `apiOrigin` (LAN IP reachable by the ESP, e.g. `http://192.168.1.106:4000` — set via `VITE_DEVICE_API_ORIGIN` in `apps/web/.env`, not `localhost`)
 - Wi-Fi credentials and GPIO `pins` for MVP sensors
-- **`v: 2`** (preferred): per-sensor role map, e.g. `"ph": { "signal": 5 }`; `null` disables a sensor. Legacy **`v: 1`** scalar pins (`"ph": 5`) map to role `signal`.
-- `hasCamera` — when true, uploads a 16:9 JPEG from placekittens.com (640×360); when false, no snapshots (including alert-driven `captureImageNow`). The download tolerates chunked responses (no `Content-Length`).
+- **`v: 3`** (preferred): per-sensor role map plus **`sensorTypes`** map, e.g. `"bncPhModule": { "signal": 5 }`, `"sensorTypes": { "bncPhModule": "ph" }`; `null` disables a sensor. Legacy **`v: 2`** infers types from catalog keys; **`v: 1`** scalar pins (`"ph": 5`) map to role `signal`.
+- `hasCamera` — when true, uploads a small 16:9 JPEG from placekittens.com (320×180); when false, no snapshots (including alert-driven `captureImageNow`). The download tolerates chunked responses (no `Content-Length`).
 
-Telemetry intervals come from the server via `POST /ingest` `commands` — not from the flashed JSON.
+Telemetry intervals and **`hasCamera`** come from the server via `POST /ingest` `commands` — the flashed JSON is only the initial value until the first successful ingest.
 
 ## HTTPS
 

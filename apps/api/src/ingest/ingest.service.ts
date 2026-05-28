@@ -19,6 +19,7 @@ export interface IngestSuccessResponse {
   commands: {
     reportIntervalSeconds: number;
     snapshotIntervalSeconds: number;
+    hasCamera: boolean;
     captureImageNow: boolean;
   };
 }
@@ -84,6 +85,7 @@ export class IngestService {
       .selectFrom("site_sensor_catalog")
       .selectAll()
       .where("site_id", "=", siteId)
+      .where("device_id", "=", device.device_id)
       .where("sensor", "in", sensorKeys)
       .execute();
     const enabledBySensor = new Map(siteSensors.map((s) => [s.sensor, s.enabled]));
@@ -92,6 +94,7 @@ export class IngestService {
       .selectFrom("sensor_thresholds")
       .selectAll()
       .where("site_id", "=", siteId)
+      .where("device_id", "=", device.device_id)
       .where("sensor", "in", sensorKeys)
       .execute();
     const thresholdBySensor = new Map(thresholds.map((t) => [t.sensor, t]));
@@ -148,6 +151,7 @@ export class IngestService {
             .selectFrom("measurements")
             .select(["value", "taken_at"])
             .where("site_id", "=", siteId)
+            .where("device_id", "=", device.device_id)
             .where("sensor", "=", row.sensor)
             .where("taken_at", "<=", takenAt)
             .orderBy("taken_at", "desc")
@@ -163,7 +167,7 @@ export class IngestService {
           await this.ingestAlerts.syncHeuristicAlertsForReading(trx, {
             siteId,
             deviceId: device.device_id,
-            sensorKey: row.sensor,
+            sensorType: cat.sensor_type,
             takenAt,
             sensorEnabled,
             historyNewestFirst
@@ -186,6 +190,7 @@ export class IngestService {
       commands: {
         reportIntervalSeconds: device.report_interval_seconds,
         snapshotIntervalSeconds: device.snapshot_interval_seconds,
+        hasCamera: device.has_camera,
         captureImageNow
       }
     };

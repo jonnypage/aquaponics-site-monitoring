@@ -1,31 +1,32 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { Database } from "@aquaponics/db";
+import type { Database, SensorType as DbSensorType } from "@aquaponics/db";
 import type { Kysely } from "kysely";
 
 import { DB_TOKEN } from "../database/database.constants.js";
 import { isDeviceConsideredOffline } from "../alerts/device-offline.util.js";
-import { filterAlertsForEnabledSensorsOnly, loadDisabledSensorsBySite } from "../sites/site-sensor-filter.util.js";
-import { evaluateHeuristicsForSensor, heuristicTypesForSensor } from "./ingest-heuristics.util.js";
+import { deviceDisplayLabel } from "../alerts/alert-message.util.js";
+import { filterAlertsForEnabledSensorsOnly, loadAlertFilterContext } from "../sites/site-sensor-filter.util.js";
+import { evaluateHeuristicsForSensor, heuristicTypesForSensorType } from "./ingest-heuristics.util.js";
 import type { HistoryPoint } from "./ingest-heuristics.util.js";
 import { classifyRangeAnomaly, effectiveNormalBounds } from "./range-anomaly.util.js";
 
 type DbExec = Kysely<Database>;
 
-function deviceDisplayLabel(deviceId: string, name: string | null | undefined): string {
-  const trimmed = name?.trim();
-  return trimmed ? trimmed : deviceId;
-}
-
 @Injectable()
 export class IngestAlertService {
   constructor(@Inject(DB_TOKEN) private readonly db: Kysely<Database>) {}
 
-  rangeAlertTypes(sensorKey: string): [string, string] {
-    return [`range_warning:${sensorKey}`, `range_violation:${sensorKey}`];
+  rangeAlertTypes(deviceId: string, sensorKey: string): [string, string] {
+    return [`range_warning:${deviceId}:${sensorKey}`, `range_violation:${deviceId}:${sensorKey}`];
   }
 
-  async resolveRangePairForSensor(executor: DbExec, siteId: string, sensorKey: string): Promise<void> {
-    const [warnType, violType] = this.rangeAlertTypes(sensorKey);
+  async resolveRangePairForSensor(
+    executor: DbExec,
+    siteId: string,
+    deviceId: string,
+    sensorKey: string
+  ): Promise<void> {
+    const [warnType, violType] = this.rangeAlertTypes(deviceId, sensorKey);
     const now = new Date();
     await executor
       .updateTable("alerts")
@@ -95,12 +96,47 @@ export class IngestAlertService {
       .execute();
   }
 
-  /** Resolve MVP heuristic alert types for this sensor (e.g. sensor disabled). */
-  async resolveHeuristicTypesForSiteSensor(executor: DbExec, siteId: string, sensorKey: string): Promise<void> {
-    for (const type of heuristicTypesForSensor(sensorKey)) {
+  /** Resolve heuristic alert types for a device + family when no enabled sensors remain. */
+  async resolveHeuristicTypesForDeviceSensorType(
+    executor: DbExec,
+    siteId: string,
+    deviceId: string,
+    sensorType: DbSensorType
+  ): Promise<void> {
+    for (const type of heuristicTypesForSensorType(sensorType, deviceId)) {
       await this.resolveActiveAlertByType(executor, siteId, type);
     }
   }
+  private async siteHasEnabledSensorOfTypeOnDevice(
+    executor: DbExec,
+    siteId: string,
+    deviceId: string,
+    sensorType: DbSensorType
+  ): Promise<boolean> {
+    const row = await executor
+      .selectFrom("site_sensor_catalog")
+      .innerJoin("sensor_catalog", "sensor_catalog.key", "site_sensor_catalog.sensor")
+      .select("site_sensor_catalog.sensor")
+      .where("site_sensor_catalog.site_id", "=", siteId)
+      .where("site_sensor_catalog.device_id", "=", deviceId)
+      .where("site_sensor_catalog.enabled", "=", true)
+      .where("sensor_catalog.sensor_type", "=", sensorType)
+      .executeTakeFirst();
+    return row != null;
+  }
+
+  async maybeResolveHeuristicTypesForSensorType(
+    executor: DbExec,
+    siteId: string,
+    deviceId: string,
+    sensorType: DbSensorType
+  ): Promise<void> {
+    const stillEnabled = await this.siteHasEnabledSensorOfTypeOnDevice(executor, siteId, deviceId, sensorType);
+    if (!stillEnabled) {
+      await this.resolveHeuristicTypesForDeviceSensorType(executor, siteId, deviceId, sensorType);
+    }
+  }
+
 
   /**
    * Upsert or resolve heuristic alerts (spike / flatline / drift / level-flow) from recent history.
@@ -111,25 +147,25 @@ export class IngestAlertService {
     params: {
       siteId: string;
       deviceId: string;
-      sensorKey: string;
+      sensorType: DbSensorType;
       takenAt: Date;
       sensorEnabled: boolean;
       historyNewestFirst: HistoryPoint[];
     }
   ): Promise<void> {
-    const { siteId, deviceId, sensorKey, takenAt, sensorEnabled, historyNewestFirst } = params;
+    const { siteId, deviceId, sensorType, takenAt, sensorEnabled, historyNewestFirst } = params;
 
     if (!sensorEnabled) {
-      await this.resolveHeuristicTypesForSiteSensor(executor, siteId, sensorKey);
+      await this.maybeResolveHeuristicTypesForSensorType(executor, siteId, deviceId, sensorType);
       return;
     }
 
-    const types = heuristicTypesForSensor(sensorKey);
+    const types = heuristicTypesForSensorType(sensorType, deviceId);
     if (types.length === 0) {
       return;
     }
 
-    const findings = evaluateHeuristicsForSensor(sensorKey, historyNewestFirst, takenAt);
+    const findings = evaluateHeuristicsForSensor(sensorType, historyNewestFirst, takenAt);
     const byType = new Map<string, { severity: "warning" | "critical"; message: string }>();
     for (const f of findings) {
       const existing = byType.get(f.type);
@@ -139,7 +175,8 @@ export class IngestAlertService {
     }
 
     for (const type of types) {
-      const hit = byType.get(type);
+      const baseType = type.includes(":") ? type.slice(0, type.indexOf(":")) : type;
+      const hit = byType.get(baseType);
       if (hit) {
         await this.upsertActiveAlert(executor, {
           siteId,
@@ -181,13 +218,13 @@ export class IngestAlertService {
     const { siteId, deviceId, sensorKey, value, physicalMin, physicalMax, threshold, sensorEnabled } = params;
 
     if (!sensorEnabled) {
-      await this.resolveRangePairForSensor(executor, siteId, sensorKey);
+      await this.resolveRangePairForSensor(executor, siteId, deviceId, sensorKey);
       return;
     }
 
     const bounds = effectiveNormalBounds(physicalMin, physicalMax, threshold);
     if (!bounds) {
-      await this.resolveRangePairForSensor(executor, siteId, sensorKey);
+      await this.resolveRangePairForSensor(executor, siteId, deviceId, sensorKey);
       return;
     }
 
@@ -200,11 +237,11 @@ export class IngestAlertService {
       threshold?.critical_delta
     );
 
-    const [warnType, violType] = this.rangeAlertTypes(sensorKey);
+    const [warnType, violType] = this.rangeAlertTypes(deviceId, sensorKey);
     const now = new Date();
 
     if (!decision) {
-      await this.resolveRangePairForSensor(executor, siteId, sensorKey);
+      await this.resolveRangePairForSensor(executor, siteId, deviceId, sensorKey);
       return;
     }
 
@@ -310,10 +347,12 @@ export class IngestAlertService {
       .where("status", "=", "active")
       .execute();
 
-    const disabledBySite = await loadDisabledSensorsBySite(this.db, [siteId]);
+    const { disabledBySite, enabledBySite, sensorTypeByKey } = await loadAlertFilterContext(this.db, [siteId]);
     const filtered = filterAlertsForEnabledSensorsOnly(
       rows.map((r) => ({ site_id: siteId, type: r.type })),
-      disabledBySite
+      disabledBySite,
+      enabledBySite,
+      sensorTypeByKey
     );
     return filtered.length > 0;
   }

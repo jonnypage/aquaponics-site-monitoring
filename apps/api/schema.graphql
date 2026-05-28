@@ -53,6 +53,8 @@ type SensorWiringTemplateModel {
 
 type SensorCatalogEntryModel {
   key: String!
+  sensorType: SensorType!
+  model: String!
   displayName: String!
   unit: String!
   physicalMin: Float
@@ -62,6 +64,13 @@ type SensorCatalogEntryModel {
   wiringTemplate: SensorWiringTemplateModel!
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+enum SensorType {
+  temperature
+  ph
+  waterLevel
+  waterFlow
 }
 
 type AdminUserModel {
@@ -75,7 +84,11 @@ type AdminUserModel {
 }
 
 type SiteSensorReportingModel {
+  deviceId: String!
+  deviceName: String
   sensorKey: String!
+  sensorType: SensorType!
+  model: String!
   enabled: Boolean!
   displayName: String!
   unit: String!
@@ -84,6 +97,7 @@ type SiteSensorReportingModel {
 }
 
 type SiteSensorThresholdModel {
+  deviceId: String!
   sensorKey: String!
   normalMin: Float
   normalMax: Float
@@ -141,6 +155,7 @@ type AlertModel {
   id: String!
   siteId: String!
   deviceId: String
+  deviceName: String
   type: String!
   severity: AlertSeverity!
   status: AlertStatus!
@@ -199,7 +214,7 @@ type Query {
   getSites: [SiteModel!]!
   getSite(id: String!): SiteModel!
   getMeasurements(siteId: String!, range: TimeRange!): [MeasurementModel!]!
-  getSensorMeasurements(siteId: String!, sensorKey: String!, range: TimeRange!): [MeasurementModel!]!
+  getSensorMeasurements(siteId: String!, deviceId: String!, sensorKey: String!, range: TimeRange!): [MeasurementModel!]!
   getAlerts(siteId: String, type: String, status: AlertStatus): [AlertModel!]!
 }
 
@@ -225,6 +240,7 @@ type Mutation {
   updateAdminDevice(input: UpdateAdminDeviceInput!): AdminDeviceModel!
   rotateAdminDeviceApiKey(deviceId: String!): RotateAdminDeviceApiKeyPayload!
   deleteAdminDevice(deviceId: String!): Boolean!
+  deleteAdminSite(siteId: String!): Boolean!
   resetAdminSiteMeasurements(siteId: String!): ResetAdminSiteMeasurementsPayload!
   clearAdminSiteSnapshots(siteId: String!): ClearAdminSiteSnapshotsPayload!
   resolveAlert(id: String!): Boolean!
@@ -244,6 +260,8 @@ input UpdateMeInput {
 
 input CreateSensorCatalogEntryInput {
   key: String!
+  sensorType: SensorType!
+  model: String!
   displayName: String!
   unit: String!
   physicalMin: Float
@@ -268,6 +286,7 @@ input SensorWireDefInput {
 
 input UpdateSensorCatalogEntryInput {
   key: String!
+  model: String
   displayName: String
   unit: String
   physicalMin: Float
@@ -297,17 +316,19 @@ input CreateAdminSiteInput {
   name: String!
   latitude: Float
   longitude: Float
-  sensorReporting: [SiteSensorReportingInput!]!
-  sensorThresholds: [SiteSensorThresholdInput!]!
+  sensorReporting: [SiteSensorReportingInput!]
+  sensorThresholds: [SiteSensorThresholdInput!]
   attachDeviceId: String
 }
 
 input SiteSensorReportingInput {
+  deviceId: String!
   sensorKey: String!
   enabled: Boolean!
 }
 
 input SiteSensorThresholdInput {
+  deviceId: String!
   sensorKey: String!
   normalMin: Float
   normalMax: Float

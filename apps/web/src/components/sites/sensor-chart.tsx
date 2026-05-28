@@ -17,6 +17,7 @@ import { formatChartTick, formatNumber } from "~/utils/format";
 
 interface SensorChartProps {
   siteId: string;
+  deviceId: string;
   sensorKey: string;
   label: string;
   unit?: string;
@@ -32,6 +33,7 @@ type Point = { ts: number; value: number };
 
 export function SensorChart({
   siteId,
+  deviceId,
   sensorKey,
   label,
   unit,
@@ -41,9 +43,15 @@ export function SensorChart({
   refetchIntervalMs
 }: SensorChartProps) {
   const { t } = useTranslation();
-  const { data, isLoading, isError, error } = useSensorMeasurements(siteId, sensorKey, range, {
-    refetchIntervalMs
-  });
+  const { data, isLoading, isError, error } = useSensorMeasurements(
+    siteId,
+    deviceId,
+    sensorKey,
+    range,
+    {
+      refetchIntervalMs
+    }
+  );
 
   const points: Point[] = useMemo(() => {
     if (!data) return [];
@@ -60,7 +68,7 @@ export function SensorChart({
     value: { label, color: `hsl(${colorVar})` }
   };
 
-  const fillId = `fill-${sensorKey}`;
+  const fillId = `fill-${deviceId}-${sensorKey}`;
 
   return (
     <Card>

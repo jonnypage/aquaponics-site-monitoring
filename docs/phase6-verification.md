@@ -44,8 +44,10 @@ curl -sS -X POST "http://localhost:4000/ingest" \
     "deviceId": "seed-device-1",
     "timestamp": "2026-05-21T12:00:00.000Z",
     "readings": {
-      "temperature": 24.5,
-      "ph": 7.0
+      "ds18b20": 24.5,
+      "bncPhModule": 7.0,
+      "floatSwitch": 72,
+      "yfs201": 1.2
     }
   }'
 ```

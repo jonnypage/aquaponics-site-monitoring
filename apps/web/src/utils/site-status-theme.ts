@@ -28,3 +28,31 @@ export function siteStatusCardClassName(status: SiteStatus): string {
       );
   }
 }
+
+/** Map pin title chip on `/sites` overview — solid fill for readability on satellite tiles. */
+export function siteStatusMapPinLabelClassName(status: SiteStatus): string {
+  switch (status) {
+    case SiteStatus.Ok:
+      return "border-2 border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-600";
+    case SiteStatus.Warning:
+      return "border-2 border-amber-500 bg-amber-500 text-amber-950 dark:border-amber-400 dark:bg-amber-500";
+    case SiteStatus.Critical:
+      return "border-2 border-destructive bg-destructive text-destructive-foreground";
+    default:
+      return "border-2 border-border bg-muted text-foreground dark:bg-secondary dark:text-secondary-foreground";
+  }
+}
+
+/** Site name link hover — matches card/badge status (OK keeps primary green). */
+export function siteStatusTitleHoverClassName(status: SiteStatus): string {
+  switch (status) {
+    case SiteStatus.Ok:
+      return "group-hover:text-primary";
+    case SiteStatus.Warning:
+      return "group-hover:text-amber-600 dark:group-hover:text-amber-400";
+    case SiteStatus.Critical:
+      return "group-hover:text-destructive";
+    default:
+      return "group-hover:text-primary";
+  }
+}

@@ -9,6 +9,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import { useSensorCatalog } from "~/hooks/useAdmin";
+import type { SensorType } from "~/utils/sensor-types";
 
 export function AdminSensorsIndexPageContent() {
   const { t } = useTranslation();
@@ -49,6 +50,8 @@ export function AdminSensorsIndexPageContent() {
             <AdminSensorCatalogCard
               key={r.key}
               sensorKey={r.key}
+              sensorType={r.sensorType as SensorType}
+              model={r.model}
               displayName={r.displayName}
               unit={r.unit}
               icon={r.icon}

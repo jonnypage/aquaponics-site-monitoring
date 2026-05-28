@@ -7,7 +7,7 @@ import { GqlAuthGuard } from "../auth/gql-auth.guard.js";
 import { AuthService } from "../auth/auth.service.js";
 import { Role } from "../auth/auth.types.js";
 import { DB_TOKEN } from "../database/database.constants.js";
-import { filterAlertsForEnabledSensorsOnly, loadDisabledSensorsBySite } from "./site-sensor-filter.util.js";
+import { filterAlertsForEnabledSensorsOnly, loadAlertFilterContext } from "./site-sensor-filter.util.js";
 import { SiteModel, SiteStatus } from "./dashboard.types.js";
 import { SnapshotsService } from "../snapshots/snapshots.service.js";
 import { loadSiteSensorReporting } from "./site-sensor-reporting.util.js";
@@ -99,10 +99,12 @@ export class SitesResolver {
       .where("status", "=", "active")
       .execute();
 
-    const disabledBySite = await loadDisabledSensorsBySite(this.db, [siteId]);
+    const { disabledBySite, enabledBySite, sensorTypeByKey } = await loadAlertFilterContext(this.db, [siteId]);
     const filteredActive = filterAlertsForEnabledSensorsOnly(
       activeRows.map((a) => ({ site_id: siteId, type: a.type, severity: a.severity })),
-      disabledBySite
+      disabledBySite,
+      enabledBySite,
+      sensorTypeByKey
     );
 
     const sensorReporting = await loadSiteSensorReporting(this.db, siteId);

@@ -1,23 +1,59 @@
-/**
- * Map alert `type` strings to `sensor_catalog.key`, or `null` when not scoped to a single sensor.
- * Keep in sync with `apps/api/src/sites/alert-sensor-key.util.ts`.
- */
+import type { SensorType } from "~/utils/sensor-types";
+
+/** Parse device-scoped range alert types (`range_warning:deviceId:sensorKey`). */
+export function rangeAlertPartsFromType(type: string): { deviceId: string; sensorKey: string } | null {
+  const scoped = type.match(/^range_(?:warning|violation):([^:]+):(.+)$/);
+  if (scoped?.[1] && scoped[2]) {
+    return { deviceId: scoped[1], sensorKey: scoped[2] };
+  }
+  return null;
+}
+
+/** Keep in sync with `apps/api/src/sites/alert-sensor-key.util.ts`. */
 export function sensorCatalogKeyFromAlertType(type: string): string | null {
-  const range = type.match(/^range_(?:warning|violation):(.+)$/);
-  if (range?.[1]) {
-    return range[1];
+  const scoped = rangeAlertPartsFromType(type);
+  if (scoped != null) {
+    return scoped.sensorKey;
   }
 
-  const heuristicToSensor: Record<string, string> = {
-    temperature_spike: "temperature",
-    temperature_flatline: "temperature",
-    ph_drift: "ph",
-    ph_flatline: "ph",
-    water_level_issue: "waterLevel",
-    water_level_flatline: "waterLevel",
-    water_flow_issue: "waterFlow",
-    water_flow_flatline: "waterFlow"
-  };
+  const legacy = type.match(/^range_(?:warning|violation):(.+)$/);
+  if (legacy?.[1]) {
+    return legacy[1];
+  }
+  return null;
+}
 
-  return heuristicToSensor[type] ?? null;
+const HEURISTIC_BASE_TYPES: Record<string, SensorType> = {
+  temperature_spike: "temperature",
+  temperature_flatline: "temperature",
+  ph_drift: "ph",
+  ph_flatline: "ph",
+  water_level_issue: "waterLevel",
+  water_level_flatline: "waterLevel",
+  water_flow_issue: "waterFlow",
+  water_flow_flatline: "waterFlow"
+};
+
+function heuristicBaseType(type: string): string | null {
+  const scoped = type.match(/^([a-z_]+):[^:]+$/);
+  if (scoped?.[1] && HEURISTIC_BASE_TYPES[scoped[1]]) {
+    return scoped[1];
+  }
+  if (HEURISTIC_BASE_TYPES[type]) {
+    return type;
+  }
+  return null;
+}
+
+export function heuristicAlertSensorType(type: string): SensorType | null {
+  const base = heuristicBaseType(type);
+  return base ? (HEURISTIC_BASE_TYPES[base] ?? null) : null;
+}
+
+export function heuristicAlertDeviceId(type: string): string | null {
+  const scoped = type.match(/^([a-z_]+):([^:]+)$/);
+  if (scoped?.[1] && HEURISTIC_BASE_TYPES[scoped[1]] && scoped[2]) {
+    return scoped[2];
+  }
+  return null;
 }

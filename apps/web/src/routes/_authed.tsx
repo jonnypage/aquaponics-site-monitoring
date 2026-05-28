@@ -34,7 +34,11 @@ function AuthedLayout() {
 
   const showAdminNav = user.role === Role.Admin;
   return (
-    <DashboardShell userName={user.name} userEmail={user.email} showAdminNav={showAdminNav}>
+    <DashboardShell
+      userName={user.name}
+      userEmail={user.email}
+      showAdminNav={showAdminNav}
+    >
       <Outlet />
     </DashboardShell>
   );

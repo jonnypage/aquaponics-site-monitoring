@@ -13,6 +13,7 @@ import {
 } from '~/gql/generated/graphql';
 import { useResolveAlertMutate, type ResolveAlertInput } from '~/hooks/useAPI';
 import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
+import { formatAlertDisplay } from '~/utils/alert-display';
 import { formatRelativeTime } from '~/utils/format';
 
 export type AlertRow = GetAlertsQuery['getAlerts'][number];
@@ -30,6 +31,8 @@ export function AlertCard({ alert, siteName }: AlertCardProps) {
     isPending: isResolving,
     variables: resolvingAlertId
   } = useResolveAlertMutate();
+
+  const display = formatAlertDisplay(alert, [], t);
 
   return (
     <Card>
@@ -52,12 +55,15 @@ export function AlertCard({ alert, siteName }: AlertCardProps) {
                 ? t('alertsPage.status.active')
                 : t('alertsPage.status.resolved')}
             </Badge>
+            {display.deviceLabel ? (
+              <Badge variant='outline'>{display.deviceLabel}</Badge>
+            ) : null}
             <EntityKeyBadge className='text-muted-foreground'>
               {alert.type}
             </EntityKeyBadge>
           </div>
           <p className='text-sm leading-relaxed text-foreground'>
-            {alert.message}
+            {display.message}
           </p>
           <div className='flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground'>
             <span>
@@ -80,12 +86,6 @@ export function AlertCard({ alert, siteName }: AlertCardProps) {
                 </Link>
               )}
             </span>
-            {alert.deviceId ? (
-              <span>
-                {t('alertsPage.device')}:{' '}
-                <EntityKeyBadge>{alert.deviceId}</EntityKeyBadge>
-              </span>
-            ) : null}
             <span>
               {t('alertsPage.updated')}:{' '}
               {formatRelativeTime(new Date(alert.updatedAt))}

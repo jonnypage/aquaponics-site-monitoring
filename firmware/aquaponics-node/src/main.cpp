@@ -134,27 +134,27 @@ namespace
     return roundf(v * 1000.0f) / 1000.0f;
   }
 
-  void addReading(JsonObject readings, const String &sensorKey, int pin)
+  void addReading(JsonObject readings, const String &sensorKey, const String &sensorType, int pin)
   {
     if (pin < 0)
     {
       return;
     }
-    if (sensorKey == "temperature")
+    if (sensorType == "temperature")
     {
       // Flatline threshold ≤ 0.02°C over 10 readings
       readings[sensorKey] = readDummyWithJitter(pin, 20.0f, 10.0f, 0.06f);
     }
-    else if (sensorKey == "ph")
+    else if (sensorType == "ph")
     {
       // Flatline ≤ 0.008; keep jitter small to limit false ph_drift
       readings[sensorKey] = readDummyWithJitter(pin, 6.5f, 2.0f, 0.012f);
     }
-    else if (sensorKey == "waterLevel")
+    else if (sensorType == "waterLevel")
     {
       readings[sensorKey] = readDummyWithJitter(pin, 70.0f, 30.0f, 0.25f);
     }
-    else if (sensorKey == "waterFlow")
+    else if (sensorType == "waterFlow")
     {
       readings[sensorKey] = readDummyWithJitter(pin, 0.5f, 2.0f, 0.02f);
     }
@@ -168,7 +168,7 @@ namespace
   {
     for (uint8_t i = 0; i < g_cfg.sensorCount; ++i)
     {
-      addReading(readings, g_cfg.sensors[i].key, g_cfg.sensors[i].pin);
+      addReading(readings, g_cfg.sensors[i].key, g_cfg.sensors[i].sensorType, g_cfg.sensors[i].pin);
     }
   }
 
@@ -191,6 +191,10 @@ namespace
     if (!commands["snapshotIntervalSeconds"].isNull())
     {
       g_snapshotIntervalSeconds = commands["snapshotIntervalSeconds"].as<int>();
+    }
+    if (!commands["hasCamera"].isNull())
+    {
+      g_cfg.hasCamera = commands["hasCamera"].as<bool>();
     }
     if (!commands["captureImageNow"].isNull() && g_cfg.hasCamera)
     {
@@ -278,9 +282,9 @@ namespace
     return httpCode > 0;
   }
 
-  // 16:9 placeholder JPEG (until a real camera driver exists).
-  constexpr char kPlacekittenUrl[] = "https://placekittens.com/640/360";
-  constexpr size_t kSnapshotMaxBytes = 52000;
+  // Small placeholder JPEG — ESP8266 heap cannot hold 640×360 (~48 KiB) plus multipart body.
+  constexpr char kPlacekittenUrl[] = "https://placekittens.com/320/180";
+  constexpr size_t kSnapshotMaxBytes = 16384;
   constexpr unsigned long kStreamIdleMs = 5000;
 
   size_t readAvail(WiFiClient *stream, uint8_t *dest, size_t destCap)
