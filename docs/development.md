@@ -233,7 +233,7 @@ The route id string must match the `createFileRoute('…')` literal in the corre
 
 ### Session and GraphQL (SSR)
 
-- **Session / SSR:** root `beforeLoad` loads the user via **`loadSessionUserFn`** (`src/api/load-session-user.ts`, a `createServerFn` using `getRequestHeader('cookie')`). Do not import `*.server.ts` from `session.ts` (TanStack client build fails). Do not call `getRequest()` from route `beforeLoad` directly. Client hooks use **`graphqlRequest`** with `credentials: "include"`. When the API is on a different host than the web app, the session cookie is API-scoped; SSR may see no user until the client hydrates (expected).
+- **Session / refresh:** root `beforeLoad` loads the user via **`loadSessionUserFn`** (`src/api/load-session-user.ts`) on SSR (forwards the browser `Cookie` header to the API). **Local dev:** `localhost` cookies are sent to `:3333`, so refresh stays logged in on SSR. **Production split hosts** (web + API subdomains): set **`SESSION_COOKIE_DOMAIN`** on the API (see [`phase6-railway-production.md`](phase6-railway-production.md)) so SSR sees the cookie; without it, `_authed` **defers** auth to the client (`guardAuthedRoute` + `useMe`) instead of redirecting to login on refresh. Client hooks use **`graphqlRequest`** with `credentials: "include"`.
 
 ### Hook rules (`src/hooks/`)
 

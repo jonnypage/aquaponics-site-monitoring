@@ -26,6 +26,7 @@ Build logs should show TypeScript compiling `packages/db` and `apps/api`. After 
 - `DATABASE_PUBLIC_URL` — variable reference from Postgres plugin
 - `AUTH_SECRET` — stable across deploys (`openssl rand -hex 32`)
 - `WEB_ORIGIN` — exact web app URL (no trailing slash)
+- `SESSION_COOKIE_DOMAIN` — **required when web and API are on different subdomains** (e.g. web `https://app.example.com`, API `https://api.example.com` → set `.example.com`). Without this, refresh sends you to login until the client recovers; with it, SSR can read the session too. **Log in once** after adding/changing this so the browser gets a new cookie scope.
 - `NODE_ENV=production`
 - `PG_POOL_MAX=3` (recommended)
 

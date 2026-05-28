@@ -17,6 +17,24 @@ const SESSION_COOKIE_NAME = process.env.NODE_ENV === "production" ? "aq_session"
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const RENEWAL_WINDOW_SECONDS = 60 * 60 * 24 * 7;
 
+/** Shared parent domain when web + API are on different subdomains (e.g. `.example.com`). */
+function sessionCookieOptions(maxAge: number): Parameters<typeof serializeCookie>[2] {
+  const options: Parameters<typeof serializeCookie>[2] = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge
+  };
+
+  const domain = process.env.SESSION_COOKIE_DOMAIN?.trim();
+  if (domain && process.env.NODE_ENV === "production") {
+    options.domain = domain.startsWith(".") ? domain : `.${domain}`;
+  }
+
+  return options;
+}
+
 interface SessionPayload {
   sub: string;
   iat: number;
@@ -53,25 +71,17 @@ export class AuthService {
   }
 
   setSessionCookie(res: GqlContext["res"], userId: string): void {
-    const cookieValue = serializeCookie(SESSION_COOKIE_NAME, this.signToken(userId), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: SESSION_TTL_SECONDS
-    });
+    const cookieValue = serializeCookie(
+      SESSION_COOKIE_NAME,
+      this.signToken(userId),
+      sessionCookieOptions(SESSION_TTL_SECONDS)
+    );
 
     this.appendSetCookie(res, cookieValue);
   }
 
   clearSessionCookie(res: GqlContext["res"]): void {
-    const cookieValue = serializeCookie(SESSION_COOKIE_NAME, "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0
-    });
+    const cookieValue = serializeCookie(SESSION_COOKIE_NAME, "", sessionCookieOptions(0));
 
     this.appendSetCookie(res, cookieValue);
   }

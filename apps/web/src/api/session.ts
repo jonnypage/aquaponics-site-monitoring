@@ -37,6 +37,41 @@ export async function loadRootContext(): Promise<RouterContext> {
 }
 
 /**
+ * Resolve the session user for protected routes.
+ * - SSR: trust root `context.user` only (localhost sends the API cookie to the web host;
+ *   split prod hosts need `SESSION_COOKIE_DOMAIN` or client defer below).
+ * - Client: re-fetch via GraphQL with `credentials: "include"`.
+ */
+export async function resolveAuthedUser(
+  context: RouterContext
+): Promise<GetMeQuery["getMe"] | null> {
+  if (context.user) {
+    return context.user;
+  }
+  if (import.meta.env.SSR) {
+    return null;
+  }
+  return loadSessionUser();
+}
+
+/**
+ * Protected layout guard. SSR without `context.user` defers to the client (split web/API hosts).
+ * Client without a session redirects to `/login`.
+ */
+export async function guardAuthedRoute(
+  context: RouterContext
+): Promise<{ user: GetMeQuery["getMe"] } | { user: null }> {
+  const user = await resolveAuthedUser(context);
+  if (user) {
+    return { user };
+  }
+  if (import.meta.env.SSR) {
+    return { user: null };
+  }
+  throw redirect({ to: "/login" });
+}
+
+/**
  * Protected route guard. Call from `beforeLoad: ({ context }) => requireAuth(context)`.
  * Redirects to /login if unauthenticated; otherwise narrows `context.user` to non-null
  * for code that runs after the call.
@@ -55,7 +90,7 @@ export function requireGuest({ user }: RouterContext): void {
   if (user) throw redirect({ to: "/sites" });
 }
 
-/** Only `ADMIN` may access `/admin/*`. Call after `requireAuth`. */
+/** Only `ADMIN` may access `/admin/*`. Call after auth is resolved (not during SSR defer). */
 export function requireAdmin(
   context: RouterContext
 ): asserts context is RouterContext & { user: NonNullable<RouterContext["user"]> } {
@@ -63,4 +98,12 @@ export function requireAdmin(
   if (context.user.role !== Role.Admin) {
     throw redirect({ to: "/sites" });
   }
+}
+
+/** Admin layout guard — skips SSR when parent auth is deferred; enforces on client. */
+export function guardAdminRoute(context: RouterContext): void {
+  if (import.meta.env.SSR && !context.user) {
+    return;
+  }
+  requireAdmin(context);
 }
