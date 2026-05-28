@@ -1,21 +1,29 @@
-import { useMemo, useState, type CSSProperties } from 'react';
-import { getRouteApi, Link } from '@tanstack/react-router';
+import { useMemo, useState } from 'react';
+import { getRouteApi } from '@tanstack/react-router';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { FormSectionHeading } from '~/components/layout/form-section-heading';
 import { PageBackLink } from '~/components/layout/page-back-link';
 import { PageHeader } from '~/components/layout/page-header';
 import { SiteAlertsSection } from '~/components/sites/site-alerts-section';
+import { SiteLatestSnapshot } from '~/components/sites/site-latest-snapshot';
 import { SiteLocationMap } from '~/components/sites/site-location-map';
 import { SensorChart } from '~/components/sites/sensor-chart';
 import { SiteStatusBadge } from '~/components/sites/site-status-badge';
 import { TimeRangeTabs } from '~/components/sites/time-range-tabs';
-import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
 import { TimeRange } from '~/gql/generated/graphql';
 import { useSite } from '~/hooks/useAPI';
+import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
 import { formatRelativeTime } from '~/utils/format';
+import {
+  sensorChartLabel,
+  sensorTypeLabelKey,
+} from '~/utils/sensor-display-label';
+import type { SensorType } from '~/utils/sensor-types';
+import { sitePollIntervalMs } from '~/utils/site-poll-interval';
 
 const routeApi = getRouteApi('/_authed/sites/$siteId');
 
@@ -27,34 +35,88 @@ const CHART_COLOR_VARS = [
   '--chart-5',
 ] as const;
 
+const SENSOR_GRID_CLASS =
+  'grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+
+function deviceLabel(deviceId: string, name?: string | null) {
+  const trimmed = name?.trim();
+  return trimmed ? `${trimmed}` : deviceId;
+}
+
 export function SiteDetailPageContent() {
   const { t } = useTranslation();
   const { siteId } = routeApi.useParams();
   const { data: site, isLoading, isError, error } = useSite(siteId);
   const [range, setRange] = useState<TimeRange>(TimeRange.Last_24H);
+  useRelativeTimeTick();
 
-  const chartSensors = useMemo(() => {
-    if (!site?.sensorReporting?.length) {
+  const enabledReporting = useMemo(
+    () => (site?.sensorReporting ?? []).filter((r) => r.enabled),
+    [site?.sensorReporting],
+  );
+
+  const chartSections = useMemo(() => {
+    if (!enabledReporting.length) {
       return [];
     }
-    return site.sensorReporting
-      .filter((r) => r.enabled)
-      .map((r, i) => ({
-        sensorKey: r.sensorKey,
-        label: r.displayName,
-        unit: r.unit,
-        icon: r.icon,
-        colorVar: `var(${CHART_COLOR_VARS[i % CHART_COLOR_VARS.length]})`,
+
+    const byDevice = new Map<string, typeof enabledReporting>();
+    const deviceOrder: string[] = [];
+
+    for (const row of enabledReporting) {
+      if (!byDevice.has(row.deviceId)) {
+        deviceOrder.push(row.deviceId);
+        byDevice.set(row.deviceId, []);
+      }
+      byDevice.get(row.deviceId)!.push(row);
+    }
+
+    let colorIndex = 0;
+
+    return deviceOrder.map((deviceId) => {
+      const rows = byDevice.get(deviceId)!;
+      const labelRows = rows.map((row) => ({
+        sensorKey: row.sensorKey,
+        sensorType: row.sensorType as SensorType,
+        model: row.model,
+        displayName: row.displayName,
+        deviceName: row.deviceName,
       }));
-  }, [site?.sensorReporting]);
+
+      return {
+        deviceId,
+        deviceName: rows[0]?.deviceName,
+        sensors: rows.map((r) => ({
+          deviceId: r.deviceId,
+          sensorKey: r.sensorKey,
+          label: sensorChartLabel(
+            {
+              sensorKey: r.sensorKey,
+              sensorType: r.sensorType as SensorType,
+              model: r.model,
+              displayName: r.displayName,
+              deviceName: r.deviceName,
+            },
+            labelRows,
+            t(sensorTypeLabelKey(r.sensorType as SensorType)),
+          ),
+          unit: r.unit,
+          icon: r.icon,
+          colorVar: `var(${
+            CHART_COLOR_VARS[colorIndex++ % CHART_COLOR_VARS.length]
+          })`,
+        })),
+      };
+    });
+  }, [enabledReporting, t]);
 
   if (isLoading) {
     return (
       <>
         <Skeleton className='mb-6 h-10 w-64' />
-        <div className="grid w-full grid-cols-1 gap-4">
+        <div className={SENSOR_GRID_CLASS}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[260px] w-full min-w-0" />
+            <Skeleton key={i} className='h-[260px] w-full min-w-0' />
           ))}
         </div>
       </>
@@ -81,6 +143,8 @@ export function SiteDetailPageContent() {
     ? formatRelativeTime(new Date(site.lastUpdate))
     : t('siteCard.noReadingsYet');
 
+  const pollIntervalMs = sitePollIntervalMs(site.pollIntervalSeconds);
+
   return (
     <>
       <PageBackLink to='/sites'>{t('siteDetailPage.back')}</PageBackLink>
@@ -96,41 +160,74 @@ export function SiteDetailPageContent() {
         }
       />
 
-      <div className="mb-6">
+      <div className='mb-6'>
         <SiteAlertsSection
           siteId={site.id}
           sensorReporting={site.sensorReporting}
         />
       </div>
 
-      <div className="mb-6">
-        {chartSensors.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t("siteDetailPage.noEnabledSensors")}
+      <div className='mb-6'>
+        {chartSections.length === 0 ? (
+          <p className='text-sm text-muted-foreground'>
+            {t('siteDetailPage.noEnabledSensors')}
           </p>
         ) : (
-          <div
-            className="grid w-full grid-cols-1 gap-4 md:[grid-template-columns:repeat(var(--sensor-cols),minmax(0,1fr))]"
-            style={{ "--sensor-cols": chartSensors.length } as CSSProperties}
-          >
-            {chartSensors.map((s) => (
-              <div key={s.sensorKey} className="min-w-0">
-                <SensorChart
-                  siteId={site.id}
-                  sensorKey={s.sensorKey}
-                  label={s.label}
-                  unit={s.unit}
-                  range={range}
-                  colorVar={s.colorVar}
-                  lucideIcon={s.icon}
-                />
-              </div>
+          <div className='space-y-8'>
+            {chartSections.map((section) => (
+              <section key={section.deviceId} className='space-y-4'>
+                <FormSectionHeading>
+                  {deviceLabel(section.deviceId, section.deviceName)}
+                </FormSectionHeading>
+                <div className={SENSOR_GRID_CLASS}>
+                  {section.sensors.map((s) => (
+                    <div
+                      key={`${s.deviceId}:${s.sensorKey}`}
+                      className='min-w-0'
+                    >
+                      <SensorChart
+                        siteId={site.id}
+                        deviceId={s.deviceId}
+                        sensorKey={s.sensorKey}
+                        label={s.label}
+                        unit={s.unit}
+                        range={range}
+                        colorVar={s.colorVar}
+                        lucideIcon={s.icon}
+                        refetchIntervalMs={pollIntervalMs}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
       </div>
 
-      <SiteLocationMap latitude={site.latitude} longitude={site.longitude} />
+      <div
+        className={
+          site.latestSnapshot
+            ? 'mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start'
+            : 'mb-6'
+        }
+      >
+        {site.latestSnapshot ? (
+          <div className='min-w-0'>
+            <SiteLatestSnapshot
+              imageUrl={site.latestSnapshot.imageUrl}
+              takenAt={site.latestSnapshot.takenAt}
+              deviceId={site.latestSnapshot.deviceId}
+            />
+          </div>
+        ) : null}
+        <div className='min-w-0'>
+          <SiteLocationMap
+            latitude={site.latitude}
+            longitude={site.longitude}
+          />
+        </div>
+      </div>
     </>
   );
 }

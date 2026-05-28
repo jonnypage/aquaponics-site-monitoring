@@ -1,0 +1,43 @@
+import { Camera } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { EntityKeyBadge } from '~/components/ui/entity-key-badge';
+import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
+import { formatRelativeTime } from '~/utils/format';
+
+export interface SiteLatestSnapshotProps {
+  imageUrl: string;
+  takenAt: string | Date;
+  deviceId: string;
+}
+
+export function SiteLatestSnapshot({ imageUrl, takenAt, deviceId }: SiteLatestSnapshotProps) {
+  const { t } = useTranslation();
+  useRelativeTimeTick();
+  const taken = new Date(takenAt);
+
+  return (
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">
+        <Camera className="h-4 w-4 text-muted-foreground" />
+        <CardTitle className="text-base font-medium">{t('siteDetailPage.latestSnapshot')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <img
+          src={imageUrl}
+          alt={t('siteDetailPage.snapshotAlt')}
+          className="max-h-80 w-full rounded-md border object-contain bg-muted/30"
+        />
+        <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span>
+            {t('siteDetailPage.snapshotCaptured', {
+              time: formatRelativeTime(taken),
+            })}
+          </span>
+          <EntityKeyBadge>{deviceId}</EntityKeyBadge>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}

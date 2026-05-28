@@ -68,7 +68,7 @@ export function AppHeader({
   }
 
   return (
-    <header className='flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4 text-foreground md:px-6'>
+    <header className='sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4 text-foreground md:px-6'>
       <div className='flex items-center gap-3'>
         <Button
           variant='ghost'

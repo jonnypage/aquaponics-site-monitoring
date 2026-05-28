@@ -1,0 +1,28 @@
+import { Field, Int, ObjectType } from "@nestjs/graphql";
+
+@ObjectType()
+export class DeviceSnapshotModel {
+  @Field()
+  id!: string;
+
+  @Field()
+  deviceId!: string;
+
+  @Field()
+  siteId!: string;
+
+  @Field()
+  takenAt!: Date;
+
+  @Field()
+  ingestedAt!: Date;
+
+  @Field()
+  contentType!: string;
+
+  @Field(() => Int)
+  byteSize!: number;
+
+  @Field()
+  imageUrl!: string;
+}

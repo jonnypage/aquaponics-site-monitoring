@@ -3,6 +3,7 @@ query GetAlerts($siteId: String, $type: String, $status: AlertStatus) {
     id
     siteId
     deviceId
+    deviceName
     type
     severity
     status

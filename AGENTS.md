@@ -6,14 +6,17 @@ Concise context for AI coding agents and developers who need orientation before 
 
 1. **[docs/development.md](docs/development.md)** — commands, env vars, web conventions (routing, UI patterns), dev server notes, Railway deployment.
 2. **[docs/greenfield-agent-handoff.md](docs/greenfield-agent-handoff.md)** — authoritative product/spec: phases, GraphQL contract, ingest, RBAC, Railway constraints.
-3. **[docs/phase6-agent-prompt.md](docs/phase6-agent-prompt.md)** — Phase 6 implementing-agent brief (firmware + snapshots).
-4. This file — pointers and rules only; duplicate as little spec prose as possible here.
+3. **[docs/phase6-agent-prompt.md](docs/phase6-agent-prompt.md)** — Phase 6 status and key paths.
+4. **[docs/phase6-verification.md](docs/phase6-verification.md)** — Phase 6 smoke test checklist (run before calling Phase 6 done in prod).
+5. **[docs/phase7-agent-prompt.md](docs/phase7-agent-prompt.md)** — Phase 7 **planned** (notifications & alert policy; deferred).
+6. This file — pointers and rules only; duplicate as little spec prose as possible here.
 
 ## Current baseline (update when you ship work)
 
-- **Active phase:** **Phase 6** (firmware installer + camera support). See **[docs/phase6-agent-prompt.md](docs/phase6-agent-prompt.md)**. Phases 1–5 complete: ingest, alerts, dashboard, admin CRUD, **`updateMe`**, **`/settings`**, Maps picker, device installer **stub** at `/admin/devices/$deviceId/install`.
-- **Implemented:** Phase 1 complete (monorepo, `packages/db` migrations + seed, Nest `DatabaseModule`, `HealthModule`, GraphQL `/graphql`, cookie JWT auth, `getMe`, RBAC + **`adminUsers`** (**`AdminUserModel`** + `assignedSiteIds`), sanitized GraphQL errors, Railway build scripts). Phase 2: `sensor_catalog` / `devices` / `measurements`, seed device + API key, **`POST /ingest`**. Phase 3 M1: GraphQL **`getSites`**, **`getSite`**, **`getMeasurements`**, **`getSensorMeasurements`** + **`apps/web`** (TanStack Start, login, Codegen from `apps/api/schema.graphql`). Phase 3 M2: shadcn/ui (Tailwind 3 + `tailwindcss-animate` + `lucide-react` + `recharts`), pathless `_authed` layout with `DashboardShell` (sidebar + topbar + user menu / logout), `/sites` list + `/sites/$siteId` charts + `TimeRange` tabs, **`i18next`** (`en` / `es`, header language + appearance menus), **`ThemeProvider`** (light / dark / system, class-based `dark:` + `localStorage`, inline bootstrap in root `head`), mobile nav (slide-in drawer + backdrop fade, closes on route change). Hooks: `useSites`, `useSite`, `useSensorMeasurements`, `useLogoutMutate`, **`useUpdateMeMutate`**, **`useAlerts`**, **`useResolveAlertMutate`**. Phase 4: **`IngestAlertService`** — range bands + **MVP heuristics** (`ingest-heuristics.util.ts`); **`syncDeviceOfflineStateForSite`** + **`syncAllDeviceOfflineStates`** (~60s **`@nestjs/schedule`**); GraphQL **`getAlerts`** / **`resolveAlert`** (resolve only **active** rows); **`AlertsModule`** + **`ResendMailerService`** + critical **`COOLDOWN_MINUTES`** re-notify; web **`/alerts`** + **`SiteAlertsSection`**; **`captureImageNow`** from active alerts; **`site-sensor-filter.util.ts`** + **`alert-sensor-key.util.ts`** omit **disabled** `site_sensor_catalog` sensors from **getAlerts**, **getMeasurements**, **getSensorMeasurements**, **`SiteStatus`** derivation, **`captureImageNow`**, and critical-email selection; **`SiteStatus`**: **OK** / **UNKNOWN** / **WARNING** / **CRITICAL** (from active alerts + telemetry freshness). **Phase 5 (MVP admin):** **`AdminService`** / **`AdminResolver`** — **`sensorCatalog`**, **`adminSites`**, **`adminDevices`**, **`adminDevice`**, catalog + user + site + device mutations (**`resetAdminUserPassword`**, **`rotateAdminDeviceApiKey`**, plaintext key on create/rotate); **`AuthResolver`** **`updateMe`** (clears session cookie); migration **`0004_phase5_sites_geo`**; web **`/admin/*`** with **`requireAdmin`**, **`useAdmin`** hooks, **`admin.graphql`**; **`/settings`**; optional **`SiteLocationMapPicker`**; **`/admin/devices/$deviceId/install`** stub.
-- **Not implemented yet:** `POST /ingest/snapshot`, esp-web-tools **installer implementation** (Phase 6), firmware/snapshots/object storage (Phase 6).
+- **Active phase:** Phases **1–6** MVP **code complete** — operator sign-off: **[docs/phase6-verification.md](docs/phase6-verification.md)** + **[docs/phase6-railway-production.md](docs/phase6-railway-production.md)**. **Phase 7** (notifications) **planned** — **[docs/phase7-agent-prompt.md](docs/phase7-agent-prompt.md)**. Post-MVP: ESP32 CYD flash ([docs/esp32-cyd-roadmap.md](docs/esp32-cyd-roadmap.md)), real camera driver.
+- **Implemented:** (Phases 1–5 as before.) **Sensor catalog:** migration **`0009_sensor_type_model`** — `sensor_type` + `model` on `sensor_catalog`; default keys `ds18b20`, `bncPhModule`, `floatSwitch`, `yfs201`; heuristics/charts by family, ingest by slug **`key`**. **Phase 6:** snapshots + S3 ingest; **`getSite.latestSnapshot`** / **`adminDevice.recentSnapshots`**; site detail map/snapshot row; **`AdminDeviceRecentSnapshots`** on device edit; admin **reset site measurements** / **clear site snapshots**; install wizard + **`scripts/ensure-or-build-firmware.mjs`** (real `firmware.bin` on CI/Railway); ESP8266 firmware config **`v: 3`** (`sensorTypes` map); wiring v2 + **`0008`**.
+- **Not implemented yet:** Phase 7 notifications; ESP32 CYD installer (roadmap only); real camera hardware driver.
+- **Staging sites (ops, no code):** use an admin-only **“Device staging”** site — do not assign to non-admins; assign devices there for calibration ingest; reassign to production when ready.
 - **Env contract:** use **`DATABASE_PUBLIC_URL`** for Postgres (see `README.md`). Do not reintroduce `DATABASE_URL` as the primary app variable without an explicit project decision.
 
 ## Key paths
@@ -21,7 +24,21 @@ Concise context for AI coding agents and developers who need orientation before 
 | Path                               | Role                                                                  |
 | ---------------------------------- | --------------------------------------------------------------------- |
 | `apps/api/src/`                    | Nest modules, resolvers, guards, `main.ts`                            |
-| `apps/api/src/ingest/`             | `POST /ingest`; `ingest-alert.service.ts`, `range-anomaly.util.ts`, **`ingest-heuristics.util.ts`** (range + MVP heuristics, per-site **`device_offline`** sync, `captureImageNow`) |
+| `apps/api/src/ingest/`             | `POST /ingest`, **`POST /ingest/snapshot`**; `ingest-alert.service.ts`, **`ingest-snapshot.service.ts`**, range/heuristics, `captureImageNow` |
+| `apps/api/src/storage/`            | S3-compatible upload + presigned reads (`OBJECT_STORAGE_*`; Railway bucket) |
+| `apps/api/src/snapshots/`          | Snapshot metadata → presigned URLs for GraphQL |
+| `firmware/aquaponics-node/`        | PlatformIO ESP8266 firmware (outside pnpm) |
+| `apps/web/public/firmware/esp8266/`| Gitignored `firmware.bin` + README; `pnpm firmware:build` / `firmware:ensure` |
+| `scripts/build-firmware.mjs` | `pnpm firmware:build` (pio run + copy) |
+| `scripts/generate-firmware-placeholder.mjs` | Placeholder `firmware.bin` |
+| `scripts/ensure-or-build-firmware.mjs` | `predev:web` / `prebuild:web` — placeholder locally, `pio` build on CI/Railway |
+| `scripts/ensure-firmware-binary.mjs` | Placeholder only (`firmware:ensure`) |
+| `scripts/copy-firmware-build.mjs` | `pnpm firmware:copy` (copy only) |
+| `packages/db/src/sensor-wiring.ts` | `wiring_template` / `pin_map` types + validation |
+| `apps/web/src/utils/sensor-wiring.ts` | Web wiring types + GraphQL normalize |
+| `apps/web/src/utils/firmware-sensor-pins.ts` | Install rows, `buildFirmwarePins` v2, `buildDevicePinMap` |
+| `apps/web/src/components/admin/sensor-wiring-editor.tsx` | Catalog wire template editor |
+| `apps/web/src/components/admin/install-sensor-pins-fieldset.tsx` | Install color → GPIO UI |
 | `apps/api/src/alerts/`             | `getAlerts` / `resolveAlert`, `ResendMailerService`, `device-offline.util.ts` |
 | `apps/api/src/admin/`              | **`AdminService`**, **`AdminResolver`** — admin-only GraphQL queries/mutations |
 | `apps/web/src/hooks/`              | **Hooks only.** All API-backed `useQuery` / `useMutation` live here; every export must be a React hook. Naming: `use<Resource>` for queries, `use<Resource>Mutate` for mutations (e.g. `useMe`, `useLoginMutate`). Always destructure at the call site; mutation side-effects (`invalidateQueries`, etc.) go in `onSuccess`/`onError` — not in components. Routes/components must not import GraphQL or `useQuery` directly. Admin GraphQL: **`~/hooks/useAdmin.ts`**. |
@@ -44,10 +61,12 @@ Concise context for AI coding agents and developers who need orientation before 
 | `apps/web/src/routes/_authed.tsx`  | Pathless layout; `requireAuth` + `DashboardShell`. |
 | `apps/web/`                        | TanStack Start dashboard; `pnpm dev:web` / `pnpm build:web` / `pnpm start:web` |
 | `packages/db/src/migrations/`      | SQL migrations via Kysely Migrator                                    |
-| `packages/db/src/scripts/`         | `migrate.ts`, `seed.ts`                                               |
+| `packages/db/src/sensor-types.ts`    | `SENSOR_TYPES`, default seed catalog rows                             |
+| `packages/db/src/scripts/`         | `migrate.ts`, `seed.ts`, `seed-users.ts`, `seed-demo.ts`              |
 | `README.md`                        | **Update** when behavior, commands, env vars, or phase status changes |
 | `docs/greenfield-agent-handoff.md` | Spec; edit only when product/contracts change                         |
 | `docs/phase6-agent-prompt.md`      | Phase 6 agent bootstrap (snapshots, storage, esp-web-tools)           |
+| `docs/phase7-agent-prompt.md`      | Phase 7 **planned** — notifications & alert policy (deferred)        |
 
 ## Commands (root)
 
@@ -58,8 +77,13 @@ pnpm build:api
 pnpm build:web
 pnpm dev:api
 pnpm dev:web
+pnpm firmware:placeholder   # stub installer binary (gitignored path)
+pnpm firmware:build       # pio run + copy to web public
+pnpm firmware:copy        # copy only (after manual pio run)
 pnpm migrate:deploy
 pnpm seed
+pnpm seed:users
+pnpm seed:demo
 pnpm db:setup
 ```
 

@@ -16,6 +16,7 @@ export type Scalars = {
   Float: { input: number; output: number; }
   /** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
   DateTime: { input: any; output: any; }
+  JSON: { input: any; output: any; }
 };
 
 export type AdminDeviceModel = {
@@ -25,8 +26,11 @@ export type AdminDeviceModel = {
   expectedIntervalSeconds: Scalars['Int']['output'];
   hasCamera: Scalars['Boolean']['output'];
   lastSeenAt?: Maybe<Scalars['DateTime']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  pinMap?: Maybe<Scalars['JSON']['output']>;
+  recentSnapshots: Array<DeviceSnapshotModel>;
   reportIntervalSeconds: Scalars['Int']['output'];
-  siteId: Scalars['String']['output'];
+  siteId?: Maybe<Scalars['String']['output']>;
   snapshotIntervalSeconds: Scalars['Int']['output'];
   updatedAt: Scalars['DateTime']['output'];
 };
@@ -56,6 +60,7 @@ export type AlertModel = {
   __typename?: 'AlertModel';
   createdAt: Scalars['DateTime']['output'];
   deviceId?: Maybe<Scalars['String']['output']>;
+  deviceName?: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   lastNotifiedAt?: Maybe<Scalars['DateTime']['output']>;
   message: Scalars['String']['output'];
@@ -82,11 +87,20 @@ export type AuthPayload = {
   user: UserModel;
 };
 
+export type ClearAdminSiteSnapshotsPayload = {
+  __typename?: 'ClearAdminSiteSnapshotsPayload';
+  deletedSnapshots: Scalars['Int']['output'];
+  deletedStorageObjects: Scalars['Int']['output'];
+  siteId: Scalars['String']['output'];
+  storageSkipped: Scalars['Boolean']['output'];
+};
+
 export type CreateAdminDeviceInput = {
   expectedIntervalSeconds?: InputMaybe<Scalars['Int']['input']>;
   hasCamera?: InputMaybe<Scalars['Boolean']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
   reportIntervalSeconds?: InputMaybe<Scalars['Int']['input']>;
-  siteId: Scalars['String']['input'];
+  siteId?: InputMaybe<Scalars['String']['input']>;
   snapshotIntervalSeconds?: InputMaybe<Scalars['Int']['input']>;
 };
 
@@ -101,8 +115,8 @@ export type CreateAdminSiteInput = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
   longitude?: InputMaybe<Scalars['Float']['input']>;
   name: Scalars['String']['input'];
-  sensorReporting: Array<SiteSensorReportingInput>;
-  sensorThresholds: Array<SiteSensorThresholdInput>;
+  sensorReporting?: InputMaybe<Array<SiteSensorReportingInput>>;
+  sensorThresholds?: InputMaybe<Array<SiteSensorThresholdInput>>;
 };
 
 export type CreateAdminUserInput = {
@@ -117,10 +131,25 @@ export type CreateSensorCatalogEntryInput = {
   displayName: Scalars['String']['input'];
   icon?: InputMaybe<Scalars['String']['input']>;
   key: Scalars['String']['input'];
+  model: Scalars['String']['input'];
   physicalMax?: InputMaybe<Scalars['Float']['input']>;
   physicalMin?: InputMaybe<Scalars['Float']['input']>;
+  sensorType: SensorType;
   sortOrder?: InputMaybe<Scalars['Int']['input']>;
   unit: Scalars['String']['input'];
+  wiringTemplate?: InputMaybe<SensorWiringTemplateInput>;
+};
+
+export type DeviceSnapshotModel = {
+  __typename?: 'DeviceSnapshotModel';
+  byteSize: Scalars['Int']['output'];
+  contentType: Scalars['String']['output'];
+  deviceId: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  imageUrl: Scalars['String']['output'];
+  ingestedAt: Scalars['DateTime']['output'];
+  siteId: Scalars['String']['output'];
+  takenAt: Scalars['DateTime']['output'];
 };
 
 export type LoginInput = {
@@ -138,14 +167,17 @@ export type MeasurementModel = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  clearAdminSiteSnapshots: ClearAdminSiteSnapshotsPayload;
   createAdminDevice: CreateAdminDevicePayload;
   createAdminSite: AdminSiteModel;
   createAdminUser: AdminUserModel;
   createSensorCatalogEntry: SensorCatalogEntryModel;
   deleteAdminDevice: Scalars['Boolean']['output'];
+  deleteAdminSite: Scalars['Boolean']['output'];
   deleteSensorCatalogEntry: Scalars['Boolean']['output'];
   login: AuthPayload;
   logout: Scalars['Boolean']['output'];
+  resetAdminSiteMeasurements: ResetAdminSiteMeasurementsPayload;
   resetAdminUserPassword: Scalars['Boolean']['output'];
   resolveAlert: Scalars['Boolean']['output'];
   rotateAdminDeviceApiKey: RotateAdminDeviceApiKeyPayload;
@@ -154,6 +186,11 @@ export type Mutation = {
   updateAdminUser: AdminUserModel;
   updateMe: UserModel;
   updateSensorCatalogEntry: SensorCatalogEntryModel;
+};
+
+
+export type MutationClearAdminSiteSnapshotsArgs = {
+  siteId: Scalars['String']['input'];
 };
 
 
@@ -182,6 +219,11 @@ export type MutationDeleteAdminDeviceArgs = {
 };
 
 
+export type MutationDeleteAdminSiteArgs = {
+  siteId: Scalars['String']['input'];
+};
+
+
 export type MutationDeleteSensorCatalogEntryArgs = {
   key: Scalars['String']['input'];
 };
@@ -189,6 +231,11 @@ export type MutationDeleteSensorCatalogEntryArgs = {
 
 export type MutationLoginArgs = {
   input: LoginInput;
+};
+
+
+export type MutationResetAdminSiteMeasurementsArgs = {
+  siteId: Scalars['String']['input'];
 };
 
 
@@ -272,6 +319,7 @@ export type QueryGetMeasurementsArgs = {
 
 
 export type QueryGetSensorMeasurementsArgs = {
+  deviceId: Scalars['String']['input'];
   range: TimeRange;
   sensorKey: Scalars['String']['input'];
   siteId: Scalars['String']['input'];
@@ -280,6 +328,13 @@ export type QueryGetSensorMeasurementsArgs = {
 
 export type QueryGetSiteArgs = {
   id: Scalars['String']['input'];
+};
+
+export type ResetAdminSiteMeasurementsPayload = {
+  __typename?: 'ResetAdminSiteMeasurementsPayload';
+  deletedMeasurements: Scalars['Int']['output'];
+  resolvedAlerts: Scalars['Int']['output'];
+  siteId: Scalars['String']['output'];
 };
 
 export enum Role {
@@ -299,42 +354,88 @@ export type SensorCatalogEntryModel = {
   displayName: Scalars['String']['output'];
   icon?: Maybe<Scalars['String']['output']>;
   key: Scalars['String']['output'];
+  model: Scalars['String']['output'];
   physicalMax?: Maybe<Scalars['Float']['output']>;
   physicalMin?: Maybe<Scalars['Float']['output']>;
+  sensorType: SensorType;
   sortOrder: Scalars['Int']['output'];
   unit: Scalars['String']['output'];
   updatedAt: Scalars['DateTime']['output'];
+  wiringTemplate: SensorWiringTemplateModel;
+};
+
+export enum SensorType {
+  Ph = 'ph',
+  Temperature = 'temperature',
+  WaterFlow = 'waterFlow',
+  WaterLevel = 'waterLevel'
+}
+
+export type SensorWireDefInput = {
+  color: Scalars['String']['input'];
+  id: Scalars['String']['input'];
+  label: Scalars['String']['input'];
+  required?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+export type SensorWireDefModel = {
+  __typename?: 'SensorWireDefModel';
+  color: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  label: Scalars['String']['output'];
+  required?: Maybe<Scalars['Boolean']['output']>;
+};
+
+export type SensorWiringTemplateInput = {
+  allowExtraWires?: InputMaybe<Scalars['Boolean']['input']>;
+  maxExtraWires?: InputMaybe<Scalars['Int']['input']>;
+  wires: Array<SensorWireDefInput>;
+};
+
+export type SensorWiringTemplateModel = {
+  __typename?: 'SensorWiringTemplateModel';
+  allowExtraWires?: Maybe<Scalars['Boolean']['output']>;
+  maxExtraWires?: Maybe<Scalars['Int']['output']>;
+  wires: Array<SensorWireDefModel>;
 };
 
 export type SiteModel = {
   __typename?: 'SiteModel';
   id: Scalars['String']['output'];
   lastUpdate?: Maybe<Scalars['DateTime']['output']>;
+  latestSnapshot?: Maybe<DeviceSnapshotModel>;
   latitude?: Maybe<Scalars['Float']['output']>;
   longitude?: Maybe<Scalars['Float']['output']>;
   name: Scalars['String']['output'];
+  pollIntervalSeconds: Scalars['Float']['output'];
   role: Role;
   sensorReporting: Array<SiteSensorReportingModel>;
   status: SiteStatus;
 };
 
 export type SiteSensorReportingInput = {
+  deviceId: Scalars['String']['input'];
   enabled: Scalars['Boolean']['input'];
   sensorKey: Scalars['String']['input'];
 };
 
 export type SiteSensorReportingModel = {
   __typename?: 'SiteSensorReportingModel';
+  deviceId: Scalars['String']['output'];
+  deviceName?: Maybe<Scalars['String']['output']>;
   displayName: Scalars['String']['output'];
   enabled: Scalars['Boolean']['output'];
   icon?: Maybe<Scalars['String']['output']>;
+  model: Scalars['String']['output'];
   sensorKey: Scalars['String']['output'];
+  sensorType: SensorType;
   sortOrder: Scalars['Int']['output'];
   unit: Scalars['String']['output'];
 };
 
 export type SiteSensorThresholdInput = {
   criticalDelta?: InputMaybe<Scalars['Float']['input']>;
+  deviceId: Scalars['String']['input'];
   normalMax?: InputMaybe<Scalars['Float']['input']>;
   normalMin?: InputMaybe<Scalars['Float']['input']>;
   sensorKey: Scalars['String']['input'];
@@ -344,6 +445,7 @@ export type SiteSensorThresholdInput = {
 export type SiteSensorThresholdModel = {
   __typename?: 'SiteSensorThresholdModel';
   criticalDelta?: Maybe<Scalars['Float']['output']>;
+  deviceId: Scalars['String']['output'];
   normalMax?: Maybe<Scalars['Float']['output']>;
   normalMin?: Maybe<Scalars['Float']['output']>;
   sensorKey: Scalars['String']['output'];
@@ -367,6 +469,8 @@ export type UpdateAdminDeviceInput = {
   deviceId: Scalars['String']['input'];
   expectedIntervalSeconds?: InputMaybe<Scalars['Int']['input']>;
   hasCamera?: InputMaybe<Scalars['Boolean']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  pinMap?: InputMaybe<Scalars['JSON']['input']>;
   reportIntervalSeconds?: InputMaybe<Scalars['Int']['input']>;
   siteId?: InputMaybe<Scalars['String']['input']>;
   snapshotIntervalSeconds?: InputMaybe<Scalars['Int']['input']>;
@@ -401,10 +505,12 @@ export type UpdateSensorCatalogEntryInput = {
   displayName?: InputMaybe<Scalars['String']['input']>;
   icon?: InputMaybe<Scalars['String']['input']>;
   key: Scalars['String']['input'];
+  model?: InputMaybe<Scalars['String']['input']>;
   physicalMax?: InputMaybe<Scalars['Float']['input']>;
   physicalMin?: InputMaybe<Scalars['Float']['input']>;
   sortOrder?: InputMaybe<Scalars['Int']['input']>;
   unit?: InputMaybe<Scalars['String']['input']>;
+  wiringTemplate?: InputMaybe<SensorWiringTemplateInput>;
 };
 
 export type UserModel = {
@@ -420,7 +526,7 @@ export type UserModel = {
 export type SensorCatalogQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type SensorCatalogQuery = { __typename?: 'Query', sensorCatalog: Array<{ __typename?: 'SensorCatalogEntryModel', key: string, displayName: string, unit: string, physicalMin?: number | null, physicalMax?: number | null, sortOrder: number, icon?: string | null, createdAt: any, updatedAt: any }> };
+export type SensorCatalogQuery = { __typename?: 'Query', sensorCatalog: Array<{ __typename?: 'SensorCatalogEntryModel', key: string, sensorType: SensorType, model: string, displayName: string, unit: string, physicalMin?: number | null, physicalMax?: number | null, sortOrder: number, icon?: string | null, createdAt: any, updatedAt: any, wiringTemplate: { __typename?: 'SensorWiringTemplateModel', allowExtraWires?: boolean | null, maxExtraWires?: number | null, wires: Array<{ __typename?: 'SensorWireDefModel', id: string, label: string, color: string, required?: boolean | null }> } }> };
 
 export type AdminUsersQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -430,35 +536,35 @@ export type AdminUsersQuery = { __typename?: 'Query', adminUsers: Array<{ __type
 export type AdminSitesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type AdminSitesQuery = { __typename?: 'Query', adminSites: Array<{ __typename?: 'AdminSiteModel', id: string, name: string, latitude?: number | null, longitude?: number | null, sensorReporting: Array<{ __typename?: 'SiteSensorReportingModel', sensorKey: string, enabled: boolean, displayName: string, unit: string, sortOrder: number, icon?: string | null }>, sensorThresholds: Array<{ __typename?: 'SiteSensorThresholdModel', sensorKey: string, normalMin?: number | null, normalMax?: number | null, warningDelta?: number | null, criticalDelta?: number | null }> }> };
+export type AdminSitesQuery = { __typename?: 'Query', adminSites: Array<{ __typename?: 'AdminSiteModel', id: string, name: string, latitude?: number | null, longitude?: number | null, sensorReporting: Array<{ __typename?: 'SiteSensorReportingModel', deviceId: string, deviceName?: string | null, sensorKey: string, sensorType: SensorType, model: string, enabled: boolean, displayName: string, unit: string, sortOrder: number, icon?: string | null }>, sensorThresholds: Array<{ __typename?: 'SiteSensorThresholdModel', deviceId: string, sensorKey: string, normalMin?: number | null, normalMax?: number | null, warningDelta?: number | null, criticalDelta?: number | null }> }> };
 
 export type AdminDevicesQueryVariables = Exact<{
   siteId?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type AdminDevicesQuery = { __typename?: 'Query', adminDevices: Array<{ __typename?: 'AdminDeviceModel', deviceId: string, siteId: string, lastSeenAt?: any | null, expectedIntervalSeconds: number, reportIntervalSeconds: number, snapshotIntervalSeconds: number, hasCamera: boolean, createdAt: any, updatedAt: any }> };
+export type AdminDevicesQuery = { __typename?: 'Query', adminDevices: Array<{ __typename?: 'AdminDeviceModel', deviceId: string, name?: string | null, siteId?: string | null, lastSeenAt?: any | null, expectedIntervalSeconds: number, reportIntervalSeconds: number, snapshotIntervalSeconds: number, hasCamera: boolean, createdAt: any, updatedAt: any }> };
 
 export type AdminDeviceQueryVariables = Exact<{
   id: Scalars['String']['input'];
 }>;
 
 
-export type AdminDeviceQuery = { __typename?: 'Query', adminDevice: { __typename?: 'AdminDeviceModel', deviceId: string, siteId: string, lastSeenAt?: any | null, expectedIntervalSeconds: number, reportIntervalSeconds: number, snapshotIntervalSeconds: number, hasCamera: boolean, createdAt: any, updatedAt: any } };
+export type AdminDeviceQuery = { __typename?: 'Query', adminDevice: { __typename?: 'AdminDeviceModel', deviceId: string, name?: string | null, siteId?: string | null, lastSeenAt?: any | null, expectedIntervalSeconds: number, reportIntervalSeconds: number, snapshotIntervalSeconds: number, hasCamera: boolean, pinMap?: any | null, createdAt: any, updatedAt: any, recentSnapshots: Array<{ __typename?: 'DeviceSnapshotModel', id: string, takenAt: any, imageUrl: string, byteSize: number }> } };
 
 export type CreateSensorCatalogEntryMutationVariables = Exact<{
   input: CreateSensorCatalogEntryInput;
 }>;
 
 
-export type CreateSensorCatalogEntryMutation = { __typename?: 'Mutation', createSensorCatalogEntry: { __typename?: 'SensorCatalogEntryModel', key: string, displayName: string, unit: string, physicalMin?: number | null, physicalMax?: number | null, sortOrder: number, icon?: string | null, createdAt: any, updatedAt: any } };
+export type CreateSensorCatalogEntryMutation = { __typename?: 'Mutation', createSensorCatalogEntry: { __typename?: 'SensorCatalogEntryModel', key: string, sensorType: SensorType, model: string, displayName: string, unit: string, physicalMin?: number | null, physicalMax?: number | null, sortOrder: number, icon?: string | null, createdAt: any, updatedAt: any, wiringTemplate: { __typename?: 'SensorWiringTemplateModel', allowExtraWires?: boolean | null, maxExtraWires?: number | null, wires: Array<{ __typename?: 'SensorWireDefModel', id: string, label: string, color: string, required?: boolean | null }> } } };
 
 export type UpdateSensorCatalogEntryMutationVariables = Exact<{
   input: UpdateSensorCatalogEntryInput;
 }>;
 
 
-export type UpdateSensorCatalogEntryMutation = { __typename?: 'Mutation', updateSensorCatalogEntry: { __typename?: 'SensorCatalogEntryModel', key: string, displayName: string, unit: string, physicalMin?: number | null, physicalMax?: number | null, sortOrder: number, icon?: string | null, createdAt: any, updatedAt: any } };
+export type UpdateSensorCatalogEntryMutation = { __typename?: 'Mutation', updateSensorCatalogEntry: { __typename?: 'SensorCatalogEntryModel', key: string, sensorType: SensorType, model: string, displayName: string, unit: string, physicalMin?: number | null, physicalMax?: number | null, sortOrder: number, icon?: string | null, createdAt: any, updatedAt: any, wiringTemplate: { __typename?: 'SensorWiringTemplateModel', allowExtraWires?: boolean | null, maxExtraWires?: number | null, wires: Array<{ __typename?: 'SensorWireDefModel', id: string, label: string, color: string, required?: boolean | null }> } } };
 
 export type DeleteSensorCatalogEntryMutationVariables = Exact<{
   key: Scalars['String']['input'];
@@ -494,28 +600,28 @@ export type CreateAdminSiteMutationVariables = Exact<{
 }>;
 
 
-export type CreateAdminSiteMutation = { __typename?: 'Mutation', createAdminSite: { __typename?: 'AdminSiteModel', id: string, name: string, latitude?: number | null, longitude?: number | null, sensorReporting: Array<{ __typename?: 'SiteSensorReportingModel', sensorKey: string, enabled: boolean, displayName: string, unit: string, sortOrder: number, icon?: string | null }>, sensorThresholds: Array<{ __typename?: 'SiteSensorThresholdModel', sensorKey: string, normalMin?: number | null, normalMax?: number | null, warningDelta?: number | null, criticalDelta?: number | null }> } };
+export type CreateAdminSiteMutation = { __typename?: 'Mutation', createAdminSite: { __typename?: 'AdminSiteModel', id: string, name: string, latitude?: number | null, longitude?: number | null, sensorReporting: Array<{ __typename?: 'SiteSensorReportingModel', deviceId: string, deviceName?: string | null, sensorKey: string, sensorType: SensorType, model: string, enabled: boolean, displayName: string, unit: string, sortOrder: number, icon?: string | null }>, sensorThresholds: Array<{ __typename?: 'SiteSensorThresholdModel', deviceId: string, sensorKey: string, normalMin?: number | null, normalMax?: number | null, warningDelta?: number | null, criticalDelta?: number | null }> } };
 
 export type UpdateAdminSiteMutationVariables = Exact<{
   input: UpdateAdminSiteInput;
 }>;
 
 
-export type UpdateAdminSiteMutation = { __typename?: 'Mutation', updateAdminSite: { __typename?: 'AdminSiteModel', id: string, name: string, latitude?: number | null, longitude?: number | null, sensorReporting: Array<{ __typename?: 'SiteSensorReportingModel', sensorKey: string, enabled: boolean, displayName: string, unit: string, sortOrder: number, icon?: string | null }>, sensorThresholds: Array<{ __typename?: 'SiteSensorThresholdModel', sensorKey: string, normalMin?: number | null, normalMax?: number | null, warningDelta?: number | null, criticalDelta?: number | null }> } };
+export type UpdateAdminSiteMutation = { __typename?: 'Mutation', updateAdminSite: { __typename?: 'AdminSiteModel', id: string, name: string, latitude?: number | null, longitude?: number | null, sensorReporting: Array<{ __typename?: 'SiteSensorReportingModel', deviceId: string, deviceName?: string | null, sensorKey: string, sensorType: SensorType, model: string, enabled: boolean, displayName: string, unit: string, sortOrder: number, icon?: string | null }>, sensorThresholds: Array<{ __typename?: 'SiteSensorThresholdModel', deviceId: string, sensorKey: string, normalMin?: number | null, normalMax?: number | null, warningDelta?: number | null, criticalDelta?: number | null }> } };
 
 export type CreateAdminDeviceMutationVariables = Exact<{
   input: CreateAdminDeviceInput;
 }>;
 
 
-export type CreateAdminDeviceMutation = { __typename?: 'Mutation', createAdminDevice: { __typename?: 'CreateAdminDevicePayload', plainApiKey: string, device: { __typename?: 'AdminDeviceModel', deviceId: string, siteId: string, lastSeenAt?: any | null, expectedIntervalSeconds: number, reportIntervalSeconds: number, snapshotIntervalSeconds: number, hasCamera: boolean, createdAt: any, updatedAt: any } } };
+export type CreateAdminDeviceMutation = { __typename?: 'Mutation', createAdminDevice: { __typename?: 'CreateAdminDevicePayload', plainApiKey: string, device: { __typename?: 'AdminDeviceModel', deviceId: string, name?: string | null, siteId?: string | null, lastSeenAt?: any | null, expectedIntervalSeconds: number, reportIntervalSeconds: number, snapshotIntervalSeconds: number, hasCamera: boolean, createdAt: any, updatedAt: any } } };
 
 export type UpdateAdminDeviceMutationVariables = Exact<{
   input: UpdateAdminDeviceInput;
 }>;
 
 
-export type UpdateAdminDeviceMutation = { __typename?: 'Mutation', updateAdminDevice: { __typename?: 'AdminDeviceModel', deviceId: string, siteId: string, lastSeenAt?: any | null, expectedIntervalSeconds: number, reportIntervalSeconds: number, snapshotIntervalSeconds: number, hasCamera: boolean, createdAt: any, updatedAt: any } };
+export type UpdateAdminDeviceMutation = { __typename?: 'Mutation', updateAdminDevice: { __typename?: 'AdminDeviceModel', deviceId: string, name?: string | null, siteId?: string | null, pinMap?: any | null, lastSeenAt?: any | null, expectedIntervalSeconds: number, reportIntervalSeconds: number, snapshotIntervalSeconds: number, hasCamera: boolean, createdAt: any, updatedAt: any } };
 
 export type RotateAdminDeviceApiKeyMutationVariables = Exact<{
   deviceId: Scalars['String']['input'];
@@ -531,6 +637,27 @@ export type DeleteAdminDeviceMutationVariables = Exact<{
 
 export type DeleteAdminDeviceMutation = { __typename?: 'Mutation', deleteAdminDevice: boolean };
 
+export type DeleteAdminSiteMutationVariables = Exact<{
+  siteId: Scalars['String']['input'];
+}>;
+
+
+export type DeleteAdminSiteMutation = { __typename?: 'Mutation', deleteAdminSite: boolean };
+
+export type ResetAdminSiteMeasurementsMutationVariables = Exact<{
+  siteId: Scalars['String']['input'];
+}>;
+
+
+export type ResetAdminSiteMeasurementsMutation = { __typename?: 'Mutation', resetAdminSiteMeasurements: { __typename?: 'ResetAdminSiteMeasurementsPayload', siteId: string, deletedMeasurements: number, resolvedAlerts: number } };
+
+export type ClearAdminSiteSnapshotsMutationVariables = Exact<{
+  siteId: Scalars['String']['input'];
+}>;
+
+
+export type ClearAdminSiteSnapshotsMutation = { __typename?: 'Mutation', clearAdminSiteSnapshots: { __typename?: 'ClearAdminSiteSnapshotsPayload', siteId: string, deletedSnapshots: number, deletedStorageObjects: number, storageSkipped: boolean } };
+
 export type GetAlertsQueryVariables = Exact<{
   siteId?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<Scalars['String']['input']>;
@@ -538,7 +665,7 @@ export type GetAlertsQueryVariables = Exact<{
 }>;
 
 
-export type GetAlertsQuery = { __typename?: 'Query', getAlerts: Array<{ __typename?: 'AlertModel', id: string, siteId: string, deviceId?: string | null, type: string, severity: AlertSeverity, status: AlertStatus, message: string, lastNotifiedAt?: any | null, createdAt: any, updatedAt: any }> };
+export type GetAlertsQuery = { __typename?: 'Query', getAlerts: Array<{ __typename?: 'AlertModel', id: string, siteId: string, deviceId?: string | null, deviceName?: string | null, type: string, severity: AlertSeverity, status: AlertStatus, message: string, lastNotifiedAt?: any | null, createdAt: any, updatedAt: any }> };
 
 export type GetMeQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -547,6 +674,7 @@ export type GetMeQuery = { __typename?: 'Query', getMe: { __typename?: 'UserMode
 
 export type GetSensorMeasurementsQueryVariables = Exact<{
   siteId: Scalars['String']['input'];
+  deviceId: Scalars['String']['input'];
   sensorKey: Scalars['String']['input'];
   range: TimeRange;
 }>;
@@ -559,12 +687,12 @@ export type GetSiteQueryVariables = Exact<{
 }>;
 
 
-export type GetSiteQuery = { __typename?: 'Query', getSite: { __typename?: 'SiteModel', id: string, name: string, role: Role, status: SiteStatus, lastUpdate?: any | null, latitude?: number | null, longitude?: number | null, sensorReporting: Array<{ __typename?: 'SiteSensorReportingModel', sensorKey: string, enabled: boolean, displayName: string, unit: string, sortOrder: number, icon?: string | null }> } };
+export type GetSiteQuery = { __typename?: 'Query', getSite: { __typename?: 'SiteModel', id: string, name: string, role: Role, status: SiteStatus, lastUpdate?: any | null, latitude?: number | null, longitude?: number | null, pollIntervalSeconds: number, sensorReporting: Array<{ __typename?: 'SiteSensorReportingModel', deviceId: string, deviceName?: string | null, sensorKey: string, sensorType: SensorType, model: string, enabled: boolean, displayName: string, unit: string, sortOrder: number, icon?: string | null }>, latestSnapshot?: { __typename?: 'DeviceSnapshotModel', id: string, deviceId: string, takenAt: any, imageUrl: string, byteSize: number } | null } };
 
 export type GetSitesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetSitesQuery = { __typename?: 'Query', getSites: Array<{ __typename?: 'SiteModel', id: string, name: string, role: Role, status: SiteStatus, lastUpdate?: any | null, latitude?: number | null, longitude?: number | null }> };
+export type GetSitesQuery = { __typename?: 'Query', getSites: Array<{ __typename?: 'SiteModel', id: string, name: string, role: Role, status: SiteStatus, lastUpdate?: any | null, latitude?: number | null, longitude?: number | null, pollIntervalSeconds: number }> };
 
 export type LoginMutationVariables = Exact<{
   input: LoginInput;
@@ -593,28 +721,31 @@ export type UpdateMeMutationVariables = Exact<{
 export type UpdateMeMutation = { __typename?: 'Mutation', updateMe: { __typename?: 'UserModel', id: string, email: string, name: string, role: Role } };
 
 
-export const SensorCatalogDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"SensorCatalog"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sensorCatalog"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMin"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMax"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<SensorCatalogQuery, SensorCatalogQueryVariables>;
+export const SensorCatalogDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"SensorCatalog"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sensorCatalog"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"sensorType"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMin"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMax"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"wiringTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"wires"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"required"}}]}},{"kind":"Field","name":{"kind":"Name","value":"allowExtraWires"}},{"kind":"Field","name":{"kind":"Name","value":"maxExtraWires"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<SensorCatalogQuery, SensorCatalogQueryVariables>;
 export const AdminUsersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AdminUsers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"adminUsers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"assignedSiteIds"}}]}}]}}]} as unknown as DocumentNode<AdminUsersQuery, AdminUsersQueryVariables>;
-export const AdminSitesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AdminSites"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"adminSites"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"sensorReporting"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"sensorThresholds"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"normalMin"}},{"kind":"Field","name":{"kind":"Name","value":"normalMax"}},{"kind":"Field","name":{"kind":"Name","value":"warningDelta"}},{"kind":"Field","name":{"kind":"Name","value":"criticalDelta"}}]}}]}}]}}]} as unknown as DocumentNode<AdminSitesQuery, AdminSitesQueryVariables>;
-export const AdminDevicesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AdminDevices"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"adminDevices"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"siteId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"lastSeenAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"reportIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"snapshotIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"hasCamera"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<AdminDevicesQuery, AdminDevicesQueryVariables>;
-export const AdminDeviceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AdminDevice"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"adminDevice"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"lastSeenAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"reportIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"snapshotIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"hasCamera"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<AdminDeviceQuery, AdminDeviceQueryVariables>;
-export const CreateSensorCatalogEntryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateSensorCatalogEntry"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateSensorCatalogEntryInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createSensorCatalogEntry"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMin"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMax"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<CreateSensorCatalogEntryMutation, CreateSensorCatalogEntryMutationVariables>;
-export const UpdateSensorCatalogEntryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateSensorCatalogEntry"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateSensorCatalogEntryInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateSensorCatalogEntry"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMin"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMax"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<UpdateSensorCatalogEntryMutation, UpdateSensorCatalogEntryMutationVariables>;
+export const AdminSitesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AdminSites"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"adminSites"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"sensorReporting"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"sensorType"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"sensorThresholds"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"normalMin"}},{"kind":"Field","name":{"kind":"Name","value":"normalMax"}},{"kind":"Field","name":{"kind":"Name","value":"warningDelta"}},{"kind":"Field","name":{"kind":"Name","value":"criticalDelta"}}]}}]}}]}}]} as unknown as DocumentNode<AdminSitesQuery, AdminSitesQueryVariables>;
+export const AdminDevicesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AdminDevices"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"adminDevices"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"siteId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"lastSeenAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"reportIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"snapshotIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"hasCamera"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<AdminDevicesQuery, AdminDevicesQueryVariables>;
+export const AdminDeviceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AdminDevice"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"adminDevice"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"lastSeenAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"reportIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"snapshotIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"hasCamera"}},{"kind":"Field","name":{"kind":"Name","value":"pinMap"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"recentSnapshots"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"takenAt"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrl"}},{"kind":"Field","name":{"kind":"Name","value":"byteSize"}}]}}]}}]}}]} as unknown as DocumentNode<AdminDeviceQuery, AdminDeviceQueryVariables>;
+export const CreateSensorCatalogEntryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateSensorCatalogEntry"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateSensorCatalogEntryInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createSensorCatalogEntry"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"sensorType"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMin"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMax"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"wiringTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"wires"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"required"}}]}},{"kind":"Field","name":{"kind":"Name","value":"allowExtraWires"}},{"kind":"Field","name":{"kind":"Name","value":"maxExtraWires"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<CreateSensorCatalogEntryMutation, CreateSensorCatalogEntryMutationVariables>;
+export const UpdateSensorCatalogEntryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateSensorCatalogEntry"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateSensorCatalogEntryInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateSensorCatalogEntry"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"sensorType"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMin"}},{"kind":"Field","name":{"kind":"Name","value":"physicalMax"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"wiringTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"wires"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"required"}}]}},{"kind":"Field","name":{"kind":"Name","value":"allowExtraWires"}},{"kind":"Field","name":{"kind":"Name","value":"maxExtraWires"}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<UpdateSensorCatalogEntryMutation, UpdateSensorCatalogEntryMutationVariables>;
 export const DeleteSensorCatalogEntryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteSensorCatalogEntry"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"key"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteSensorCatalogEntry"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"key"},"value":{"kind":"Variable","name":{"kind":"Name","value":"key"}}}]}]}}]} as unknown as DocumentNode<DeleteSensorCatalogEntryMutation, DeleteSensorCatalogEntryMutationVariables>;
 export const CreateAdminUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateAdminUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateAdminUserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createAdminUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"assignedSiteIds"}}]}}]}}]} as unknown as DocumentNode<CreateAdminUserMutation, CreateAdminUserMutationVariables>;
 export const UpdateAdminUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateAdminUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateAdminUserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateAdminUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"assignedSiteIds"}}]}}]}}]} as unknown as DocumentNode<UpdateAdminUserMutation, UpdateAdminUserMutationVariables>;
 export const ResetAdminUserPasswordDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResetAdminUserPassword"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"newPassword"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resetAdminUserPassword"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"newPassword"},"value":{"kind":"Variable","name":{"kind":"Name","value":"newPassword"}}}]}]}}]} as unknown as DocumentNode<ResetAdminUserPasswordMutation, ResetAdminUserPasswordMutationVariables>;
-export const CreateAdminSiteDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateAdminSite"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateAdminSiteInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createAdminSite"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"sensorReporting"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"sensorThresholds"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"normalMin"}},{"kind":"Field","name":{"kind":"Name","value":"normalMax"}},{"kind":"Field","name":{"kind":"Name","value":"warningDelta"}},{"kind":"Field","name":{"kind":"Name","value":"criticalDelta"}}]}}]}}]}}]} as unknown as DocumentNode<CreateAdminSiteMutation, CreateAdminSiteMutationVariables>;
-export const UpdateAdminSiteDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateAdminSite"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateAdminSiteInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateAdminSite"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"sensorReporting"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"sensorThresholds"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"normalMin"}},{"kind":"Field","name":{"kind":"Name","value":"normalMax"}},{"kind":"Field","name":{"kind":"Name","value":"warningDelta"}},{"kind":"Field","name":{"kind":"Name","value":"criticalDelta"}}]}}]}}]}}]} as unknown as DocumentNode<UpdateAdminSiteMutation, UpdateAdminSiteMutationVariables>;
-export const CreateAdminDeviceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateAdminDevice"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateAdminDeviceInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createAdminDevice"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"plainApiKey"}},{"kind":"Field","name":{"kind":"Name","value":"device"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"lastSeenAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"reportIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"snapshotIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"hasCamera"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]}}]} as unknown as DocumentNode<CreateAdminDeviceMutation, CreateAdminDeviceMutationVariables>;
-export const UpdateAdminDeviceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateAdminDevice"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateAdminDeviceInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateAdminDevice"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"lastSeenAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"reportIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"snapshotIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"hasCamera"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<UpdateAdminDeviceMutation, UpdateAdminDeviceMutationVariables>;
+export const CreateAdminSiteDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateAdminSite"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateAdminSiteInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createAdminSite"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"sensorReporting"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"sensorType"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"sensorThresholds"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"normalMin"}},{"kind":"Field","name":{"kind":"Name","value":"normalMax"}},{"kind":"Field","name":{"kind":"Name","value":"warningDelta"}},{"kind":"Field","name":{"kind":"Name","value":"criticalDelta"}}]}}]}}]}}]} as unknown as DocumentNode<CreateAdminSiteMutation, CreateAdminSiteMutationVariables>;
+export const UpdateAdminSiteDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateAdminSite"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateAdminSiteInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateAdminSite"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"sensorReporting"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"sensorType"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"sensorThresholds"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"normalMin"}},{"kind":"Field","name":{"kind":"Name","value":"normalMax"}},{"kind":"Field","name":{"kind":"Name","value":"warningDelta"}},{"kind":"Field","name":{"kind":"Name","value":"criticalDelta"}}]}}]}}]}}]} as unknown as DocumentNode<UpdateAdminSiteMutation, UpdateAdminSiteMutationVariables>;
+export const CreateAdminDeviceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateAdminDevice"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateAdminDeviceInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createAdminDevice"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"plainApiKey"}},{"kind":"Field","name":{"kind":"Name","value":"device"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"lastSeenAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"reportIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"snapshotIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"hasCamera"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]}}]} as unknown as DocumentNode<CreateAdminDeviceMutation, CreateAdminDeviceMutationVariables>;
+export const UpdateAdminDeviceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateAdminDevice"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateAdminDeviceInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateAdminDevice"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"pinMap"}},{"kind":"Field","name":{"kind":"Name","value":"lastSeenAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"reportIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"snapshotIntervalSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"hasCamera"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<UpdateAdminDeviceMutation, UpdateAdminDeviceMutationVariables>;
 export const RotateAdminDeviceApiKeyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RotateAdminDeviceApiKey"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"deviceId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"rotateAdminDeviceApiKey"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"deviceId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"deviceId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"plainApiKey"}}]}}]}}]} as unknown as DocumentNode<RotateAdminDeviceApiKeyMutation, RotateAdminDeviceApiKeyMutationVariables>;
 export const DeleteAdminDeviceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteAdminDevice"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"deviceId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteAdminDevice"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"deviceId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"deviceId"}}}]}]}}]} as unknown as DocumentNode<DeleteAdminDeviceMutation, DeleteAdminDeviceMutationVariables>;
-export const GetAlertsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetAlerts"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"type"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"status"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"AlertStatus"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getAlerts"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"siteId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}}},{"kind":"Argument","name":{"kind":"Name","value":"type"},"value":{"kind":"Variable","name":{"kind":"Name","value":"type"}}},{"kind":"Argument","name":{"kind":"Name","value":"status"},"value":{"kind":"Variable","name":{"kind":"Name","value":"status"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"lastNotifiedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<GetAlertsQuery, GetAlertsQueryVariables>;
+export const DeleteAdminSiteDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteAdminSite"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteAdminSite"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"siteId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}}}]}]}}]} as unknown as DocumentNode<DeleteAdminSiteMutation, DeleteAdminSiteMutationVariables>;
+export const ResetAdminSiteMeasurementsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResetAdminSiteMeasurements"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resetAdminSiteMeasurements"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"siteId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"deletedMeasurements"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAlerts"}}]}}]}}]} as unknown as DocumentNode<ResetAdminSiteMeasurementsMutation, ResetAdminSiteMeasurementsMutationVariables>;
+export const ClearAdminSiteSnapshotsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ClearAdminSiteSnapshots"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"clearAdminSiteSnapshots"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"siteId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"deletedSnapshots"}},{"kind":"Field","name":{"kind":"Name","value":"deletedStorageObjects"}},{"kind":"Field","name":{"kind":"Name","value":"storageSkipped"}}]}}]}}]} as unknown as DocumentNode<ClearAdminSiteSnapshotsMutation, ClearAdminSiteSnapshotsMutationVariables>;
+export const GetAlertsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetAlerts"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"type"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"status"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"AlertStatus"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getAlerts"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"siteId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}}},{"kind":"Argument","name":{"kind":"Name","value":"type"},"value":{"kind":"Variable","name":{"kind":"Name","value":"type"}}},{"kind":"Argument","name":{"kind":"Name","value":"status"},"value":{"kind":"Variable","name":{"kind":"Name","value":"status"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"siteId"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"lastNotifiedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<GetAlertsQuery, GetAlertsQueryVariables>;
 export const GetMeDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetMe"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getMe"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}}]}}]}}]} as unknown as DocumentNode<GetMeQuery, GetMeQueryVariables>;
-export const GetSensorMeasurementsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSensorMeasurements"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sensorKey"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"range"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"TimeRange"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getSensorMeasurements"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"siteId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}}},{"kind":"Argument","name":{"kind":"Name","value":"sensorKey"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sensorKey"}}},{"kind":"Argument","name":{"kind":"Name","value":"range"},"value":{"kind":"Variable","name":{"kind":"Name","value":"range"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"sensor"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"takenAt"}}]}}]}}]} as unknown as DocumentNode<GetSensorMeasurementsQuery, GetSensorMeasurementsQueryVariables>;
-export const GetSiteDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSite"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getSite"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"lastUpdate"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"sensorReporting"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}}]}}]}}]} as unknown as DocumentNode<GetSiteQuery, GetSiteQueryVariables>;
-export const GetSitesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSites"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getSites"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"lastUpdate"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}}]}}]}}]} as unknown as DocumentNode<GetSitesQuery, GetSitesQueryVariables>;
+export const GetSensorMeasurementsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSensorMeasurements"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"deviceId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sensorKey"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"range"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"TimeRange"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getSensorMeasurements"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"siteId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"siteId"}}},{"kind":"Argument","name":{"kind":"Name","value":"deviceId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"deviceId"}}},{"kind":"Argument","name":{"kind":"Name","value":"sensorKey"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sensorKey"}}},{"kind":"Argument","name":{"kind":"Name","value":"range"},"value":{"kind":"Variable","name":{"kind":"Name","value":"range"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"sensor"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"takenAt"}}]}}]}}]} as unknown as DocumentNode<GetSensorMeasurementsQuery, GetSensorMeasurementsQueryVariables>;
+export const GetSiteDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSite"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getSite"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"lastUpdate"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"sensorReporting"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"deviceName"}},{"kind":"Field","name":{"kind":"Name","value":"sensorKey"}},{"kind":"Field","name":{"kind":"Name","value":"sensorType"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unit"}},{"kind":"Field","name":{"kind":"Name","value":"sortOrder"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"latestSnapshot"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"takenAt"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrl"}},{"kind":"Field","name":{"kind":"Name","value":"byteSize"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pollIntervalSeconds"}}]}}]}}]} as unknown as DocumentNode<GetSiteQuery, GetSiteQueryVariables>;
+export const GetSitesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetSites"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getSites"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"lastUpdate"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"pollIntervalSeconds"}}]}}]}}]} as unknown as DocumentNode<GetSitesQuery, GetSitesQueryVariables>;
 export const LoginDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"Login"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LoginInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"login"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"ok"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}}]}}]}}]}}]} as unknown as DocumentNode<LoginMutation, LoginMutationVariables>;
 export const LogoutDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"Logout"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logout"}}]}}]} as unknown as DocumentNode<LogoutMutation, LogoutMutationVariables>;
 export const ResolveAlertDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResolveAlert"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resolveAlert"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode<ResolveAlertMutation, ResolveAlertMutationVariables>;

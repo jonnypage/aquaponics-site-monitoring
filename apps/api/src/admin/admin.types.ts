@@ -1,10 +1,12 @@
 import { Field, Float, InputType, Int, ObjectType } from "@nestjs/graphql";
+import { DeviceSnapshotModel } from "../snapshots/snapshots.types.js";
 import { Type } from "class-transformer";
 import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEmail,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
@@ -14,11 +16,19 @@ import {
   ValidateNested
 } from "class-validator";
 import { Role } from "../auth/auth.types.js";
+import { SensorType } from "../sensors/sensor-type.types.js";
+import { SensorWiringTemplateInput, SensorWiringTemplateModel } from "./sensor-wiring.graphql-types.js";
 
 @ObjectType()
 export class SensorCatalogEntryModel {
   @Field()
   key!: string;
+
+  @Field(() => SensorType)
+  sensorType!: SensorType;
+
+  @Field()
+  model!: string;
 
   @Field()
   displayName!: string;
@@ -37,6 +47,9 @@ export class SensorCatalogEntryModel {
 
   @Field(() => String, { nullable: true })
   icon?: string | null;
+
+  @Field(() => SensorWiringTemplateModel)
+  wiringTemplate!: SensorWiringTemplateModel;
 
   @Field()
   createdAt!: Date;
@@ -72,7 +85,19 @@ export class AdminUserModel {
 @ObjectType()
 export class SiteSensorReportingModel {
   @Field()
+  deviceId!: string;
+
+  @Field(() => String, { nullable: true })
+  deviceName?: string | null;
+
+  @Field()
   sensorKey!: string;
+
+  @Field(() => SensorType)
+  sensorType!: SensorType;
+
+  @Field()
+  model!: string;
 
   @Field()
   enabled!: boolean;
@@ -92,6 +117,9 @@ export class SiteSensorReportingModel {
 
 @ObjectType()
 export class SiteSensorThresholdModel {
+  @Field()
+  deviceId!: string;
+
   @Field()
   sensorKey!: string;
 
@@ -134,8 +162,11 @@ export class AdminDeviceModel {
   @Field()
   deviceId!: string;
 
-  @Field()
-  siteId!: string;
+  @Field(() => String, { nullable: true })
+  name?: string | null;
+
+  @Field(() => String, { nullable: true })
+  siteId?: string | null;
 
   @Field(() => Date, { nullable: true })
   lastSeenAt?: Date | null;
@@ -152,11 +183,17 @@ export class AdminDeviceModel {
   @Field()
   hasCamera!: boolean;
 
+  @Field(() => Object, { nullable: true })
+  pinMap?: Record<string, unknown> | null;
+
   @Field()
   createdAt!: Date;
 
   @Field()
   updatedAt!: Date;
+
+  @Field(() => [DeviceSnapshotModel])
+  recentSnapshots?: DeviceSnapshotModel[];
 }
 
 @ObjectType()
@@ -180,6 +217,16 @@ export class CreateSensorCatalogEntryInput {
   @IsString()
   @MinLength(1)
   key!: string;
+
+  @Field(() => SensorType)
+  @IsEnum(SensorType)
+  sensorType!: SensorType;
+
+  @Field()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  model!: string;
 
   @Field()
   @IsString()
@@ -211,6 +258,12 @@ export class CreateSensorCatalogEntryInput {
   @IsString()
   @MaxLength(64)
   icon?: string | null;
+
+  @Field(() => SensorWiringTemplateInput, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SensorWiringTemplateInput)
+  wiringTemplate?: SensorWiringTemplateInput;
 }
 
 @InputType()
@@ -219,6 +272,12 @@ export class UpdateSensorCatalogEntryInput {
   @IsString()
   @MinLength(1)
   key!: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  model?: string;
 
   @Field(() => String, { nullable: true })
   @IsOptional()
@@ -250,6 +309,12 @@ export class UpdateSensorCatalogEntryInput {
   @IsString()
   @MaxLength(64)
   icon?: string | null;
+
+  @Field(() => SensorWiringTemplateInput, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SensorWiringTemplateInput)
+  wiringTemplate?: SensorWiringTemplateInput;
 }
 
 @InputType()
@@ -269,6 +334,7 @@ export class CreateAdminUserInput {
   password!: string;
 
   @Field(() => Role)
+  @IsEnum(Role)
   role!: Role;
 
   @Field(() => [String])
@@ -296,6 +362,7 @@ export class UpdateAdminUserInput {
 
   @Field(() => Role, { nullable: true })
   @IsOptional()
+  @IsEnum(Role)
   role?: Role;
 
   @Field(() => [String], { nullable: true })
@@ -310,6 +377,11 @@ export class SiteSensorReportingInput {
   @Field()
   @IsString()
   @MinLength(1)
+  deviceId!: string;
+
+  @Field()
+  @IsString()
+  @MinLength(1)
   sensorKey!: string;
 
   @Field()
@@ -319,6 +391,11 @@ export class SiteSensorReportingInput {
 
 @InputType()
 export class SiteSensorThresholdInput {
+  @Field()
+  @IsString()
+  @MinLength(1)
+  deviceId!: string;
+
   @Field()
   @IsString()
   @MinLength(1)
@@ -362,18 +439,19 @@ export class CreateAdminSiteInput {
   @IsNumber()
   longitude?: number | null;
 
-  @Field(() => [SiteSensorReportingInput])
+  @Field(() => [SiteSensorReportingInput], { nullable: true })
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => SiteSensorReportingInput)
-  sensorReporting!: SiteSensorReportingInput[];
+  sensorReporting?: SiteSensorReportingInput[];
 
-  @Field(() => [SiteSensorThresholdInput])
+  @Field(() => [SiteSensorThresholdInput], { nullable: true })
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SiteSensorThresholdInput)
-  sensorThresholds!: SiteSensorThresholdInput[];
+  sensorThresholds?: SiteSensorThresholdInput[];
 
   @Field(() => String, { nullable: true })
   @IsOptional()
@@ -425,9 +503,16 @@ export class UpdateAdminSiteInput {
 
 @InputType()
 export class CreateAdminDeviceInput {
-  @Field()
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  name?: string | null;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
   @IsUUID("4")
-  siteId!: string;
+  siteId?: string | null;
 
   @Field(() => Int, { nullable: true })
   @IsOptional()
@@ -459,6 +544,12 @@ export class UpdateAdminDeviceInput {
 
   @Field(() => String, { nullable: true })
   @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  name?: string | null;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
   @IsUUID("4")
   siteId?: string | null;
 
@@ -481,4 +572,35 @@ export class UpdateAdminDeviceInput {
   @IsOptional()
   @IsBoolean()
   hasCamera?: boolean | null;
+
+  @Field(() => Object, { nullable: true })
+  @IsOptional()
+  pinMap?: Record<string, unknown> | null;
+}
+
+@ObjectType()
+export class ResetAdminSiteMeasurementsPayload {
+  @Field()
+  siteId!: string;
+
+  @Field(() => Int)
+  deletedMeasurements!: number;
+
+  @Field(() => Int)
+  resolvedAlerts!: number;
+}
+
+@ObjectType()
+export class ClearAdminSiteSnapshotsPayload {
+  @Field()
+  siteId!: string;
+
+  @Field(() => Int)
+  deletedSnapshots!: number;
+
+  @Field(() => Int)
+  deletedStorageObjects!: number;
+
+  @Field()
+  storageSkipped!: boolean;
 }

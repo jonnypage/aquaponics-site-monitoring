@@ -1,0 +1,12 @@
+import { z } from "zod";
+
+export const ingestSnapshotMetadataSchema = z.object({
+  deviceId: z.string().min(1),
+  timestamp: z.string().refine((s) => s.endsWith("Z") && Number.isFinite(Date.parse(s)), {
+    message: "timestamp must be ISO 8601 UTC with Z suffix"
+  })
+});
+
+export type IngestSnapshotMetadata = z.infer<typeof ingestSnapshotMetadataSchema>;
+
+export const SNAPSHOT_MAX_BYTES = 5 * 1024 * 1024;

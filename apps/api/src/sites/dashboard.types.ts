@@ -1,6 +1,7 @@
 import { Field, Float, ObjectType, registerEnumType } from "@nestjs/graphql";
 import { Role } from "../auth/auth.types.js";
 import { SiteSensorReportingModel } from "../admin/admin.types.js";
+import { DeviceSnapshotModel } from "../snapshots/snapshots.types.js";
 
 export enum TimeRange {
   LAST_24H = "LAST_24H",
@@ -45,6 +46,13 @@ export class SiteModel {
 
   @Field(() => Float, { nullable: true })
   longitude?: number | null;
+
+  @Field(() => DeviceSnapshotModel, { nullable: true })
+  latestSnapshot?: DeviceSnapshotModel | null;
+
+  /** Min `devices.expected_interval_seconds` for the site; dashboard poll cadence (default 300). */
+  @Field()
+  pollIntervalSeconds!: number;
 }
 
 @ObjectType()

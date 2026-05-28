@@ -5,13 +5,14 @@ import { sql } from "kysely";
 
 import { AuthService } from "../auth/auth.service.js";
 import { DB_TOKEN } from "../database/database.constants.js";
-import { filterAlertsForEnabledSensorsOnly, loadDisabledSensorsBySite } from "../sites/site-sensor-filter.util.js";
-import { sensorCatalogKeyFromAlertType } from "../sites/alert-sensor-key.util.js";
+import { filterAlertsForEnabledSensorsOnly, loadAlertFilterContext } from "../sites/site-sensor-filter.util.js";
+import { heuristicAlertSensorType, sensorCatalogKeyFromAlertType } from "../sites/alert-sensor-key.util.js";
 
 export interface AlertRow {
   id: string;
   site_id: string;
   device_id: string | null;
+  device_name: string | null;
   type: string;
   severity: "warning" | "critical";
   status: "active" | "resolved";
@@ -38,30 +39,47 @@ export class AlertsService {
       }
     }
 
-    let q = this.db.selectFrom("alerts").selectAll().orderBy("updated_at", "desc").limit(200);
+    let q = this.db
+      .selectFrom("alerts")
+      .leftJoin("devices", "devices.device_id", "alerts.device_id")
+      .select([
+        "alerts.id",
+        "alerts.site_id",
+        "alerts.device_id",
+        "devices.name as device_name",
+        "alerts.type",
+        "alerts.severity",
+        "alerts.status",
+        "alerts.message",
+        "alerts.last_notified_at",
+        "alerts.created_at",
+        "alerts.updated_at"
+      ])
+      .orderBy("alerts.updated_at", "desc")
+      .limit(200);
 
     if (user.role !== "admin") {
       const siteIds = this.db
         .selectFrom("user_sites")
         .select("site_id")
         .where("user_id", "=", user.id);
-      q = q.where("site_id", "in", siteIds);
+      q = q.where("alerts.site_id", "in", siteIds);
     }
 
     if (filters.siteId != null && filters.siteId !== "") {
-      q = q.where("site_id", "=", filters.siteId);
+      q = q.where("alerts.site_id", "=", filters.siteId);
     }
     if (filters.type != null && filters.type !== "") {
-      q = q.where("type", "=", filters.type);
+      q = q.where("alerts.type", "=", filters.type);
     }
     if (filters.status != null) {
-      q = q.where("status", "=", filters.status);
+      q = q.where("alerts.status", "=", filters.status);
     }
 
     const rows = (await q.execute()) as AlertRow[];
     const siteIds = [...new Set(rows.map((r) => r.site_id))];
-    const disabledBySite = await loadDisabledSensorsBySite(this.db, siteIds);
-    return filterAlertsForEnabledSensorsOnly(rows, disabledBySite);
+    const { disabledBySite, enabledBySite, sensorTypeByKey } = await loadAlertFilterContext(this.db, siteIds);
+    return filterAlertsForEnabledSensorsOnly(rows, disabledBySite, enabledBySite, sensorTypeByKey);
   }
 
   async resolveAlertForUser(user: User, alertId: string): Promise<boolean> {
@@ -105,14 +123,27 @@ export class AlertsService {
       .execute();
 
     const siteIds = [...new Set(rows.map((r) => r.site_id))];
-    const disabledBySite = await loadDisabledSensorsBySite(this.db, siteIds);
+    const { disabledBySite, enabledBySite, sensorTypeByKey } = await loadAlertFilterContext(this.db, siteIds);
 
     return rows.filter((r) => {
       const key = sensorCatalogKeyFromAlertType(r.type);
-      if (key == null) {
-        return true;
+      if (key != null) {
+        return !(disabledBySite.get(r.site_id)?.has(key) ?? false);
       }
-      return !(disabledBySite.get(r.site_id)?.has(key) ?? false);
+      const sensorType = heuristicAlertSensorType(r.type);
+      if (sensorType != null) {
+        const enabled = enabledBySite.get(r.site_id);
+        if (!enabled) {
+          return false;
+        }
+        for (const enabledKey of enabled) {
+          if (sensorTypeByKey.get(enabledKey) === sensorType) {
+            return true;
+          }
+        }
+        return false;
+      }
+      return true;
     });
   }
 

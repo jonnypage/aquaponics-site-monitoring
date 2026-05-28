@@ -17,6 +17,8 @@
     "migrate:deploy": "tsx src/scripts/migrate.ts latest",
     "migrate:down": "tsx src/scripts/migrate.ts down",
     "seed": "tsx src/scripts/seed.ts",
+    "seed:users": "tsx src/scripts/seed-users.ts",
+    "seed:demo": "tsx src/scripts/seed-demo.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

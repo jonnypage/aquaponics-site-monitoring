@@ -2,13 +2,14 @@ import { Link } from "@tanstack/react-router";
 import { AlertTriangle, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { SensorIcon } from "~/components/sensor-icon";
+import { AdminSensorCatalogCard } from "~/components/admin/admin-sensor-catalog-card";
 import { PageBackLink } from "~/components/layout/page-back-link";
 import { PageHeader } from "~/components/layout/page-header";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import { useSensorCatalog } from "~/hooks/useAdmin";
+import type { SensorType } from "~/utils/sensor-types";
 
 export function AdminSensorsIndexPageContent() {
   const { t } = useTranslation();
@@ -29,9 +30,9 @@ export function AdminSensorsIndexPageContent() {
       />
       <PageBackLink to="/admin">{t("admin.shared.backToAdmin")}</PageBackLink>
       {isLoading ? (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 w-full" />
+            <Skeleton key={i} className="h-32 w-full" />
           ))}
         </div>
       ) : isError ? (
@@ -44,26 +45,17 @@ export function AdminSensorsIndexPageContent() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {(rows ?? []).map((r) => (
-            <Card key={r.key}>
-              <CardContent className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  {r.icon ? <SensorIcon name={r.icon} className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" /> : null}
-                  <div>
-                    <p className="font-mono text-sm font-medium">{r.key}</p>
-                    <p className="text-sm">
-                      {r.displayName} <span className="text-muted-foreground">({r.unit})</span>
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/admin/sensors/$sensorKey/edit" params={{ sensorKey: r.key }}>
-                    {t("admin.sensors.editTitle")}
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <AdminSensorCatalogCard
+              key={r.key}
+              sensorKey={r.key}
+              sensorType={r.sensorType as SensorType}
+              model={r.model}
+              displayName={r.displayName}
+              unit={r.unit}
+              icon={r.icon}
+            />
           ))}
         </div>
       )}

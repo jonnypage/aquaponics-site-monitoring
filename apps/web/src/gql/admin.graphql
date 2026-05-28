@@ -1,12 +1,24 @@
 query SensorCatalog {
   sensorCatalog {
     key
+    sensorType
+    model
     displayName
     unit
     physicalMin
     physicalMax
     sortOrder
     icon
+    wiringTemplate {
+      wires {
+        id
+        label
+        color
+        required
+      }
+      allowExtraWires
+      maxExtraWires
+    }
     createdAt
     updatedAt
   }
@@ -31,7 +43,11 @@ query AdminSites {
     latitude
     longitude
     sensorReporting {
+      deviceId
+      deviceName
       sensorKey
+      sensorType
+      model
       enabled
       displayName
       unit
@@ -39,6 +55,7 @@ query AdminSites {
       icon
     }
     sensorThresholds {
+      deviceId
       sensorKey
       normalMin
       normalMax
@@ -51,6 +68,7 @@ query AdminSites {
 query AdminDevices($siteId: String) {
   adminDevices(siteId: $siteId) {
     deviceId
+    name
     siteId
     lastSeenAt
     expectedIntervalSeconds
@@ -65,26 +83,46 @@ query AdminDevices($siteId: String) {
 query AdminDevice($id: String!) {
   adminDevice(id: $id) {
     deviceId
+    name
     siteId
     lastSeenAt
     expectedIntervalSeconds
     reportIntervalSeconds
     snapshotIntervalSeconds
     hasCamera
+    pinMap
     createdAt
     updatedAt
+    recentSnapshots {
+      id
+      takenAt
+      imageUrl
+      byteSize
+    }
   }
 }
 
 mutation CreateSensorCatalogEntry($input: CreateSensorCatalogEntryInput!) {
   createSensorCatalogEntry(input: $input) {
     key
+    sensorType
+    model
     displayName
     unit
     physicalMin
     physicalMax
     sortOrder
     icon
+    wiringTemplate {
+      wires {
+        id
+        label
+        color
+        required
+      }
+      allowExtraWires
+      maxExtraWires
+    }
     createdAt
     updatedAt
   }
@@ -93,12 +131,24 @@ mutation CreateSensorCatalogEntry($input: CreateSensorCatalogEntryInput!) {
 mutation UpdateSensorCatalogEntry($input: UpdateSensorCatalogEntryInput!) {
   updateSensorCatalogEntry(input: $input) {
     key
+    sensorType
+    model
     displayName
     unit
     physicalMin
     physicalMax
     sortOrder
     icon
+    wiringTemplate {
+      wires {
+        id
+        label
+        color
+        required
+      }
+      allowExtraWires
+      maxExtraWires
+    }
     createdAt
     updatedAt
   }
@@ -143,7 +193,11 @@ mutation CreateAdminSite($input: CreateAdminSiteInput!) {
     latitude
     longitude
     sensorReporting {
+      deviceId
+      deviceName
       sensorKey
+      sensorType
+      model
       enabled
       displayName
       unit
@@ -151,6 +205,7 @@ mutation CreateAdminSite($input: CreateAdminSiteInput!) {
       icon
     }
     sensorThresholds {
+      deviceId
       sensorKey
       normalMin
       normalMax
@@ -167,7 +222,11 @@ mutation UpdateAdminSite($input: UpdateAdminSiteInput!) {
     latitude
     longitude
     sensorReporting {
+      deviceId
+      deviceName
       sensorKey
+      sensorType
+      model
       enabled
       displayName
       unit
@@ -175,6 +234,7 @@ mutation UpdateAdminSite($input: UpdateAdminSiteInput!) {
       icon
     }
     sensorThresholds {
+      deviceId
       sensorKey
       normalMin
       normalMax
@@ -189,6 +249,7 @@ mutation CreateAdminDevice($input: CreateAdminDeviceInput!) {
     plainApiKey
     device {
       deviceId
+      name
       siteId
       lastSeenAt
       expectedIntervalSeconds
@@ -204,7 +265,9 @@ mutation CreateAdminDevice($input: CreateAdminDeviceInput!) {
 mutation UpdateAdminDevice($input: UpdateAdminDeviceInput!) {
   updateAdminDevice(input: $input) {
     deviceId
+    name
     siteId
+    pinMap
     lastSeenAt
     expectedIntervalSeconds
     reportIntervalSeconds
@@ -223,4 +286,25 @@ mutation RotateAdminDeviceApiKey($deviceId: String!) {
 
 mutation DeleteAdminDevice($deviceId: String!) {
   deleteAdminDevice(deviceId: $deviceId)
+}
+
+mutation DeleteAdminSite($siteId: String!) {
+  deleteAdminSite(siteId: $siteId)
+}
+
+mutation ResetAdminSiteMeasurements($siteId: String!) {
+  resetAdminSiteMeasurements(siteId: $siteId) {
+    siteId
+    deletedMeasurements
+    resolvedAlerts
+  }
+}
+
+mutation ClearAdminSiteSnapshots($siteId: String!) {
+  clearAdminSiteSnapshots(siteId: $siteId) {
+    siteId
+    deletedSnapshots
+    deletedStorageObjects
+    storageSkipped
+  }
 }

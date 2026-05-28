@@ -13,7 +13,7 @@ pnpm install
 
 ## Environment
 
-The app uses **`DATABASE_PUBLIC_URL`** for Postgres. On Railway this is the externally-reachable URL; do not substitute `DATABASE_URL` without an explicit decision.
+The app uses **`DATABASE_PUBLIC_URL`** for Postgres (env name is fixed in code). On Railway, point that variable at the Postgres **private** URL (`DATABASE_URL` reference), not the public TCP proxy — see [`phase6-railway-production.md`](phase6-railway-production.md). Local dev uses `localhost`.
 
 Copy the relevant example files and fill in real values:
 
@@ -40,9 +40,37 @@ Minimum `apps/web/.env`:
 VITE_PUBLIC_API_URL=http://localhost:4000
 ```
 
+When flashing devices locally, add a **separate** LAN URL for firmware (do not point `VITE_PUBLIC_API_URL` at your LAN IP while using the dashboard on `localhost` — login cookies are cross-site and will fail):
+
+```bash
+VITE_DEVICE_API_ORIGIN=http://192.168.1.106:4000
+```
+
+Use your Mac’s LAN address (`ipconfig getifaddr en0`). Restart `pnpm dev:web` after changing `.env`.
+
 `migrate:deploy`, `seed`, and `db:setup` read `DATABASE_PUBLIC_URL` from `packages/db/.env` when run via pnpm filter. Keep it populated there, or export the variable in your shell.
 
 Do not commit real `.env` files.
+
+## Firmware binary (install wizard)
+
+The ESP8266 image at `apps/web/public/firmware/esp8266/firmware.bin` is **gitignored**. Source lives in [`firmware/aquaponics-node/`](../firmware/aquaponics-node/).
+
+| Script | Purpose |
+| ------ | ------- |
+| `pnpm firmware:build` | PlatformIO build + copy to `apps/web/public/firmware/esp8266/firmware.bin` |
+| `pnpm firmware:monitor` | Serial monitor at **115200** (pass `-- -p /dev/cu.…` for port) |
+| `pnpm firmware:ensure` | Create placeholder if `firmware.bin` is missing (used by `predev:web` / `prebuild:web`) |
+| `pnpm firmware:placeholder` | Force-regenerate placeholder (config markers only; **not** runnable on hardware) |
+| `pnpm firmware:copy` | Copy only (after a manual `pio run` in `firmware/aquaponics-node`) |
+
+```bash
+pnpm firmware:build
+```
+
+Re-copy after any C++ change before USB flash. USB install flow: [`docs/esp8266-usb-macos.md`](esp8266-usb-macos.md).
+
+GPIO pins on the install form are validated per board profile in `apps/web/src/utils/device-board-gpio.ts` (ESP8266 allowlist: 4, 5, 12, 13, 14, 17; flash/boot/serial pins error). Add profiles when new boards ship.
 
 ## Common commands
 
@@ -52,8 +80,9 @@ Run from the repo root:
 pnpm typecheck
 
 pnpm dev:api              # builds packages/db first, then nest start --watch on :4000
-pnpm dev:web              # TanStack Start dev server on :3333
+pnpm dev:web              # ensures firmware.bin (placeholder if missing), then :3333
 
+pnpm firmware:build       # pio run + copy — real installer binary
 pnpm build:api
 pnpm build:web
 
@@ -61,7 +90,9 @@ pnpm start:api
 pnpm start:web            # production server from apps/web/.output
 
 pnpm migrate:deploy       # run before seed on a new / empty database
-pnpm seed
+pnpm seed                 # users + demo data
+pnpm seed:users           # admin + viewer only (existing users unchanged)
+pnpm seed:demo            # demo site/device only
 pnpm db:setup             # migrate + seed in one shot
 
 pnpm --filter @aquaponics/web codegen   # regenerate web GraphQL types after API schema changes
@@ -204,7 +235,7 @@ The route id string must match the `createFileRoute('…')` literal in the corre
 
 ### Session and GraphQL (SSR)
 
-- **`graphqlRequest`** (`src/utils/graphql.ts`) uses `credentials: "include"` in the browser. During **SSR / server render**, the session cookie is not sent automatically on `fetch` to a different origin, so the helper forwards the incoming **`Cookie`** header from **`getRequest()`** (`@tanstack/react-start/server`) when `document` is undefined. Without that, full reloads look logged out while client-side navigations can still work.
+- **Session / refresh:** root `beforeLoad` loads the user via **`loadSessionUserFn`** (`src/api/load-session-user.ts`) on SSR (forwards the browser `Cookie` header to the API). **Local dev:** `localhost` cookies are sent to `:3333`, so refresh stays logged in on SSR. **Production split hosts** (web + API subdomains): set **`SESSION_COOKIE_DOMAIN`** on the API (see [`phase6-railway-production.md`](phase6-railway-production.md)) so SSR sees the cookie; without it, `_authed` **defers** auth to the client (`guardAuthedRoute` + `useMe`) instead of redirecting to login on refresh. Client hooks use **`graphqlRequest`** with `credentials: "include"`.
 
 ### Hook rules (`src/hooks/`)
 
@@ -304,7 +335,13 @@ Core tables: `users`, `sites`, `user_sites`
 
 Ingest tables: `sensor_catalog`, `devices`, `measurements` (composite PK `(taken_at, id)`; Timescale-upgrade-ready)
 
-`pnpm seed` creates admin + viewer users, a demo site, MVP catalog rows, and a demo device. The device's **plaintext API key is printed once** — only the SHA-256 hash is stored. Re-seed on a fresh DB to get a new key.
+| Command | Purpose |
+| ------- | ------- |
+| `pnpm seed` | Users + demo site/device (same as `seed:users` then `seed:demo`) |
+| `pnpm seed:users` | Create admin/viewer if missing; does **not** reset passwords on existing users |
+| `pnpm seed:demo` | Upsert demo site, seed device, pin map, enabled sensors; assigns viewer to demo site if that user exists |
+
+`pnpm seed:demo` prints the demo device **plaintext API key** — only the SHA-256 hash is stored in the DB.
 
 If seed fails with _relation "sites" does not exist_, run `pnpm migrate:deploy` first.
 
@@ -326,7 +363,7 @@ GraphQL operations: `login`, `logout`, `getMe`, `adminUsers` (admin only), `getS
 curl -sS -X POST "$API/ingest" \
   -H "content-type: application/json" \
   -H "x-api-key: YOUR_SEED_DEVICE_API_KEY" \
-  -d '{"deviceId":"seed-device-1","timestamp":"2026-05-15T16:00:00.000Z","readings":{"temperature":22.1}}'
+  -d '{"deviceId":"seed-device-1","timestamp":"2026-05-15T16:00:00.000Z","readings":{"ds18b20":22.1,"bncPhModule":6.9}}'
 ```
 
 ## Railway deployment
@@ -335,9 +372,30 @@ Both services use **repo root** as the root directory so builds can access `pack
 
 | Setting | API service | Web service |
 | ------- | ----------- | ----------- |
-| Build command | `pnpm build:api` | `pnpm build:web` |
+| Build command | `pnpm build:api` or `bash scripts/railway-build-api.sh` | See **Web firmware build** below — **not** the web script on API |
 | Start command | `pnpm start:api` | `pnpm start:web` |
 | Release command | `pnpm migrate:deploy` | — |
-| Watch paths | `apps/api/**`, `packages/db/**`, `pnpm-lock.yaml` | `apps/web/**`, `packages/db/**`, `pnpm-lock.yaml` |
+| Watch paths | `apps/api/**`, `packages/db/**`, `pnpm-lock.yaml` | `apps/web/**`, `firmware/**`, `packages/db/**`, `pnpm-lock.yaml`, `scripts/**` |
 
-Required env vars (API): `DATABASE_PUBLIC_URL`, `AUTH_SECRET`, `NODE_ENV=production`, `WEB_ORIGIN`, `PG_POOL_MAX=3`. Railway sets `PORT` automatically. Node 22.12+ must match the `engines` field.
+Required env vars (API): `DATABASE_PUBLIC_URL` (on Railway: reference Postgres **`DATABASE_URL`**, private — not the public proxy), `AUTH_SECRET`, `NODE_ENV=production`, `WEB_ORIGIN`, `PG_POOL_MAX=3`. Railway sets `PORT` automatically. Node 22.12+ must match the `engines` field.
+
+**API snapshots (Phase 6):** set `OBJECT_STORAGE_ENDPOINT`, `OBJECT_STORAGE_REGION`, `OBJECT_STORAGE_BUCKET`, `OBJECT_STORAGE_ACCESS_KEY_ID`, `OBJECT_STORAGE_SECRET_ACCESS_KEY` on the API service (Railway Storage bucket credentials). Without these, `POST /ingest/snapshot` returns **503**.
+
+### Web firmware build
+
+`firmware.bin` is **gitignored**. `prebuild:web` runs [`scripts/ensure-or-build-firmware.mjs`](../scripts/ensure-or-build-firmware.mjs):
+
+- **Local** (`pnpm dev:web` / `pnpm build:web`): placeholder if the file is missing (installer UI only).
+- **CI / Railway**: builds real firmware when `RAILWAY_ENVIRONMENT` is set, `CI=true`, or `FIRMWARE_BUILD=real`.
+
+**Recommended Railway web build** (Railpack — web service: `RAILPACK_CONFIG_FILE=railpack.web.json`, `RAILPACK_NO_SPA=1`; see [`railpack.web.json`](../railpack.web.json)):
+
+```bash
+bash scripts/railway-build-web.sh
+```
+
+or `pnpm build:web:railway`. Fallback env on web service: `RAILPACK_BUILD_APT_PACKAGES=python3,python3-pip,python3-venv,build-essential,git,curl,xz-utils` (not `RAILPACK_DEPLOY_APT_PACKAGES`).
+
+**Avoid** `pip install platformio && …` as the build command — use the script after apt packages install.
+
+Do not flash the placeholder binary to hardware.

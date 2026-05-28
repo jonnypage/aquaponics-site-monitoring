@@ -2,6 +2,7 @@ import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { FormSectionHeading } from '~/components/layout/form-section-heading';
 import { Spinner } from '~/components/ui/spinner';
 import { cn } from '~/utils/cn';
 import {
@@ -15,8 +16,14 @@ function parseDeg(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Default map center for new sites and when lat/lng are unset (Belize). */
+export const DEFAULT_SITE_MAP_CENTER: google.maps.LatLngLiteral = {
+  lat: 18.070913,
+  lng: -88.555175
+};
+
 function defaultCenter(): google.maps.LatLngLiteral {
-  return { lat: 39.8283, lng: -98.5795 };
+  return DEFAULT_SITE_MAP_CENTER;
 }
 
 export interface SiteLocationMapPickerProps {
@@ -59,7 +66,8 @@ function SiteLocationMapPickerInner({
   const zoom = hasPoint ? 12 : 4;
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-3', className)}>
+      <FormSectionHeading>{t('admin.sites.mapTitle')}</FormSectionHeading>
       <p className='text-xs text-muted-foreground'>
         {t('admin.sites.mapHint')}
       </p>

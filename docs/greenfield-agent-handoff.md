@@ -32,7 +32,7 @@ This document is the **primary bootstrap spec** for rebuilding the aquaponics mo
 5. Implement Nest GraphQL schema to match **GraphQL contract** below (reference SDL: `apps/api/src/graphql/schema.graphql`).
 6. Implement `POST /ingest` per **Device ingestion** (legacy `docs/esp-device-ingest.md` is reference only for shape).
 7. Scaffold TanStack Start routes per **Web routes**; wire TanStack Query to GraphQL.
-8. Run **Definition of done** after **Phase 6**.
+8. Run **Definition of done** after **Phase 6** (Phases 1–6 = MVP). **Phase 7** is planned separately — see below and **[phase7-agent-prompt.md](phase7-agent-prompt.md)**.
 
 ---
 
@@ -43,7 +43,7 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 ### Phase 1 — Backend foundation
 
 - pnpm monorepo: `apps/api` (NestJS), `packages/db`, root scripts.
-- Railway PostgreSQL (or local Postgres); `DATABASE_PUBLIC_URL` (public URL; Railway’s `DATABASE_PUBLIC_URL` is often internal-only).
+- Railway PostgreSQL (or local Postgres); `DATABASE_PUBLIC_URL` (env name in repo — on Railway API, value = Postgres private `DATABASE_URL`, not the public TCP proxy).
 - Kysely client in `packages/db`; migration CLI; initial migrations for `users`, roles, `user_sites`, `sites` (minimal columns OK until later phases).
 - Nest bootstrap: `DatabaseModule`, `HealthModule` (`GET /health`), GraphQL module shell, CORS, production logging.
 - **Auth:** signed **JWT session cookie** only (HTTP-only); password hashing (bcrypt). See **Auth (greenfield)**.
@@ -54,7 +54,7 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 
 - `devices` table: `device_id`, `api_key_hash` (SHA-256), `site_id`, `last_seen_at`, `expected_interval_seconds`.
 - `measurements` table + indexes (Timescale-ready `(taken_at, id)` PK).
-- Seed `sensor_catalog` with MVP keys: `temperature`, `ph`, `waterLevel`, `waterFlow`.
+- Seed `sensor_catalog` with hardware slug keys and **`sensor_type`** / **`model`** (default seed: `ds18b20`, `bncPhModule`, `floatSwitch`, `yfs201`).
 - **`POST /ingest`:** `x-api-key`, zod payload validation, catalog key checks, partial readings allowed; **per-device rate limit** (see **Data and operational policies**).
 - Persist measurements; update `devices.last_seen_at`.
 - **Exit criteria:** curl ingest with seeded device key inserts rows; invalid key or unknown sensor key returns 4xx.
@@ -86,14 +86,47 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 
 ### Phase 6 — Firmware installer + camera support
 
-**Repo status:** Phases 1–5 are implemented in this monorepo. For an agent-oriented implementation brief (current paths, partial work, exit criteria), use **[phase6-agent-prompt.md](phase6-agent-prompt.md)**. Web routing and UI conventions (folder routes, `PageBackLink`, loading patterns) are in **[development.md](development.md)**.
+**Repo status:** Phases **1–6 MVP are implemented** in this monorepo. Verification checklist: **[phase6-verification.md](phase6-verification.md)**. Agent brief: **[phase6-agent-prompt.md](phase6-agent-prompt.md)**.
 
-- PlatformIO firmware project (out of workspace); placeholder `firmware.bin`; **esp-web-tools** install wizard (Wi-Fi, API URL, sensor→GPIO map, MVP sensors + optional camera flag).
-- `device_snapshots` metadata table; `devices.has_camera`, `report_interval_seconds`, `snapshot_interval_seconds`.
-- **Object storage:** S3-compatible upload + presigned read URLs; **no Postgres image blobs** (see **Camera snapshots**); Railway bucket wiring may land here or immediately after.
-- Ingest **commands** in JSON response: `reportIntervalSeconds`, `snapshotIntervalSeconds`, `captureImageNow` when device has active alert.
-- Dashboard: latest snapshot on site/device detail when present.
-- **Exit criteria:** install wizard flashes device; ingest returns commands; snapshot upload stores object + metadata; alert sets `captureImageNow`.
+**Implemented:**
+
+- Migration **`0006_phase6_snapshots`**; **`StorageModule`**; **`POST /ingest/snapshot`** (503 without `OBJECT_STORAGE_*`).
+- GraphQL **`getSite.latestSnapshot`**, **`adminDevice.recentSnapshots`**; web **`SiteLatestSnapshot`** on site detail.
+- **esp-web-tools** install wizard (Wi‑Fi, catalog wire→GPIO, firmware config **v2**, optional **`devices.pin_map`**); migration **`0008_sensor_wiring_template`**.
+- **`firmware/aquaponics-node/`** (telemetry, stub JPEG snapshots, command handling); gitignored **`apps/web/public/firmware/esp8266/firmware.bin`** (`pnpm firmware:build`; `firmware:placeholder` for installer UI dev).
+
+**Operator / post-MVP:** Railway `OBJECT_STORAGE_*` and web build with PlatformIO ([`phase6-railway-production.md`](phase6-railway-production.md)); §8 hardware snapshot reflash. **Done in code:** admin `recentSnapshots` gallery, firmware deploy hook (`ensure-or-build-firmware.mjs`), ESP32 CYD roadmap stub. **Deferred:** real camera hardware, ESP32 CYD flash.
+
+- **Exit criteria:** install wizard flashes device; ingest returns commands; snapshot upload stores object + metadata; alert sets `captureImageNow`; site detail shows latest snapshot when present.
+
+### Phase 7 — Notifications & alert policy (planned, deferred)
+
+**Status:** **Not started.** No notification provider is required for Phases 1–6 MVP. Implement when the team is ready to operate **email** (and optionally **SMS / WhatsApp / Signal**). Agent brief: **[phase7-agent-prompt.md](phase7-agent-prompt.md)**.
+
+**Current baseline (code today, often not configured in env):**
+
+- Ingest + scheduler **create and update** `alerts` (range, heuristics, `device_offline`).
+- Dashboard **`/alerts`** and per-site alert sections; **`resolveAlert`**.
+- **Email** via Resend in scheduler when `RESEND_API_KEY` + `ALERT_FROM_EMAIL` are set; `COOLDOWN_MINUTES` per `(site_id, type)`.
+- Recipients today: **all `admin` users** + users in **`user_sites`** for that site.
+
+**Operational guidance until Phase 7 (no extra schema):**
+
+- **Staging / calibration:** use a normal admin-only site (e.g. “Device staging”) — do not assign it to non-admins; assign test devices there for ingest validation; reassign to production when ready (measurements remain on the staging site).
+- **Noise:** loose thresholds on staging, resolve test alerts in UI, or wait for site-level **`suppress_notifications`** in Phase 7.
+
+**Phase 7 direction (draft):**
+
+| Area | Intent |
+|------|--------|
+| **Email** | Production-ready Resend setup, templates, docs. |
+| **Site policy** | `suppress_notifications` (and optionally `notification_min_severity`) on `sites` — admin site form; scheduler/dispatcher skip outbound notify. |
+| **Channels** | Pluggable dispatcher; evaluate **SMS**, **WhatsApp**, **Signal** (Signal has ops/API constraints — not committed for V1). |
+| **Architecture** | `NotificationPolicyService` + channel adapters; keep single API process; extend cooldown/dedupe if per-channel delivery is added. |
+
+**Exit criteria (draft):** staging site can suppress all outbound notifications; production site sends critical email with cooldown; dispatcher structured for at least one additional channel behind a feature flag.
+
+**Non-goals for first Phase 7 slice:** Redis/queues, guaranteed delivery, live Signal/WhatsApp unless explicitly scoped in Phase 7b/c.
 
 ---
 
@@ -198,7 +231,7 @@ Canonical table map to recreate in Kysely (`Database` interface):
 | `sites`               | Name, location, optional `latitude` / `longitude`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `devices`             | `device_id`, `api_key_hash` (SHA-256), `site_id` (nullable), `last_seen_at`, `expected_interval_seconds`, optional `report_interval_seconds`, `snapshot_interval_seconds`, `has_camera`, optional `name`, `board`, `pin_map` jsonb                                                                                                                                                                                                                                                                                                                  |
 | `user_sites`          | Many-to-many site assignments for non-admins                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `sensor_catalog`      | Global sensor definitions: `key`, display name, unit, physical min/max, sort order, optional `icon`                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `sensor_catalog`      | Global sensor definitions: `key`, display name, unit, physical min/max, sort order, optional `icon`, **`wiring_template` jsonb** (wire labels/colors for install UI — see **Sensor wiring** below)                                                                                                                                                                                                                                                                                                                                                   |
 | `site_sensor_catalog` | Per-site enablement per catalog sensor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `sensor_thresholds`   | Per-site threshold configuration keyed by `(site_id, sensor)` where `sensor` = catalog `key`. Columns: `normal_min`, `normal_max` (the target operating range, nullable — fall back to `sensor_catalog.physical_min/max`), `warning_delta` (± buffer beyond normal bounds that triggers a **warning** alert, nullable), `critical_delta` (± buffer beyond normal bounds that triggers a **critical** alert, nullable; should be ≥ `warning_delta` for sensible semantics)                                                                           |
 | `measurements`        | Time series: `id UUID DEFAULT gen_random_uuid()`, `site_id`, `device_id` (nullable), `sensor`, `value` (**PostgreSQL `double precision`**), `taken_at` (`timestamptz`), `ingested_at`. Composite primary key `(taken_at, id)` (TimescaleDB-ready). **Required indexes (add in initial migration — chart queries will be slow without them):** `(site_id, sensor, taken_at DESC)` for sensor history; `(device_id, taken_at DESC)` for device detail. Do not add unique constraints that exclude `taken_at`; that would break hypertable conversion. |
@@ -207,7 +240,7 @@ Canonical table map to recreate in Kysely (`Database` interface):
 
 ### Migration sequence (intent)
 
-Greenfield **does not** copy legacy dissolved-oxygen assumptions. Seed the global `sensor_catalog` with exactly these MVP keys: **`temperature`**, **`ph`**, **`waterLevel`**, **`waterFlow`** (units and physical bounds are admin-defined; typical units: °C, pH, % or cm, L/min or GPM).
+Greenfield **does not** copy legacy dissolved-oxygen assumptions. Seed the global `sensor_catalog` with one row per default hardware variant; each row has a unique **`key`** (ingest slug), **`sensor_type`** (measurement family: `temperature`, `ph`, `waterLevel`, `waterFlow`), and **`model`** (hardware label). Multiple catalog rows may share a **`sensor_type`** when stocking alternate probes.
 
 Mirror legacy migration **shape** where still applicable (`0001`–`0011` in the reference repo): auth + roles → core sites/devices/user_sites/thresholds → measurements → alerts → geo → sensor catalog + site_sensor_catalog → flexible catalog keys on measurements/thresholds → device admin fields → nullable device `site_id` → sensor `icon` → **device snapshots + device interval/camera columns** (new in greenfield).
 
@@ -475,6 +508,7 @@ Every successful ingest response includes telemetry ack fields **and** optional 
   "commands": {
     "reportIntervalSeconds": 300,
     "snapshotIntervalSeconds": 900,
+    "hasCamera": true,
     "captureImageNow": false
   }
 }
@@ -484,6 +518,7 @@ Every successful ingest response includes telemetry ack fields **and** optional 
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `reportIntervalSeconds`   | Server-authoritative telemetry POST interval. Admins change this in the device manager; firmware should replace its local interval when this field is present.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `snapshotIntervalSeconds` | Interval for **unsolicited** snapshot uploads when `has_camera` is true.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `hasCamera`               | Server-authoritative camera flag. Firmware must apply when present so admin toggles take effect without re-flash (initial flash still sets the first value).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `captureImageNow`         | When `true`, device must **POST a new image** to `POST /ingest/snapshot` as soon as practical (before the next snapshot interval). **This field is derived on every response** — the server queries whether the device's site has any active alert (`alerts.status = 'active'`). There is no server-side state or TTL for this flag; it reappears on every ingest response as long as any active alert exists, so the device will receive it again on its next telemetry POST if the alert has not cleared. Firmware should attempt one snapshot per received `true`, then wait for the next ingest response before deciding to send another. |
 
 Admins **manually** change `reportIntervalSeconds` / `snapshotIntervalSeconds` via admin device update; the next ingest response reflects the new values.
@@ -574,7 +609,46 @@ Gate `/admin/*` server- or client-side: non-`admin` → redirect `/sites`.
 ### Maps and installer
 
 - `VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY` (or equivalent): Maps Embed on site detail; Maps JavaScript API on admin site form picker.
-- Firmware: static `public/firmware/<board>/firmware.bin`; patch 2 KiB config region (`__UD_CFG_BEGIN__` / `__UD_CFG_END__`); esp-web-tools manifest from in-memory patched bytes; placeholder binary acceptable until PlatformIO build is wired. Installer/config must support MVP sensors (`temperature`, `ph`, `waterLevel`, `waterFlow`) and optional **camera** flag + default intervals.
+- Firmware: gitignored static `public/firmware/<board>/firmware.bin` (build with `pnpm firmware:build`); patch 2 KiB config region (`__UD_CFG_BEGIN__` / `__UD_CFG_END__`); esp-web-tools manifest from in-memory patched bytes. Installer/config must support MVP sensors (`temperature`, `ph`, `waterLevel`, `waterFlow`) and optional **camera** flag + default intervals.
+
+### Sensor wiring (multi-pin)
+
+Catalog rows define how wires appear on the device install wizard; only GPIO numbers are stored on the device and in flashed JSON.
+
+**`sensor_catalog.wiring_template` (jsonb):**
+
+```json
+{
+  "wires": [
+    { "id": "signal", "label": "Signal", "color": "#3b82f6", "required": true },
+    { "id": "sda", "label": "SDA", "color": "green", "required": true }
+  ],
+  "allowExtraWires": false,
+  "maxExtraWires": 2
+}
+```
+
+- `wires[].id` — stable firmware role key (`[a-z][a-z0-9_]*`), e.g. `signal`, `sda`, `scl`.
+- `wires[].label` — human label on install UI.
+- `wires[].color` — hex (`#rrggbb`) or preset key (`red`, `black`, `yellow`, `green`, `blue`, `white`, `orange`).
+- `allowExtraWires` / `maxExtraWires` — optional “+ Add wire” rows on install (custom label + color + GPIO).
+
+Admins edit templates on **`/admin/sensors/new`** and **`/admin/sensors/$key/edit`** (`SensorWiringEditor`). Validation: 1–8 wires, unique `id`, valid colors.
+
+**Install wizard** (`/admin/devices/$deviceId/install`): for each included site sensor, map each catalog wire (colored dot + label) to a GPIO number. On “Continue to flash”, the patched firmware JSON uses **`v: 2`** and role-keyed pins:
+
+```json
+"pins": {
+  "ph": { "signal": 5 },
+  "waterLevel": null
+}
+```
+
+Legacy **`v: 1`** scalar pins (`"ph": 5`) still parse in firmware as `{ "signal": 5 }`.
+
+**`devices.pin_map` (jsonb, optional):** mirrors the GPIO map only (no labels/colors), e.g. `{ "ph": { "signal": 5 } }`. Persisted via `updateAdminDevice(pinMap)` when preparing flash; pre-fills install when re-opened.
+
+Shared types/validation: `packages/db/src/sensor-wiring.ts`. Web: `apps/web/src/utils/sensor-wiring.ts`, `firmware-sensor-pins.ts`, `firmware-config-patch.ts` (2 KiB size guard).
 
 ---
 
@@ -595,7 +669,7 @@ Copy pattern: per-package `.env` for local dev (`packages/db`, `apps/api`, `apps
 
 | Variable                                 | API      | Web      | Notes                                                                                                                                                                                            |
 | ---------------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DATABASE_PUBLIC_URL`                    | yes      | yes\*    | Postgres connection string; on Railway prefer the **public** URL variable, not internal-only `DATABASE_PUBLIC_URL`. \*Web only if login verifies passwords in-process; prefer API-only DB access |
+| `DATABASE_PUBLIC_URL`                    | yes      | —        | Postgres connection string; env name in repo. **Railway API:** reference Postgres **`DATABASE_URL`** (private), not public proxy — avoids egress. Local: `localhost`. Web service does not need DB. |
 | `AUTH_SECRET`                            | yes      | yes      | Signs JWT session cookies (30-day rolling lifetime)                                                                                                                                              |
 | `WEB_ORIGIN`                             | yes      | —        | CORS production                                                                                                                                                                                  |
 | `PUBLIC_API_URL` / `VITE_PUBLIC_API_URL` | —        | yes      | Browser GraphQL base                                                                                                                                                                             |
@@ -652,6 +726,7 @@ Manual smoke:
 
 ## Post-MVP / deferred work
 
+- **Phase 7 — Notifications & alert policy** — see **[phase7-agent-prompt.md](phase7-agent-prompt.md)** (email productionization, site `suppress_notifications`, SMS/WhatsApp/Signal evaluation). Distinct from Phases 1–6 MVP.
 - Automated integration tests.
 - TimescaleDB hypertable migration.
 - Measurement **downsampling / retention / archiving** (initial policy: retain all rows indefinitely).
@@ -661,7 +736,7 @@ Manual smoke:
 - Server-side chart **rollups / materialized aggregates**.
 - Distributed **scheduler** locks when running multiple API replicas.
 - Refresh tokens, OAuth, Redis sessions, Auth.js adapters.
-- Real firmware CI; replace placeholder `firmware.bin`.
+- Firmware CI: `pnpm firmware:build` in deploy pipeline (binary not in git).
 - ESP32 CYD board target (stub "coming soon" in wizard).
 - TLS pinning / Improv Wi-Fi on devices.
 - **Railway + S3-compatible object storage** provisioned and wired for production camera snapshots (metadata schema and ingest path should exist before this).

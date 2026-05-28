@@ -1,142 +1,14 @@
 import "dotenv/config";
-import { createHash } from "node:crypto";
-import bcrypt from "bcryptjs";
 import { getDb } from "./shared.js";
-import type { UserRole } from "../types.js";
-
-const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? "admin@local.dev";
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "changeme-admin";
-const ADMIN_NAME = process.env.SEED_ADMIN_NAME ?? "Seed Admin";
-
-const VIEWER_EMAIL = process.env.SEED_VIEWER_EMAIL ?? "viewer@local.dev";
-const VIEWER_PASSWORD = process.env.SEED_VIEWER_PASSWORD ?? "changeme-viewer";
-const VIEWER_NAME = process.env.SEED_VIEWER_NAME ?? "Seed Viewer";
-const VIEWER_ROLE: UserRole = "site_viewer";
-
-const DEFAULT_SITE_NAME = process.env.SEED_SITE_NAME ?? "Demo Site";
-
-const SEED_DEVICE_ID = process.env.SEED_DEVICE_ID ?? "seed-device-1";
-const SEED_DEVICE_API_KEY =
-  process.env.SEED_DEVICE_API_KEY ?? "local-dev-ingest-key-change-in-prod-32chars";
-
-async function upsertUser(params: {
-  email: string;
-  name: string;
-  password: string;
-  role: UserRole;
-}) {
-  const db = getDb();
-  try {
-    const passwordHash = await bcrypt.hash(params.password, 12);
-    const existing = await db
-      .selectFrom("users")
-      .select(["id"])
-      .where("email", "=", params.email)
-      .executeTakeFirst();
-
-    if (existing) {
-      const updated = await db
-        .updateTable("users")
-        .set({
-          name: params.name,
-          password_hash: passwordHash,
-          role: params.role
-        })
-        .where("id", "=", existing.id)
-        .returning(["id"])
-        .executeTakeFirstOrThrow();
-      return updated.id;
-    }
-
-    const inserted = await db
-      .insertInto("users")
-      .values({
-        email: params.email,
-        name: params.name,
-        password_hash: passwordHash,
-        role: params.role
-      })
-      .returning(["id"])
-      .executeTakeFirstOrThrow();
-
-    return inserted.id;
-  } finally {
-    await db.destroy();
-  }
-}
+import { seedDemo } from "./seed-demo.js";
+import { seedUsers } from "./seed-users.js";
 
 async function main(): Promise<void> {
   const db = getDb();
   try {
-    const site = await db
-      .insertInto("sites")
-      .values({ name: DEFAULT_SITE_NAME })
-      .onConflict((oc) => oc.column("name").doUpdateSet({ name: DEFAULT_SITE_NAME }))
-      .returning(["id", "name"])
-      .executeTakeFirstOrThrow();
-
-    const adminId = await upsertUser({
-      email: ADMIN_EMAIL,
-      name: ADMIN_NAME,
-      password: ADMIN_PASSWORD,
-      role: "admin"
-    });
-
-    const viewerId = await upsertUser({
-      email: VIEWER_EMAIL,
-      name: VIEWER_NAME,
-      password: VIEWER_PASSWORD,
-      role: VIEWER_ROLE
-    });
-
-    await db
-      .insertInto("user_sites")
-      .values({
-        user_id: viewerId,
-        site_id: site.id
-      })
-      .onConflict((oc) => oc.columns(["user_id", "site_id"]).doNothing())
-      .execute();
-
-    const deviceApiKeyHash = createHash("sha256").update(SEED_DEVICE_API_KEY, "utf8").digest("hex");
-    await db
-      .insertInto("devices")
-      .values({
-        device_id: SEED_DEVICE_ID,
-        api_key_hash: deviceApiKeyHash,
-        site_id: site.id,
-        expected_interval_seconds: 300,
-        report_interval_seconds: 300,
-        snapshot_interval_seconds: 900,
-        has_camera: false
-      })
-      .onConflict((oc) =>
-        oc.column("device_id").doUpdateSet({
-          api_key_hash: deviceApiKeyHash,
-          site_id: site.id,
-          expected_interval_seconds: 300,
-          report_interval_seconds: 300,
-          snapshot_interval_seconds: 900,
-          has_camera: false,
-          updated_at: new Date()
-        })
-      )
-      .execute();
-
-    const sensors = await db.selectFrom("sensor_catalog").select("key").execute();
-    for (const { key } of sensors) {
-      await db
-        .insertInto("site_sensor_catalog")
-        .values({ site_id: site.id, sensor: key, enabled: true })
-        .onConflict((oc) => oc.columns(["site_id", "sensor"]).doNothing())
-        .execute();
-    }
-
-    console.log("Seed complete");
-    console.log(`Site: ${site.name}`);
-    console.log(`Admin: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
-    console.log(`Viewer: ${VIEWER_EMAIL} / ${VIEWER_PASSWORD}`);
-    console.log(`Device ingest: deviceId=${SEED_DEVICE_ID}  x-api-key=${SEED_DEVICE_API_KEY}`);
+    await seedUsers(db);
+    await seedDemo(db);
+    console.log("Seed complete (users + demo data)");
   } finally {
     await db.destroy();
   }

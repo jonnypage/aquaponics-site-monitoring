@@ -11,8 +11,9 @@ import {
 } from '~/components/ui/card';
 import { SiteStatusBadge } from '~/components/sites/site-status-badge';
 import type { SiteStatus } from '~/gql/generated/graphql';
+import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
 import { formatRelativeTime } from '~/utils/format';
-import { siteStatusCardClassName } from '~/utils/site-status-theme';
+import { siteStatusCardClassName, siteStatusTitleHoverClassName } from '~/utils/site-status-theme';
 import { cn } from '~/utils/cn';
 
 interface SiteCardProps {
@@ -24,6 +25,7 @@ interface SiteCardProps {
 
 export function SiteCard({ id, name, status, lastUpdate }: SiteCardProps) {
   const { t } = useTranslation();
+  useRelativeTimeTick();
   const lastSeen = lastUpdate
     ? formatRelativeTime(new Date(lastUpdate))
     : t('siteCard.noReadingsYet');
@@ -33,7 +35,9 @@ export function SiteCard({ id, name, status, lastUpdate }: SiteCardProps) {
       <Card className={cn(siteStatusCardClassName(status))}>
         <CardHeader className='flex flex-row items-start justify-between space-y-0 pb-3'>
           <div className='space-y-1'>
-            <CardTitle className='text-lg group-hover:text-primary'>
+            <CardTitle
+              className={cn('text-lg transition-colors', siteStatusTitleHoverClassName(status))}
+            >
               {name}
             </CardTitle>
             <CardDescription className='text-xs'>

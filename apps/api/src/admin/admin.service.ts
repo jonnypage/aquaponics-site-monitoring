@@ -7,13 +7,42 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import type { Database, UserRole } from "@aquaponics/db";
+import {
+  DEFAULT_SENSOR_WIRING_TEMPLATE,
+  isSensorType,
+  normalizeSensorWiringTemplate,
+  type Database,
+  type DevicePinMap,
+  type SensorWiringTemplate,
+  type UserRole
+} from "@aquaponics/db";
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 import bcrypt from "bcryptjs";
 import { DB_TOKEN } from "../database/database.constants.js";
 import { Role } from "../auth/auth.types.js";
+import { IngestAlertService } from "../ingest/ingest-alert.service.js";
+import { SnapshotsService } from "../snapshots/snapshots.service.js";
 import { loadSiteSensorReporting } from "../sites/site-sensor-reporting.util.js";
+import {
+  removeSiteSensorCatalogForDevice,
+  syncSiteSensorCatalogForDevice
+} from "../sites/site-sensor-sync.util.js";
+
+const DEFAULT_TELEMETRY_INTERVAL_SECONDS = 300;
+
+/** Keep expected + report intervals aligned — admins set one telemetry cadence. */
+function syncedTelemetryIntervalFromInput(
+  input: { reportIntervalSeconds?: number | null; expectedIntervalSeconds?: number | null },
+  existingExpected: number,
+  existingReport: number
+): { expected: number; report: number } {
+  const fromInput = input.reportIntervalSeconds ?? input.expectedIntervalSeconds;
+  if (fromInput != null) {
+    return { expected: fromInput, report: fromInput };
+  }
+  return { expected: existingExpected, report: existingReport };
+}
 import type {
   AdminDeviceModel,
   AdminSiteModel,
@@ -21,7 +50,9 @@ import type {
   CreateAdminDeviceInput,
   CreateAdminSiteInput,
   CreateAdminUserInput,
+  ClearAdminSiteSnapshotsPayload,
   CreateSensorCatalogEntryInput,
+  ResetAdminSiteMeasurementsPayload,
   SensorCatalogEntryModel,
   SiteSensorReportingInput,
   SiteSensorThresholdInput,
@@ -30,13 +61,25 @@ import type {
   UpdateAdminUserInput,
   UpdateSensorCatalogEntryInput
 } from "./admin.types.js";
+import { normalizeDevicePinMap } from "./device-pin-map.util.js";
+import type { SensorWiringTemplateInput } from "./sensor-wiring.graphql-types.js";
+import { SensorType } from "../sensors/sensor-type.types.js";
 
 function sha256Hex(plaintext: string): string {
   return createHash("sha256").update(plaintext, "utf8").digest("hex");
 }
 
 function gqlRoleToDb(role: Role): UserRole {
-  return role as unknown as UserRole;
+  switch (role) {
+    case Role.ADMIN:
+      return "admin";
+    case Role.SITE_MANAGER:
+      return "site_manager";
+    case Role.SITE_VIEWER:
+      return "site_viewer";
+    default:
+      throw new BadRequestException("Invalid role");
+  }
 }
 
 function assertLatLngPair(lat: number | null | undefined, lng: number | null | undefined): void {
@@ -80,51 +123,104 @@ function normalizeStoredLucideIcon(raw: string | null | undefined): string | nul
 
 @Injectable()
 export class AdminService {
-  constructor(@Inject(DB_TOKEN) private readonly db: Kysely<Database>) {}
+  constructor(
+    @Inject(DB_TOKEN) private readonly db: Kysely<Database>,
+    private readonly ingestAlerts: IngestAlertService,
+    private readonly snapshots: SnapshotsService
+  ) {}
+
+  private async requireAdminSite(siteId: string): Promise<void> {
+    const site = await this.db.selectFrom("sites").select("id").where("id", "=", siteId).executeTakeFirst();
+    if (!site) {
+      throw new NotFoundException("Site not found");
+    }
+  }
+
+  private parseWiringInput(input: SensorWiringTemplateInput | undefined): SensorWiringTemplate {
+    if (!input) {
+      return {
+        ...DEFAULT_SENSOR_WIRING_TEMPLATE,
+        wires: [...DEFAULT_SENSOR_WIRING_TEMPLATE.wires]
+      };
+    }
+    try {
+      return normalizeSensorWiringTemplate(input);
+    } catch (e: unknown) {
+      throw new BadRequestException(e instanceof Error ? e.message : "Invalid wiring template");
+    }
+  }
 
   private mapCatalogRow(row: {
     key: string;
+    sensor_type: string;
+    model: string;
     display_name: string;
     unit: string;
     physical_min: number | null;
     physical_max: number | null;
     sort_order: number;
     icon: string | null;
+    wiring_template: SensorWiringTemplate;
     created_at: Date;
     updated_at: Date;
   }): SensorCatalogEntryModel {
+    const wiring = normalizeSensorWiringTemplate(row.wiring_template);
     return {
       key: row.key,
+      sensorType: row.sensor_type as SensorType,
+      model: row.model,
       displayName: row.display_name,
       unit: row.unit,
       physicalMin: row.physical_min,
       physicalMax: row.physical_max,
       sortOrder: row.sort_order,
       icon: row.icon,
+      wiringTemplate: {
+        wires: wiring.wires.map((w) => ({
+          id: w.id,
+          label: w.label,
+          color: w.color,
+          required: w.required !== false
+        })),
+        allowExtraWires: wiring.allowExtraWires ?? false,
+        maxExtraWires: wiring.maxExtraWires ?? 2
+      },
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };
   }
 
+  private normalizeDeviceName(value: string | null | undefined): string | null {
+    if (value == null) {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
   private mapDeviceRow(row: {
     device_id: string;
-    site_id: string;
+    name: string | null;
+    site_id: string | null;
     last_seen_at: Date | null;
     expected_interval_seconds: number;
     report_interval_seconds: number;
     snapshot_interval_seconds: number;
     has_camera: boolean;
+    pin_map: DevicePinMap | null;
     created_at: Date;
     updated_at: Date;
   }): AdminDeviceModel {
     return {
       deviceId: row.device_id,
+      name: row.name,
       siteId: row.site_id,
       lastSeenAt: row.last_seen_at ? new Date(row.last_seen_at) : null,
       expectedIntervalSeconds: row.expected_interval_seconds,
       reportIntervalSeconds: row.report_interval_seconds,
       snapshotIntervalSeconds: row.snapshot_interval_seconds,
       hasCamera: row.has_camera,
+      pinMap: row.pin_map,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };
@@ -146,6 +242,9 @@ export class AdminService {
       throw new BadRequestException("Sensor key is required");
     }
     validatePhysicalBounds(input.physicalMin, input.physicalMax);
+    if (!isSensorType(input.sensorType)) {
+      throw new BadRequestException("Invalid sensorType");
+    }
 
     const maxSort = await this.db
       .selectFrom("sensor_catalog")
@@ -156,33 +255,35 @@ export class AdminService {
     const sortOrder = input.sortOrder ?? nextSort;
 
     const sites = await this.db.selectFrom("sites").select("id").execute();
+    const wiringTemplate = this.parseWiringInput(input.wiringTemplate);
 
     try {
       const row = await this.db
         .insertInto("sensor_catalog")
         .values({
           key,
+          sensor_type: input.sensorType,
+          model: input.model.trim(),
           display_name: input.displayName.trim(),
           unit: input.unit.trim(),
           physical_min: input.physicalMin ?? null,
           physical_max: input.physicalMax ?? null,
           sort_order: sortOrder,
           icon: normalizeStoredLucideIcon(input.icon),
+          wiring_template: wiringTemplate,
           updated_at: new Date()
         })
         .returningAll()
         .executeTakeFirstOrThrow();
       for (const s of sites) {
-        await this.db
-          .insertInto("site_sensor_catalog")
-          .values({
-            site_id: s.id,
-            sensor: key,
-            enabled: false,
-            updated_at: new Date()
-          })
-          .onConflict((oc) => oc.columns(["site_id", "sensor"]).doNothing())
+        const siteDevices = await this.db
+          .selectFrom("devices")
+          .select(["device_id", "pin_map"])
+          .where("site_id", "=", s.id)
           .execute();
+        for (const device of siteDevices) {
+          await syncSiteSensorCatalogForDevice(this.db, s.id, device.device_id, device.pin_map);
+        }
       }
       return this.mapCatalogRow(row);
     } catch (e: unknown) {
@@ -220,16 +321,22 @@ export class AdminService {
 
     const sortOrder =
       input.sortOrder !== undefined && input.sortOrder !== null ? input.sortOrder : existing.sort_order;
+    const wiringTemplate =
+      input.wiringTemplate !== undefined
+        ? this.parseWiringInput(input.wiringTemplate)
+        : normalizeSensorWiringTemplate(existing.wiring_template);
 
     const row = await this.db
       .updateTable("sensor_catalog")
       .set({
+        model: input.model !== undefined ? input.model.trim() : existing.model,
         display_name: input.displayName !== undefined ? input.displayName.trim() : existing.display_name,
         unit: input.unit !== undefined ? input.unit.trim() : existing.unit,
         physical_min: physicalMin,
         physical_max: physicalMax,
         sort_order: sortOrder,
         icon: input.icon !== undefined ? normalizeStoredLucideIcon(input.icon) : existing.icon,
+        wiring_template: wiringTemplate,
         updated_at: new Date()
       })
       .where("key", "=", input.key)
@@ -427,36 +534,69 @@ export class AdminService {
     return true;
   }
 
-  private validateReportingAndThresholds(
-    catalogKeys: string[],
+  private instanceKey(deviceId: string, sensorKey: string): string {
+    return `${deviceId}:${sensorKey}`;
+  }
+
+  private async validateReportingAndThresholds(
+    siteId: string,
     reporting: SiteSensorReportingInput[],
     thresholds: SiteSensorThresholdInput[]
-  ): void {
-    const set = new Set(catalogKeys);
-    const repKeys = new Set(reporting.map((r) => r.sensorKey));
-    if (repKeys.size !== catalogKeys.length) {
-      throw new BadRequestException("sensorReporting must include exactly one entry per catalog sensor");
-    }
-    for (const k of catalogKeys) {
-      if (!repKeys.has(k)) {
-        throw new BadRequestException(`Missing sensorReporting for key: ${k}`);
+  ): Promise<void> {
+    const catalogKeys = new Set(
+      (await this.db.selectFrom("sensor_catalog").select("key").execute()).map((r) => r.key)
+    );
+    const siteDevices = await this.db
+      .selectFrom("devices")
+      .select(["device_id", "pin_map"])
+      .where("site_id", "=", siteId)
+      .execute();
+    const deviceById = new Map(siteDevices.map((d) => [d.device_id, d]));
+    const allowedInstances = new Set<string>();
+    for (const device of siteDevices) {
+      const pinMap = device.pin_map;
+      const wired =
+        pinMap != null && typeof pinMap === "object"
+          ? Object.entries(pinMap as DevicePinMap)
+              .filter(([, roles]) => roles != null && Object.keys(roles).length > 0)
+              .map(([key]) => key)
+          : [];
+      for (const sensorKey of wired) {
+        allowedInstances.add(this.instanceKey(device.device_id, sensorKey));
       }
     }
-    for (const extra of repKeys) {
-      if (!set.has(extra)) {
-        throw new BadRequestException(`Unknown sensor key in sensorReporting: ${extra}`);
+
+    const repKeys = new Set(reporting.map((r) => this.instanceKey(r.deviceId, r.sensorKey)));
+    for (const r of reporting) {
+      if (!deviceById.has(r.deviceId)) {
+        throw new BadRequestException(`Device ${r.deviceId} is not assigned to this site`);
+      }
+      if (!catalogKeys.has(r.sensorKey)) {
+        throw new BadRequestException(`Unknown sensor key in sensorReporting: ${r.sensorKey}`);
+      }
+      const key = this.instanceKey(r.deviceId, r.sensorKey);
+      if (!allowedInstances.has(key)) {
+        throw new BadRequestException(`Sensor ${r.sensorKey} is not wired on device ${r.deviceId}`);
       }
     }
-    const thKeys = new Set(thresholds.map((t) => t.sensorKey));
+
     for (const t of thresholds) {
-      if (!set.has(t.sensorKey)) {
+      if (!deviceById.has(t.deviceId)) {
+        throw new BadRequestException(`Device ${t.deviceId} is not assigned to this site`);
+      }
+      if (!catalogKeys.has(t.sensorKey)) {
         throw new BadRequestException(`Unknown sensor key in sensorThresholds: ${t.sensorKey}`);
+      }
+      const key = this.instanceKey(t.deviceId, t.sensorKey);
+      if (!allowedInstances.has(key)) {
+        throw new BadRequestException(`Sensor ${t.sensorKey} is not wired on device ${t.deviceId}`);
       }
       assertThresholdDeltas(t.warningDelta ?? null, t.criticalDelta ?? null);
     }
-    for (const k of thKeys) {
-      if (!set.has(k)) {
-        throw new BadRequestException(`Invalid threshold sensorKey: ${k}`);
+
+    for (const key of allowedInstances) {
+      if (!repKeys.has(key)) {
+        throw new BadRequestException(`Missing sensorReporting for ${key}`);
       }
     }
   }
@@ -471,12 +611,14 @@ export class AdminService {
       .selectFrom("sensor_thresholds")
       .selectAll()
       .where("site_id", "=", siteId)
+      .orderBy("device_id", "asc")
       .orderBy("sensor", "asc")
       .execute();
-    const thByKey = new Map(thRows.map((r) => [r.sensor, r]));
-    const sensorThresholds = sensorReporting.map(({ sensorKey: key }) => {
-      const row = thByKey.get(key);
+    const thByInstance = new Map(thRows.map((r) => [this.instanceKey(r.device_id, r.sensor), r]));
+    const sensorThresholds = sensorReporting.map(({ deviceId, sensorKey: key }) => {
+      const row = thByInstance.get(this.instanceKey(deviceId, key));
       return {
+        deviceId,
         sensorKey: key,
         normalMin: row?.normal_min ?? null,
         normalMax: row?.normal_max ?? null,
@@ -508,10 +650,8 @@ export class AdminService {
 
   async createAdminSite(input: CreateAdminSiteInput): Promise<AdminSiteModel> {
     assertLatLngPair(input.latitude, input.longitude);
-    const catalogKeys = (await this.db.selectFrom("sensor_catalog").select("key").orderBy("key", "asc").execute()).map(
-      (r) => r.key
-    );
-    this.validateReportingAndThresholds(catalogKeys, input.sensorReporting, input.sensorThresholds);
+    const reporting = input.sensorReporting ?? [];
+    const thresholds = input.sensorThresholds ?? [];
 
     const siteId = await this.db.transaction().execute(async (trx) => {
       let site;
@@ -534,35 +674,13 @@ export class AdminService {
         throw e;
       }
       const id = site.id;
-      for (const key of catalogKeys) {
-        const rep = input.sensorReporting.find((r) => r.sensorKey === key);
-        await trx
-          .insertInto("site_sensor_catalog")
-          .values({
-            site_id: id,
-            sensor: key,
-            enabled: rep?.enabled ?? false,
-            updated_at: new Date()
-          })
-          .execute();
-      }
-      for (const t of input.sensorThresholds) {
-        await trx
-          .insertInto("sensor_thresholds")
-          .values({
-            site_id: id,
-            sensor: t.sensorKey,
-            normal_min: t.normalMin ?? null,
-            normal_max: t.normalMax ?? null,
-            warning_delta: t.warningDelta ?? null,
-            critical_delta: t.criticalDelta ?? null,
-            updated_at: new Date()
-          })
-          .execute();
-      }
       if (input.attachDeviceId?.trim()) {
         const devId = input.attachDeviceId.trim();
-        const dev = await trx.selectFrom("devices").select("device_id").where("device_id", "=", devId).executeTakeFirst();
+        const dev = await trx
+          .selectFrom("devices")
+          .select(["device_id", "pin_map"])
+          .where("device_id", "=", devId)
+          .executeTakeFirst();
         if (!dev) {
           throw new NotFoundException("Device not found");
         }
@@ -571,6 +689,44 @@ export class AdminService {
           .set({ site_id: id, updated_at: new Date() })
           .where("device_id", "=", devId)
           .execute();
+        await syncSiteSensorCatalogForDevice(trx, id, devId, dev.pin_map);
+      }
+
+      if (reporting.length > 0 || thresholds.length > 0) {
+        await this.validateReportingAndThresholds(id, reporting, thresholds);
+        for (const rep of reporting) {
+          await trx
+            .updateTable("site_sensor_catalog")
+            .set({ enabled: rep.enabled, updated_at: new Date() })
+            .where("site_id", "=", id)
+            .where("device_id", "=", rep.deviceId)
+            .where("sensor", "=", rep.sensorKey)
+            .execute();
+        }
+        for (const t of thresholds) {
+          await trx
+            .insertInto("sensor_thresholds")
+            .values({
+              site_id: id,
+              device_id: t.deviceId,
+              sensor: t.sensorKey,
+              normal_min: t.normalMin ?? null,
+              normal_max: t.normalMax ?? null,
+              warning_delta: t.warningDelta ?? null,
+              critical_delta: t.criticalDelta ?? null,
+              updated_at: new Date()
+            })
+            .onConflict((oc) =>
+              oc.columns(["site_id", "device_id", "sensor"]).doUpdateSet({
+                normal_min: t.normalMin ?? null,
+                normal_max: t.normalMax ?? null,
+                warning_delta: t.warningDelta ?? null,
+                critical_delta: t.criticalDelta ?? null,
+                updated_at: new Date()
+              })
+            )
+            .execute();
+        }
       }
       return id;
     });
@@ -592,11 +748,8 @@ export class AdminService {
     const lng = input.longitude !== undefined ? input.longitude : existing.longitude;
     assertLatLngPair(lat, lng);
 
-    const catalogKeys = (await this.db.selectFrom("sensor_catalog").select("key").orderBy("key", "asc").execute()).map(
-      (r) => r.key
-    );
     if (input.sensorReporting != null && input.sensorThresholds != null) {
-      this.validateReportingAndThresholds(catalogKeys, input.sensorReporting, input.sensorThresholds);
+      await this.validateReportingAndThresholds(input.id, input.sensorReporting, input.sensorThresholds);
     } else if (input.sensorReporting != null || input.sensorThresholds != null) {
       throw new BadRequestException("Update both sensorReporting and sensorThresholds together, or neither");
     }
@@ -623,18 +776,14 @@ export class AdminService {
       }
 
       if (input.sensorReporting != null && input.sensorThresholds != null) {
-        await trx.deleteFrom("site_sensor_catalog").where("site_id", "=", input.id).execute();
         await trx.deleteFrom("sensor_thresholds").where("site_id", "=", input.id).execute();
-        for (const key of catalogKeys) {
-          const rep = input.sensorReporting.find((r) => r.sensorKey === key);
+        for (const rep of input.sensorReporting) {
           await trx
-            .insertInto("site_sensor_catalog")
-            .values({
-              site_id: input.id,
-              sensor: key,
-              enabled: rep?.enabled ?? false,
-              updated_at: new Date()
-            })
+            .updateTable("site_sensor_catalog")
+            .set({ enabled: rep.enabled, updated_at: new Date() })
+            .where("site_id", "=", input.id)
+            .where("device_id", "=", rep.deviceId)
+            .where("sensor", "=", rep.sensorKey)
             .execute();
         }
         for (const t of input.sensorThresholds) {
@@ -642,6 +791,7 @@ export class AdminService {
             .insertInto("sensor_thresholds")
             .values({
               site_id: input.id,
+              device_id: t.deviceId,
               sensor: t.sensorKey,
               normal_min: t.normalMin ?? null,
               normal_max: t.normalMax ?? null,
@@ -655,7 +805,11 @@ export class AdminService {
 
       if (input.attachDeviceId?.trim()) {
         const devId = input.attachDeviceId.trim();
-        const dev = await trx.selectFrom("devices").select("device_id").where("device_id", "=", devId).executeTakeFirst();
+        const dev = await trx
+          .selectFrom("devices")
+          .select(["device_id", "pin_map"])
+          .where("device_id", "=", devId)
+          .executeTakeFirst();
         if (!dev) {
           throw new NotFoundException("Device not found");
         }
@@ -664,6 +818,7 @@ export class AdminService {
           .set({ site_id: input.id, updated_at: new Date() })
           .where("device_id", "=", devId)
           .execute();
+        await syncSiteSensorCatalogForDevice(trx, input.id, devId, dev.pin_map);
       }
     });
 
@@ -692,22 +847,30 @@ export class AdminService {
   }
 
   async createAdminDevice(input: CreateAdminDeviceInput): Promise<{ device: AdminDeviceModel; plainApiKey: string }> {
-    const site = await this.db.selectFrom("sites").select("id").where("id", "=", input.siteId).executeTakeFirst();
-    if (!site) {
-      throw new NotFoundException("Site not found");
+    const siteId = input.siteId?.trim() ? input.siteId.trim() : null;
+    if (siteId) {
+      const site = await this.db.selectFrom("sites").select("id").where("id", "=", siteId).executeTakeFirst();
+      if (!site) {
+        throw new NotFoundException("Site not found");
+      }
     }
     const deviceId = randomUUID();
     const plainApiKey = `aq_${randomBytes(24).toString("base64url")}`;
     const hash = sha256Hex(plainApiKey);
+    const telemetryIntervalSeconds =
+      input.reportIntervalSeconds ??
+      input.expectedIntervalSeconds ??
+      DEFAULT_TELEMETRY_INTERVAL_SECONDS;
     const row = await this.db
       .insertInto("devices")
       .values({
         device_id: deviceId,
         api_key_hash: hash,
-        site_id: input.siteId,
-        expected_interval_seconds: input.expectedIntervalSeconds ?? 300,
-        report_interval_seconds: input.reportIntervalSeconds ?? 300,
-        snapshot_interval_seconds: input.snapshotIntervalSeconds ?? 900,
+        name: this.normalizeDeviceName(input.name),
+        site_id: siteId,
+        expected_interval_seconds: telemetryIntervalSeconds,
+        report_interval_seconds: telemetryIntervalSeconds,
+        snapshot_interval_seconds: input.snapshotIntervalSeconds ?? 1800,
         has_camera: input.hasCamera ?? false,
         updated_at: new Date()
       })
@@ -721,25 +884,74 @@ export class AdminService {
     if (!existing) {
       throw new NotFoundException("Device not found");
     }
-    if (input.siteId) {
-      const site = await this.db.selectFrom("sites").select("id").where("id", "=", input.siteId).executeTakeFirst();
-      if (!site) {
-        throw new NotFoundException("Site not found");
+    let nextSiteId: string | null = existing.site_id;
+    if (input.siteId !== undefined) {
+      if (input.siteId === null) {
+        nextSiteId = null;
+      } else {
+        const trimmed = input.siteId.trim();
+        if (trimmed === "") {
+          nextSiteId = null;
+        } else {
+          const site = await this.db.selectFrom("sites").select("id").where("id", "=", trimmed).executeTakeFirst();
+          if (!site) {
+            throw new NotFoundException("Site not found");
+          }
+          nextSiteId = trimmed;
+        }
       }
     }
+
+    const telemetryInterval = syncedTelemetryIntervalFromInput(
+      input,
+      existing.expected_interval_seconds,
+      existing.report_interval_seconds
+    );
+    const patch: {
+      site_id: string | null;
+      name?: string | null;
+      pin_map?: DevicePinMap | null;
+      expected_interval_seconds: number;
+      report_interval_seconds: number;
+      snapshot_interval_seconds: number;
+      has_camera: boolean;
+      updated_at: Date;
+    } = {
+      site_id: nextSiteId,
+      expected_interval_seconds: telemetryInterval.expected,
+      report_interval_seconds: telemetryInterval.report,
+      snapshot_interval_seconds: input.snapshotIntervalSeconds ?? existing.snapshot_interval_seconds,
+      has_camera: input.hasCamera ?? existing.has_camera,
+      updated_at: new Date()
+    };
+    if (input.name !== undefined) {
+      patch.name = this.normalizeDeviceName(input.name);
+    }
+    if (input.pinMap !== undefined) {
+      patch.pin_map = input.pinMap === null ? null : normalizeDevicePinMap(input.pinMap);
+    }
+
     const row = await this.db
       .updateTable("devices")
-      .set({
-        site_id: input.siteId ?? existing.site_id,
-        expected_interval_seconds: input.expectedIntervalSeconds ?? existing.expected_interval_seconds,
-        report_interval_seconds: input.reportIntervalSeconds ?? existing.report_interval_seconds,
-        snapshot_interval_seconds: input.snapshotIntervalSeconds ?? existing.snapshot_interval_seconds,
-        has_camera: input.hasCamera ?? existing.has_camera,
-        updated_at: new Date()
-      })
+      .set(patch)
       .where("device_id", "=", input.deviceId)
       .returningAll()
       .executeTakeFirstOrThrow();
+
+    if (existing.site_id && existing.site_id !== nextSiteId) {
+      await removeSiteSensorCatalogForDevice(this.db, existing.site_id, input.deviceId);
+      await this.ingestAlerts.syncDeviceOfflineStateForSite(this.db, existing.site_id);
+    }
+
+    const siteChanged = existing.site_id !== nextSiteId;
+    const pinMapChanged = input.pinMap !== undefined;
+    if (nextSiteId && (siteChanged || pinMapChanged)) {
+      await syncSiteSensorCatalogForDevice(this.db, nextSiteId, input.deviceId, row.pin_map);
+      if (siteChanged) {
+        await this.ingestAlerts.syncDeviceOfflineStateForSite(this.db, nextSiteId);
+      }
+    }
+
     return this.mapDeviceRow(row);
   }
 
@@ -764,5 +976,57 @@ export class AdminService {
       throw new NotFoundException("Device not found");
     }
     return true;
+  }
+
+  async deleteAdminSite(siteId: string): Promise<boolean> {
+    await this.requireAdminSite(siteId);
+
+    await this.snapshots.clearSiteSnapshots(siteId);
+
+    await this.db
+      .updateTable("devices")
+      .set({ site_id: null, updated_at: new Date() })
+      .where("site_id", "=", siteId)
+      .execute();
+
+    const r = await this.db.deleteFrom("sites").where("id", "=", siteId).executeTakeFirst();
+    if (r.numDeletedRows === 0n) {
+      throw new NotFoundException("Site not found");
+    }
+    return true;
+  }
+
+  async resetAdminSiteMeasurements(siteId: string): Promise<ResetAdminSiteMeasurementsPayload> {
+    await this.requireAdminSite(siteId);
+    const now = new Date();
+
+    const del = await this.db
+      .deleteFrom("measurements")
+      .where("site_id", "=", siteId)
+      .executeTakeFirst();
+
+    const resolved = await this.db
+      .updateTable("alerts")
+      .set({ status: "resolved", updated_at: now })
+      .where("site_id", "=", siteId)
+      .where("status", "=", "active")
+      .executeTakeFirst();
+
+    return {
+      siteId,
+      deletedMeasurements: Number(del.numDeletedRows ?? 0n),
+      resolvedAlerts: Number(resolved.numUpdatedRows ?? 0n)
+    };
+  }
+
+  async clearAdminSiteSnapshots(siteId: string): Promise<ClearAdminSiteSnapshotsPayload> {
+    await this.requireAdminSite(siteId);
+    const result = await this.snapshots.clearSiteSnapshots(siteId);
+    return {
+      siteId,
+      deletedSnapshots: result.deletedSnapshots,
+      deletedStorageObjects: result.deletedStorageObjects,
+      storageSkipped: result.storageSkipped
+    };
   }
 }

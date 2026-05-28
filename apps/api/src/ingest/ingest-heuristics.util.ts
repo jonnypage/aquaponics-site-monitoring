@@ -1,7 +1,9 @@
 /**
- * MVP ingest heuristics for catalog keys in the Phase 4 spec.
+ * MVP ingest heuristics keyed by measurement family (`sensorType`).
  * Thresholds are fixed constants (no DB config) until admin tuning exists.
  */
+
+import type { SensorType } from "@aquaponics/db";
 
 export type HeuristicSeverity = "warning" | "critical";
 
@@ -24,7 +26,7 @@ const TEMP_SPIKE_WARN = 4;
 const TEMP_SPIKE_CRIT = 9;
 /** °C — last N points nearly identical → stuck sensor. */
 const TEMP_FLAT_EPS = 0.02;
-const TEMP_FLAT_MIN_POINTS = 6;
+const FLAT_MIN_POINTS = 10;
 
 /** pH / hour — linear slope magnitude. */
 const PH_DRIFT_SLOPE_WARN = 0.1;
@@ -32,19 +34,16 @@ const PH_DRIFT_MIN_POINTS = 5;
 const PH_DRIFT_MAX_WINDOW_MS = 6 * MS_HOUR;
 
 const PH_FLAT_EPS = 0.008;
-const PH_FLAT_MIN_POINTS = 6;
 
 /** waterLevel is 0–100 (%). */
 const LEVEL_DROP_WARN = 18;
 const LEVEL_DROP_CRIT = 35;
 const LEVEL_FLAT_EPS = 0.12;
-const LEVEL_FLAT_MIN_POINTS = 6;
 
 const FLOW_PREV_ACTIVE = 8;
 const FLOW_STALL_MAX = 0.5;
 const FLOW_JUMP_WARN = 120;
 const FLOW_FLAT_EPS = 0.01;
-const FLOW_FLAT_MIN_POINTS = 6;
 
 function linearSlopePhPerHour(pointsOldestFirst: HistoryPoint[]): number | null {
   if (pointsOldestFirst.length < 2) return null;
@@ -86,7 +85,7 @@ function inDriftWindowOldestFirst(newestFirst: HistoryPoint[], windowMs: number,
 }
 
 export function evaluateHeuristicsForSensor(
-  sensorKey: string,
+  sensorType: SensorType,
   historyNewestFirst: HistoryPoint[],
   now: Date
 ): HeuristicFinding[] {
@@ -99,7 +98,7 @@ export function evaluateHeuristicsForSensor(
   const latest = historyNewestFirst[0]!;
   const prev = historyNewestFirst[1];
 
-  switch (sensorKey) {
+  switch (sensorType) {
     case "temperature": {
       if (prev) {
         const delta = Math.abs(latest.value - prev.value);
@@ -118,8 +117,8 @@ export function evaluateHeuristicsForSensor(
         }
       }
 
-      const flatSlice = newestSliceOldestFirst(historyNewestFirst, TEMP_FLAT_MIN_POINTS);
-      if (flatSlice.length >= TEMP_FLAT_MIN_POINTS && isFlatBand(flatSlice, TEMP_FLAT_EPS)) {
+      const flatSlice = newestSliceOldestFirst(historyNewestFirst, FLAT_MIN_POINTS);
+      if (flatSlice.length >= FLAT_MIN_POINTS && isFlatBand(flatSlice, TEMP_FLAT_EPS)) {
         out.push({
           type: "temperature_flatline",
           severity: "warning",
@@ -141,8 +140,8 @@ export function evaluateHeuristicsForSensor(
         }
       }
 
-      const flatSlice = newestSliceOldestFirst(historyNewestFirst, PH_FLAT_MIN_POINTS);
-      if (flatSlice.length >= PH_FLAT_MIN_POINTS && isFlatBand(flatSlice, PH_FLAT_EPS)) {
+      const flatSlice = newestSliceOldestFirst(historyNewestFirst, FLAT_MIN_POINTS);
+      if (flatSlice.length >= FLAT_MIN_POINTS && isFlatBand(flatSlice, PH_FLAT_EPS)) {
         out.push({
           type: "ph_flatline",
           severity: "warning",
@@ -166,8 +165,8 @@ export function evaluateHeuristicsForSensor(
         });
       }
 
-      const flatSlice = newestSliceOldestFirst(historyNewestFirst, LEVEL_FLAT_MIN_POINTS);
-      if (flatSlice.length >= LEVEL_FLAT_MIN_POINTS && isFlatBand(flatSlice, LEVEL_FLAT_EPS)) {
+      const flatSlice = newestSliceOldestFirst(historyNewestFirst, FLAT_MIN_POINTS);
+      if (flatSlice.length >= FLAT_MIN_POINTS && isFlatBand(flatSlice, LEVEL_FLAT_EPS)) {
         out.push({
           type: "water_level_flatline",
           severity: "warning",
@@ -196,8 +195,8 @@ export function evaluateHeuristicsForSensor(
         }
       }
 
-      const flatSlice = newestSliceOldestFirst(historyNewestFirst, FLOW_FLAT_MIN_POINTS);
-      if (flatSlice.length >= FLOW_FLAT_MIN_POINTS && isFlatBand(flatSlice, FLOW_FLAT_EPS)) {
+      const flatSlice = newestSliceOldestFirst(historyNewestFirst, FLAT_MIN_POINTS);
+      if (flatSlice.length >= FLAT_MIN_POINTS && isFlatBand(flatSlice, FLOW_FLAT_EPS)) {
         out.push({
           type: "water_flow_flatline",
           severity: "warning",
@@ -213,17 +212,18 @@ export function evaluateHeuristicsForSensor(
   return out;
 }
 
-/** All heuristic alert `type` values we may create for a sensor (for resolve-on-disable). */
-export function heuristicTypesForSensor(sensorKey: string): string[] {
-  switch (sensorKey) {
+/** All heuristic alert `type` values we may create for a device + measurement family. */
+export function heuristicTypesForSensorType(sensorType: SensorType, deviceId?: string): string[] {
+  const suffix = deviceId ? `:${deviceId}` : "";
+  switch (sensorType) {
     case "temperature":
-      return ["temperature_spike", "temperature_flatline"];
+      return [`temperature_spike${suffix}`, `temperature_flatline${suffix}`];
     case "ph":
-      return ["ph_drift", "ph_flatline"];
+      return [`ph_drift${suffix}`, `ph_flatline${suffix}`];
     case "waterLevel":
-      return ["water_level_issue", "water_level_flatline"];
+      return [`water_level_issue${suffix}`, `water_level_flatline${suffix}`];
     case "waterFlow":
-      return ["water_flow_issue", "water_flow_flatline"];
+      return [`water_flow_issue${suffix}`, `water_flow_flatline${suffix}`];
     default:
       return [];
   }

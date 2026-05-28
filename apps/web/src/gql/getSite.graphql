@@ -8,12 +8,24 @@ query GetSite($id: String!) {
     latitude
     longitude
     sensorReporting {
+      deviceId
+      deviceName
       sensorKey
+      sensorType
+      model
       enabled
       displayName
       unit
       sortOrder
       icon
     }
+    latestSnapshot {
+      id
+      deviceId
+      takenAt
+      imageUrl
+      byteSize
+    }
+    pollIntervalSeconds
   }
 }

@@ -27,16 +27,50 @@ type AuthPayload {
   user: UserModel!
 }
 
+type DeviceSnapshotModel {
+  id: String!
+  deviceId: String!
+  siteId: String!
+  takenAt: DateTime!
+  ingestedAt: DateTime!
+  contentType: String!
+  byteSize: Int!
+  imageUrl: String!
+}
+
+type SensorWireDefModel {
+  id: String!
+  label: String!
+  color: String!
+  required: Boolean
+}
+
+type SensorWiringTemplateModel {
+  wires: [SensorWireDefModel!]!
+  allowExtraWires: Boolean
+  maxExtraWires: Int
+}
+
 type SensorCatalogEntryModel {
   key: String!
+  sensorType: SensorType!
+  model: String!
   displayName: String!
   unit: String!
   physicalMin: Float
   physicalMax: Float
   sortOrder: Int!
   icon: String
+  wiringTemplate: SensorWiringTemplateModel!
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+enum SensorType {
+  temperature
+  ph
+  waterLevel
+  waterFlow
 }
 
 type AdminUserModel {
@@ -50,7 +84,11 @@ type AdminUserModel {
 }
 
 type SiteSensorReportingModel {
+  deviceId: String!
+  deviceName: String
   sensorKey: String!
+  sensorType: SensorType!
+  model: String!
   enabled: Boolean!
   displayName: String!
   unit: String!
@@ -59,6 +97,7 @@ type SiteSensorReportingModel {
 }
 
 type SiteSensorThresholdModel {
+  deviceId: String!
   sensorKey: String!
   normalMin: Float
   normalMax: Float
@@ -77,14 +116,17 @@ type AdminSiteModel {
 
 type AdminDeviceModel {
   deviceId: String!
-  siteId: String!
+  name: String
+  siteId: String
   lastSeenAt: DateTime
   expectedIntervalSeconds: Int!
   reportIntervalSeconds: Int!
   snapshotIntervalSeconds: Int!
   hasCamera: Boolean!
+  pinMap: JSON
   createdAt: DateTime!
   updatedAt: DateTime!
+  recentSnapshots: [DeviceSnapshotModel!]!
 }
 
 type CreateAdminDevicePayload {
@@ -96,10 +138,24 @@ type RotateAdminDeviceApiKeyPayload {
   plainApiKey: String!
 }
 
+type ResetAdminSiteMeasurementsPayload {
+  siteId: String!
+  deletedMeasurements: Int!
+  resolvedAlerts: Int!
+}
+
+type ClearAdminSiteSnapshotsPayload {
+  siteId: String!
+  deletedSnapshots: Int!
+  deletedStorageObjects: Int!
+  storageSkipped: Boolean!
+}
+
 type AlertModel {
   id: String!
   siteId: String!
   deviceId: String
+  deviceName: String
   type: String!
   severity: AlertSeverity!
   status: AlertStatus!
@@ -128,6 +184,8 @@ type SiteModel {
   sensorReporting: [SiteSensorReportingModel!]!
   latitude: Float
   longitude: Float
+  latestSnapshot: DeviceSnapshotModel
+  pollIntervalSeconds: Float!
 }
 
 enum SiteStatus {
@@ -144,6 +202,8 @@ type MeasurementModel {
   takenAt: DateTime!
 }
 
+scalar JSON
+
 type Query {
   getMe: UserModel!
   sensorCatalog: [SensorCatalogEntryModel!]!
@@ -154,7 +214,7 @@ type Query {
   getSites: [SiteModel!]!
   getSite(id: String!): SiteModel!
   getMeasurements(siteId: String!, range: TimeRange!): [MeasurementModel!]!
-  getSensorMeasurements(siteId: String!, sensorKey: String!, range: TimeRange!): [MeasurementModel!]!
+  getSensorMeasurements(siteId: String!, deviceId: String!, sensorKey: String!, range: TimeRange!): [MeasurementModel!]!
   getAlerts(siteId: String, type: String, status: AlertStatus): [AlertModel!]!
 }
 
@@ -180,6 +240,9 @@ type Mutation {
   updateAdminDevice(input: UpdateAdminDeviceInput!): AdminDeviceModel!
   rotateAdminDeviceApiKey(deviceId: String!): RotateAdminDeviceApiKeyPayload!
   deleteAdminDevice(deviceId: String!): Boolean!
+  deleteAdminSite(siteId: String!): Boolean!
+  resetAdminSiteMeasurements(siteId: String!): ResetAdminSiteMeasurementsPayload!
+  clearAdminSiteSnapshots(siteId: String!): ClearAdminSiteSnapshotsPayload!
   resolveAlert(id: String!): Boolean!
 }
 
@@ -197,22 +260,40 @@ input UpdateMeInput {
 
 input CreateSensorCatalogEntryInput {
   key: String!
+  sensorType: SensorType!
+  model: String!
   displayName: String!
   unit: String!
   physicalMin: Float
   physicalMax: Float
   sortOrder: Int
   icon: String
+  wiringTemplate: SensorWiringTemplateInput
+}
+
+input SensorWiringTemplateInput {
+  wires: [SensorWireDefInput!]!
+  allowExtraWires: Boolean
+  maxExtraWires: Int
+}
+
+input SensorWireDefInput {
+  id: String!
+  label: String!
+  color: String!
+  required: Boolean
 }
 
 input UpdateSensorCatalogEntryInput {
   key: String!
+  model: String
   displayName: String
   unit: String
   physicalMin: Float
   physicalMax: Float
   sortOrder: Int
   icon: String
+  wiringTemplate: SensorWiringTemplateInput
 }
 
 input CreateAdminUserInput {
@@ -235,17 +316,19 @@ input CreateAdminSiteInput {
   name: String!
   latitude: Float
   longitude: Float
-  sensorReporting: [SiteSensorReportingInput!]!
-  sensorThresholds: [SiteSensorThresholdInput!]!
+  sensorReporting: [SiteSensorReportingInput!]
+  sensorThresholds: [SiteSensorThresholdInput!]
   attachDeviceId: String
 }
 
 input SiteSensorReportingInput {
+  deviceId: String!
   sensorKey: String!
   enabled: Boolean!
 }
 
 input SiteSensorThresholdInput {
+  deviceId: String!
   sensorKey: String!
   normalMin: Float
   normalMax: Float
@@ -264,7 +347,8 @@ input UpdateAdminSiteInput {
 }
 
 input CreateAdminDeviceInput {
-  siteId: String!
+  name: String
+  siteId: String
   expectedIntervalSeconds: Int
   reportIntervalSeconds: Int
   snapshotIntervalSeconds: Int
@@ -273,9 +357,11 @@ input CreateAdminDeviceInput {
 
 input UpdateAdminDeviceInput {
   deviceId: String!
+  name: String
   siteId: String
   expectedIntervalSeconds: Int
   reportIntervalSeconds: Int
   snapshotIntervalSeconds: Int
   hasCamera: Boolean
+  pinMap: JSON
 }
