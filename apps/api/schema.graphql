@@ -30,6 +30,7 @@ type AuthPayload {
 type DeviceSnapshotModel {
   id: String!
   deviceId: String!
+  deviceName: String
   siteId: String!
   takenAt: DateTime!
   ingestedAt: DateTime!
@@ -96,6 +97,13 @@ type SiteSensorReportingModel {
   icon: String
 }
 
+type SiteDeviceSnapshotSettingsModel {
+  deviceId: String!
+  deviceName: String
+  hasCamera: Boolean!
+  snapshotsEnabled: Boolean!
+}
+
 type SiteSensorThresholdModel {
   deviceId: String!
   sensorKey: String!
@@ -112,6 +120,7 @@ type AdminSiteModel {
   longitude: Float
   sensorReporting: [SiteSensorReportingModel!]!
   sensorThresholds: [SiteSensorThresholdModel!]!
+  deviceSnapshotSettings: [SiteDeviceSnapshotSettingsModel!]!
 }
 
 type AdminDeviceModel {
@@ -123,6 +132,7 @@ type AdminDeviceModel {
   reportIntervalSeconds: Int!
   snapshotIntervalSeconds: Int!
   hasCamera: Boolean!
+  board: String
   pinMap: JSON
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -185,6 +195,7 @@ type SiteModel {
   latitude: Float
   longitude: Float
   latestSnapshot: DeviceSnapshotModel
+  recentSnapshots: [DeviceSnapshotModel!]!
   pollIntervalSeconds: Float!
 }
 
@@ -319,6 +330,7 @@ input CreateAdminSiteInput {
   sensorReporting: [SiteSensorReportingInput!]
   sensorThresholds: [SiteSensorThresholdInput!]
   attachDeviceId: String
+  deviceSnapshotSettings: [SiteDeviceSnapshotSettingsInput!]
 }
 
 input SiteSensorReportingInput {
@@ -336,6 +348,11 @@ input SiteSensorThresholdInput {
   criticalDelta: Float
 }
 
+input SiteDeviceSnapshotSettingsInput {
+  deviceId: String!
+  snapshotsEnabled: Boolean!
+}
+
 input UpdateAdminSiteInput {
   id: String!
   name: String
@@ -344,6 +361,7 @@ input UpdateAdminSiteInput {
   sensorReporting: [SiteSensorReportingInput!]
   sensorThresholds: [SiteSensorThresholdInput!]
   attachDeviceId: String
+  deviceSnapshotSettings: [SiteDeviceSnapshotSettingsInput!]
 }
 
 input CreateAdminDeviceInput {
@@ -363,5 +381,6 @@ input UpdateAdminDeviceInput {
   reportIntervalSeconds: Int
   snapshotIntervalSeconds: Int
   hasCamera: Boolean
+  board: String
   pinMap: JSON
 }

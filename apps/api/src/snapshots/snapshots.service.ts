@@ -19,6 +19,7 @@ export class SnapshotsService {
   async toModel(row: {
     id: string;
     device_id: string;
+    device_name?: string | null;
     site_id: string;
     taken_at: Date | string;
     ingested_at: Date | string;
@@ -35,6 +36,7 @@ export class SnapshotsService {
     return {
       id: row.id,
       deviceId: row.device_id,
+      deviceName: row.device_name ?? null,
       siteId: row.site_id,
       takenAt: new Date(row.taken_at as Date | string),
       ingestedAt: new Date(row.ingested_at as Date | string),
@@ -42,6 +44,42 @@ export class SnapshotsService {
       byteSize: row.byte_size,
       imageUrl
     };
+  }
+
+  async getRecentForSite(siteId: string): Promise<DeviceSnapshotModel[]> {
+    if (!this.storage.isConfigured()) {
+      return [];
+    }
+
+    const rows = await this.db
+      .selectFrom("device_snapshots")
+      .innerJoin("devices", "devices.device_id", "device_snapshots.device_id")
+      .select([
+        "device_snapshots.id",
+        "device_snapshots.device_id",
+        "device_snapshots.site_id",
+        "device_snapshots.taken_at",
+        "device_snapshots.ingested_at",
+        "device_snapshots.content_type",
+        "device_snapshots.byte_size",
+        "device_snapshots.storage_key",
+        "devices.name as device_name"
+      ])
+      .where("device_snapshots.site_id", "=", siteId)
+      .where("devices.has_camera", "=", true)
+      .where("devices.snapshots_enabled", "=", true)
+      .orderBy("device_snapshots.taken_at", "desc")
+      .limit(RECENT_SNAPSHOT_LIMIT)
+      .execute();
+
+    const out: DeviceSnapshotModel[] = [];
+    for (const row of rows) {
+      const model = await this.toModel(row);
+      if (model) {
+        out.push(model);
+      }
+    }
+    return out;
   }
 
   async getLatestForSite(siteId: string): Promise<DeviceSnapshotModel | null> {
@@ -61,10 +99,12 @@ export class SnapshotsService {
         "device_snapshots.content_type",
         "device_snapshots.byte_size",
         "device_snapshots.storage_key",
-        "devices.has_camera"
+        "devices.has_camera",
+        "devices.name as device_name"
       ])
       .where("device_snapshots.site_id", "=", siteId)
-      .orderBy("devices.has_camera", "desc")
+      .where("devices.has_camera", "=", true)
+      .where("devices.snapshots_enabled", "=", true)
       .orderBy("device_snapshots.taken_at", "desc")
       .limit(1)
       .executeTakeFirst();

@@ -22,6 +22,15 @@ query GetSite($id: String!) {
     latestSnapshot {
       id
       deviceId
+      deviceName
+      takenAt
+      imageUrl
+      byteSize
+    }
+    recentSnapshots {
+      id
+      deviceId
+      deviceName
       takenAt
       imageUrl
       byteSize

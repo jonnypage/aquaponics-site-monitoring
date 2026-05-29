@@ -23,6 +23,7 @@ import { DB_TOKEN } from "../database/database.constants.js";
 import { Role } from "../auth/auth.types.js";
 import { IngestAlertService } from "../ingest/ingest-alert.service.js";
 import { SnapshotsService } from "../snapshots/snapshots.service.js";
+import { loadSiteDeviceSnapshotSettings } from "../sites/site-device-snapshots.util.js";
 import { loadSiteSensorReporting } from "../sites/site-sensor-reporting.util.js";
 import {
   removeSiteSensorCatalogForDevice,
@@ -30,6 +31,22 @@ import {
 } from "../sites/site-sensor-sync.util.js";
 
 const DEFAULT_TELEMETRY_INTERVAL_SECONDS = 300;
+
+const VALID_DEVICE_BOARDS = new Set(["esp8266", "esp32-s3-cam"]);
+
+function normalizeDeviceBoard(value: string | null | undefined): string | null {
+  if (value == null) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return null;
+  }
+  if (!VALID_DEVICE_BOARDS.has(trimmed)) {
+    throw new BadRequestException(`Invalid board: ${trimmed}`);
+  }
+  return trimmed;
+}
 
 /** Keep expected + report intervals aligned — admins set one telemetry cadence. */
 function syncedTelemetryIntervalFromInput(
@@ -54,6 +71,7 @@ import type {
   CreateSensorCatalogEntryInput,
   ResetAdminSiteMeasurementsPayload,
   SensorCatalogEntryModel,
+  SiteDeviceSnapshotSettingsInput,
   SiteSensorReportingInput,
   SiteSensorThresholdInput,
   UpdateAdminDeviceInput,
@@ -207,6 +225,7 @@ export class AdminService {
     report_interval_seconds: number;
     snapshot_interval_seconds: number;
     has_camera: boolean;
+    board: string | null;
     pin_map: DevicePinMap | null;
     created_at: Date;
     updated_at: Date;
@@ -220,6 +239,7 @@ export class AdminService {
       reportIntervalSeconds: row.report_interval_seconds,
       snapshotIntervalSeconds: row.snapshot_interval_seconds,
       hasCamera: row.has_camera,
+      board: row.board,
       pinMap: row.pin_map,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
@@ -601,12 +621,61 @@ export class AdminService {
     }
   }
 
+  private async validateAndApplyDeviceSnapshotSettings(
+    executor: Kysely<Database>,
+    siteId: string,
+    settings: SiteDeviceSnapshotSettingsInput[]
+  ): Promise<void> {
+    const cameraDevices = await executor
+      .selectFrom("devices")
+      .select(["device_id", "has_camera"])
+      .where("site_id", "=", siteId)
+      .where("has_camera", "=", true)
+      .execute();
+    const cameraById = new Map(cameraDevices.map((d) => [d.device_id, d]));
+    const seen = new Set<string>();
+
+    for (const row of settings) {
+      if (seen.has(row.deviceId)) {
+        throw new BadRequestException(`Duplicate deviceSnapshotSettings for ${row.deviceId}`);
+      }
+      seen.add(row.deviceId);
+      const device = cameraById.get(row.deviceId);
+      if (!device) {
+        throw new BadRequestException(
+          `Device ${row.deviceId} is not assigned to this site or has no camera`
+        );
+      }
+      if (row.snapshotsEnabled && !device.has_camera) {
+        throw new BadRequestException(`Device ${row.deviceId} has no camera hardware`);
+      }
+      await executor
+        .updateTable("devices")
+        .set({
+          snapshots_enabled: row.snapshotsEnabled,
+          updated_at: new Date()
+        })
+        .where("device_id", "=", row.deviceId)
+        .where("site_id", "=", siteId)
+        .execute();
+    }
+
+    for (const device of cameraDevices) {
+      if (!seen.has(device.device_id)) {
+        throw new BadRequestException(
+          `Missing deviceSnapshotSettings for camera device ${device.device_id}`
+        );
+      }
+    }
+  }
+
   private async loadAdminSite(siteId: string): Promise<AdminSiteModel | null> {
     const site = await this.db.selectFrom("sites").selectAll().where("id", "=", siteId).executeTakeFirst();
     if (!site) {
       return null;
     }
     const sensorReporting = await loadSiteSensorReporting(this.db, siteId);
+    const deviceSnapshotSettings = await loadSiteDeviceSnapshotSettings(this.db, siteId);
     const thRows = await this.db
       .selectFrom("sensor_thresholds")
       .selectAll()
@@ -632,7 +701,8 @@ export class AdminService {
       latitude: site.latitude ?? null,
       longitude: site.longitude ?? null,
       sensorReporting,
-      sensorThresholds
+      sensorThresholds,
+      deviceSnapshotSettings
     };
   }
 
@@ -728,6 +798,11 @@ export class AdminService {
             .execute();
         }
       }
+
+      if (input.deviceSnapshotSettings != null && input.deviceSnapshotSettings.length > 0) {
+        await this.validateAndApplyDeviceSnapshotSettings(trx, id, input.deviceSnapshotSettings);
+      }
+
       return id;
     });
 
@@ -820,6 +895,14 @@ export class AdminService {
           .execute();
         await syncSiteSensorCatalogForDevice(trx, input.id, devId, dev.pin_map);
       }
+
+      if (input.deviceSnapshotSettings != null) {
+        await this.validateAndApplyDeviceSnapshotSettings(
+          trx,
+          input.id,
+          input.deviceSnapshotSettings
+        );
+      }
     });
 
     const model = await this.loadAdminSite(input.id);
@@ -872,6 +955,7 @@ export class AdminService {
         report_interval_seconds: telemetryIntervalSeconds,
         snapshot_interval_seconds: input.snapshotIntervalSeconds ?? 1800,
         has_camera: input.hasCamera ?? false,
+        snapshots_enabled: false,
         updated_at: new Date()
       })
       .returningAll()
@@ -907,25 +991,32 @@ export class AdminService {
       existing.expected_interval_seconds,
       existing.report_interval_seconds
     );
+    const nextHasCamera = input.hasCamera ?? existing.has_camera;
     const patch: {
       site_id: string | null;
       name?: string | null;
+      board?: string | null;
       pin_map?: DevicePinMap | null;
       expected_interval_seconds: number;
       report_interval_seconds: number;
       snapshot_interval_seconds: number;
       has_camera: boolean;
+      snapshots_enabled: boolean;
       updated_at: Date;
     } = {
       site_id: nextSiteId,
       expected_interval_seconds: telemetryInterval.expected,
       report_interval_seconds: telemetryInterval.report,
       snapshot_interval_seconds: input.snapshotIntervalSeconds ?? existing.snapshot_interval_seconds,
-      has_camera: input.hasCamera ?? existing.has_camera,
+      has_camera: nextHasCamera,
+      snapshots_enabled: nextHasCamera ? existing.snapshots_enabled : false,
       updated_at: new Date()
     };
     if (input.name !== undefined) {
       patch.name = this.normalizeDeviceName(input.name);
+    }
+    if (input.board !== undefined) {
+      patch.board = normalizeDeviceBoard(input.board);
     }
     if (input.pinMap !== undefined) {
       patch.pin_map = input.pinMap === null ? null : normalizeDevicePinMap(input.pinMap);

@@ -50,6 +50,9 @@ export class SiteModel {
   @Field(() => DeviceSnapshotModel, { nullable: true })
   latestSnapshot?: DeviceSnapshotModel | null;
 
+  @Field(() => [DeviceSnapshotModel])
+  recentSnapshots!: DeviceSnapshotModel[];
+
   /** Min `devices.expected_interval_seconds` for the site; dashboard poll cadence (default 300). */
   @Field()
   pollIntervalSeconds!: number;

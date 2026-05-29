@@ -10,9 +10,10 @@ ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and
 | ---- | ------ |
 | **Phases 1–6 (MVP)** | Implemented in code — ingest, alerts, dashboard, admin CRUD, snapshots, ESP8266 install wizard |
 | **Hardware (ESP8266 D1 mini)** | Validated locally: browser flash via esp-web-tools, Wi‑Fi join, `POST /ingest` to a LAN API, serial logs at 115200 |
-| **Firmware in git** | **No** — source in [`firmware/aquaponics-node/`](firmware/aquaponics-node/); built `firmware.bin` is gitignored and copied into the web app for the installer |
+| **Firmware in git** | **No** — source in [`firmware/esp-8266-d1-mini/`](firmware/esp-8266-d1-mini/); built `firmware.bin` is gitignored and copied into the web app for the installer |
 | **Phase 7** | Planned (notifications / alert policy) — not started — [`docs/phase7-agent-prompt.md`](docs/phase7-agent-prompt.md) |
-| **Post-MVP** | Real camera driver, ESP32 CYD flash ([`docs/esp32-cyd-roadmap.md`](docs/esp32-cyd-roadmap.md)) |
+| **Post-MVP** | ESP32 CYD deferred ([`docs/esp32-cyd-roadmap.md`](docs/esp32-cyd-roadmap.md)) |
+| **ESP32-S3 CAM** | Real sensors + optional OV3660 snapshots — [`docs/esp32-s3-cam-firmware.md`](docs/esp32-s3-cam-firmware.md), `pnpm firmware:build:s3` |
 | **Production** | Railway: [`docs/phase6-railway-production.md`](docs/phase6-railway-production.md) — `OBJECT_STORAGE_*` on API; web build with PlatformIO (`FIRMWARE_BUILD=real` or `RAILWAY_ENVIRONMENT`) |
 
 Before calling Phase 6 production-ready on your environment, run [`docs/phase6-verification.md`](docs/phase6-verification.md) (§8 snapshot upload after latest firmware reflash).
@@ -26,7 +27,7 @@ Before calling Phase 6 production-ready on your environment, run [`docs/phase6-v
 - **Database foundation:** migrations, seed data, users, sites, devices, sensor catalog, measurements, and **Phase 4 alert tables** (`site_sensor_catalog`, `sensor_thresholds`, `alerts` — migrate to `0003` to enable) are managed through `packages/db`. Migration **`0004`** adds optional **`sites.latitude`** / **`sites.longitude`** for admin site forms.
 - **Authenticated API:** the dashboard API uses GraphQL, HTTP-only JWT cookies, bcrypt password hashing, and role-aware access checks. **Profile updates** use **`updateMe`** (current password required; clears the session cookie so the client signs in again). **Admin-only** GraphQL (`sensorCatalog`, `adminUsers` with assignments, `adminSites`, `adminDevices`, catalog and admin CRUD mutations) is implemented in [`apps/api/src/admin/`](apps/api/src/admin/).
 - **Web dashboard shell:** TanStack Start is wired up with login, session loading, protected routes, site/measurement GraphQL reads, **site status** (OK / unknown / warning / critical from alerts + telemetry), an **alerts** page linked from the sidebar, **`/settings`** (account form + `updateMe`), and **`/admin/*`** (admin-only) for **users**, **sites** (sensors + thresholds + geo, optional **Google Maps** picker when `VITE_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY` is set), **devices** (API key on create/rotate; **browser installer** at `/admin/devices/$deviceId/install`), and **global sensor catalog** CRUD via GraphQL admin operations and [`apps/web/src/hooks/useAdmin.ts`](apps/web/src/hooks/useAdmin.ts).
-- **Phase 6 — firmware + camera:** `POST /ingest/snapshot` (multipart JPEG), **`device_snapshots`** + S3 storage, presigned URLs on **`getSite.latestSnapshot`** and **`adminDevice.recentSnapshots`**, site detail map/snapshot layout, **admin device snapshot gallery**, esp-web-tools install wizard (wiring v2), admin **reset measurements** / **clear snapshots**, PlatformIO firmware ([`firmware/aquaponics-node/`](firmware/aquaponics-node/)). Gitignored **`firmware.bin`** — `pnpm firmware:build`; deploy hook [`scripts/ensure-or-build-firmware.mjs`](scripts/ensure-or-build-firmware.mjs).
+- **Phase 6 — firmware + camera:** `POST /ingest/snapshot` (multipart JPEG), **`device_snapshots`** + S3 storage, presigned URLs on **`getSite.latestSnapshot`** and **`adminDevice.recentSnapshots`**, site detail map/snapshot layout, **admin device snapshot gallery**, esp-web-tools install wizard (wiring v2), admin **reset measurements** / **clear snapshots**, PlatformIO firmware ([`firmware/esp-8266-d1-mini/`](firmware/esp-8266-d1-mini/)). Gitignored **`firmware.bin`** — `pnpm firmware:build`; deploy hook [`scripts/ensure-or-build-firmware.mjs`](scripts/ensure-or-build-firmware.mjs).
 
 The web app uses **directory-based routes** under `apps/web/src/routes/_authed/` with page UI in `apps/web/src/features/` so day-to-day edits hot-reload without regenerating `routeTree.gen.ts`. Full product spec: [`docs/greenfield-agent-handoff.md`](docs/greenfield-agent-handoff.md).
 
@@ -116,16 +117,22 @@ End-to-end flow: build a firmware image → serve it from the web app → flash 
 
 ### 1. Build and publish `firmware.bin`
 
-The installer loads `/firmware/esp8266/firmware.bin` from `apps/web/public/`. That file is **not in git**.
+The installer loads board-specific firmware from `apps/web/public/firmware/{board}/firmware.bin` (gitignored):
+
+- ESP8266: `/firmware/esp8266/firmware.bin`
+- ESP32-S3 CAM: `/firmware/esp32-s3-cam/firmware.bin`
 
 ```bash
-# From repo root — real firmware (required for hardware)
+# From repo root — both boards (required for Railway/CI hardware builds)
 pnpm firmware:build
+
+# ESP32-S3 CAM only
+pnpm firmware:build:s3
 ```
 
 `pnpm dev:web` runs `ensure-or-build-firmware` first; locally it creates a **placeholder** if missing (wizard UI only — **do not** flash that to hardware). On **Railway/CI**, the same hook runs **`pnpm firmware:build`** (requires PlatformIO on the build image).
 
-After any C++ change under `firmware/aquaponics-node/`, run `pnpm firmware:build` again, then re-flash devices.
+After any C++ change under `firmware/esp-8266-d1-mini/` or `firmware/esp32-s3-cam/`, run `pnpm firmware:build` again, then re-flash devices.
 
 ### 2. Configure the web app for devices
 
@@ -141,7 +148,7 @@ Restart `pnpm dev:web`. The install form shows the device API origin the firmwar
 ### 3. Flash from the admin install wizard
 
 1. Sign in as **admin** → **Devices** → create or open a device → **Install**.
-2. Enter **Wi‑Fi SSID and password** (ESP8266 is **2.4 GHz only**).
+2. Select **ESP8266** or **ESP32-S3 CAM**, enter **Wi‑Fi SSID and password** (2.4 GHz only).
 3. Map sensor wires to GPIO pins (catalog colors/labels; config version **`v: 2`**).
 4. **Continue to flash** → click **Connect and flash firmware** → pick the USB serial port (e.g. `/dev/cu.usbserial-…`).
 5. Complete esp-web-tools prompts. When done, the device reboots with patched JSON in the 2 KiB config region (`deviceId`, `apiKey`, `apiOrigin`, Wi‑Fi, pins).
@@ -161,7 +168,7 @@ Running `pio device monitor` from the repo root without the project dir defaults
 Press **RST** on the board. Expected lines:
 
 ```text
-aquaponics-node starting
+esp-8266-d1-mini starting
 Device <uuid> API http://192.168.x.x:4000
 Connecting WiFi........
 IP: 192.168.x.x
@@ -177,7 +184,7 @@ Telemetry OK, next report in 300s
 | `Telemetry HTTP 4xx/5xx` | API running; `VITE_DEVICE_API_ORIGIN` reachable from ESP; correct device API key |
 | No USB port in Chrome | [`docs/esp8266-usb-macos.md`](docs/esp8266-usb-macos.md) |
 
-More detail: [`firmware/aquaponics-node/README.md`](firmware/aquaponics-node/README.md), [`docs/esp-device-ingest.md`](docs/esp-device-ingest.md).
+More detail: [`firmware/esp-8266-d1-mini/README.md`](firmware/esp-8266-d1-mini/README.md), [`docs/esp-device-ingest.md`](docs/esp-device-ingest.md).
 
 ## Useful Commands
 
@@ -215,7 +222,8 @@ Full checklist: [`docs/phase6-verification.md`](docs/phase6-verification.md).
 | ------- | ------- |
 | `pnpm firmware:ensure` | Create placeholder if `firmware.bin` is missing (`predev:web` / `prebuild:web`) |
 | `pnpm firmware:placeholder` | Force-regenerate placeholder (installer UI only) |
-| `pnpm firmware:build` | `pio run` in `firmware/aquaponics-node` + copy to `apps/web/public/…/firmware.bin` |
+| `pnpm firmware:build` | PlatformIO build for ESP8266 + ESP32-S3 CAM + copy to `apps/web/public/firmware/…` |
+| `pnpm firmware:build:s3` | ESP32-S3 CAM only (`mergebin` + copy) |
 | `pnpm firmware:copy` | Copy only (if you already ran `pio run`) |
 
 See **[Installing firmware (ESP8266)](#installing-firmware-esp8266)** above and **[`docs/phase6-railway-production.md`](docs/phase6-railway-production.md)** for Railway (web build: `bash scripts/railway-build-web.sh` or `pnpm build:web:railway` — not `pip`).

@@ -13,9 +13,9 @@ Concise context for AI coding agents and developers who need orientation before 
 
 ## Current baseline (update when you ship work)
 
-- **Active phase:** Phases **1–6** MVP **code complete** — operator sign-off: **[docs/phase6-verification.md](docs/phase6-verification.md)** + **[docs/phase6-railway-production.md](docs/phase6-railway-production.md)**. **Phase 7** (notifications) **planned** — **[docs/phase7-agent-prompt.md](docs/phase7-agent-prompt.md)**. Post-MVP: ESP32 CYD flash ([docs/esp32-cyd-roadmap.md](docs/esp32-cyd-roadmap.md)), real camera driver.
-- **Implemented:** (Phases 1–5 as before.) **Sensor catalog:** migration **`0009_sensor_type_model`** — `sensor_type` + `model` on `sensor_catalog`; default keys `ds18b20`, `bncPhModule`, `floatSwitch`, `yfs201`; heuristics/charts by family, ingest by slug **`key`**. **Phase 6:** snapshots + S3 ingest; **`getSite.latestSnapshot`** / **`adminDevice.recentSnapshots`**; site detail map/snapshot row; **`AdminDeviceRecentSnapshots`** on device edit; admin **reset site measurements** / **clear site snapshots**; install wizard + **`scripts/ensure-or-build-firmware.mjs`** (real `firmware.bin` on CI/Railway); ESP8266 firmware config **`v: 3`** (`sensorTypes` map); wiring v2 + **`0008`**.
-- **Not implemented yet:** Phase 7 notifications; ESP32 CYD installer (roadmap only); real camera hardware driver.
+- **Active phase:** Phases **1–6** MVP **code complete** — operator sign-off: **[docs/phase6-verification.md](docs/phase6-verification.md)** + **[docs/phase6-railway-production.md](docs/phase6-railway-production.md)**. **Phase 7** (notifications) **planned** — **[docs/phase7-agent-prompt.md](docs/phase7-agent-prompt.md)**. Post-MVP: ESP32 CYD ([docs/esp32-cyd-roadmap.md](docs/esp32-cyd-roadmap.md), deferred).
+- **Implemented:** (Phases 1–5 as before.) **Sensor catalog:** migration **`0009_sensor_type_model`** — `sensor_type` + `model` on `sensor_catalog`; default keys `ds18b20`, `bncPhModule`, `floatSwitch`, `yfs201`; heuristics/charts by family, ingest by slug **`key`**. **Phase 6:** snapshots + S3 ingest; **`getSite.latestSnapshot`** / **`adminDevice.recentSnapshots`**; site detail map/snapshot row; **`AdminDeviceRecentSnapshots`** on device edit; admin **reset site measurements** / **clear site snapshots**; install wizard + **`scripts/ensure-or-build-firmware.mjs`** (real `firmware.bin` on CI/Railway); ESP8266 firmware config **`v: 3`** (`sensorTypes` map); wiring v2 + **`0008`**. **ESP32-S3:** [`firmware/esp32-s3-cam/`](firmware/esp32-s3-cam/) — real sensors + optional OV3660 snapshots; install board **`esp32-s3-cam`** — **[docs/esp32-s3-cam-firmware.md](docs/esp32-s3-cam-firmware.md)**. ESP8266: [`firmware/esp-8266-d1-mini/`](firmware/esp-8266-d1-mini/).
+- **Not implemented yet:** Phase 7 notifications; ESP32 CYD installer (roadmap only).
 - **Staging sites (ops, no code):** use an admin-only **“Device staging”** site — do not assign to non-admins; assign devices there for calibration ingest; reassign to production when ready.
 - **Env contract:** use **`DATABASE_PUBLIC_URL`** for Postgres (see `README.md`). Do not reintroduce `DATABASE_URL` as the primary app variable without an explicit project decision.
 
@@ -27,9 +27,11 @@ Concise context for AI coding agents and developers who need orientation before 
 | `apps/api/src/ingest/`             | `POST /ingest`, **`POST /ingest/snapshot`**; `ingest-alert.service.ts`, **`ingest-snapshot.service.ts`**, range/heuristics, `captureImageNow` |
 | `apps/api/src/storage/`            | S3-compatible upload + presigned reads (`OBJECT_STORAGE_*`; Railway bucket) |
 | `apps/api/src/snapshots/`          | Snapshot metadata → presigned URLs for GraphQL |
-| `firmware/aquaponics-node/`        | PlatformIO ESP8266 firmware (outside pnpm) |
+| `firmware/esp-8266-d1-mini/`        | PlatformIO ESP8266 firmware (outside pnpm) |
+| `firmware/esp32-s3-cam/` | PlatformIO ESP32-S3 — real sensors + optional OV3660 camera |
 | `apps/web/public/firmware/esp8266/`| Gitignored `firmware.bin` + README; `pnpm firmware:build` / `firmware:ensure` |
-| `scripts/build-firmware.mjs` | `pnpm firmware:build` (pio run + copy) |
+| `apps/web/public/firmware/esp32-s3-cam/`| Gitignored merged `firmware.bin`; `pnpm firmware:build:s3` |
+| `scripts/build-firmware.mjs` | `pnpm firmware:build` (both boards) / `firmware:build:s3` |
 | `scripts/generate-firmware-placeholder.mjs` | Placeholder `firmware.bin` |
 | `scripts/ensure-or-build-firmware.mjs` | `predev:web` / `prebuild:web` — placeholder locally, `pio` build on CI/Railway |
 | `scripts/ensure-firmware-binary.mjs` | Placeholder only (`firmware:ensure`) |
@@ -77,8 +79,9 @@ pnpm build:api
 pnpm build:web
 pnpm dev:api
 pnpm dev:web
-pnpm firmware:placeholder   # stub installer binary (gitignored path)
-pnpm firmware:build       # pio run + copy to web public
+pnpm firmware:placeholder   # stub installer binaries (gitignored paths)
+pnpm firmware:build       # ESP8266 + ESP32-S3 CAM (pio + copy)
+pnpm firmware:build:s3    # ESP32-S3 CAM only
 pnpm firmware:copy        # copy only (after manual pio run)
 pnpm migrate:deploy
 pnpm seed

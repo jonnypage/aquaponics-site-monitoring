@@ -1,4 +1,11 @@
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
+import {
+  Building2,
+  Camera,
+  Database,
+  SlidersHorizontal,
+  ToggleRight,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -139,10 +146,18 @@ export function AdminSiteEditPageContent() {
     return map;
   }, [reportingRows]);
 
+  const cameraDevices = useMemo(
+    () => (siteDevices ?? []).filter((d) => d.hasCamera),
+    [siteDevices],
+  );
+
   const [name, setName] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
+  const [snapshotsEnabled, setSnapshotsEnabled] = useState<Record<string, boolean>>(
+    {},
+  );
   const [th, setTh] = useState<
     Record<string, { nm: string; nM: string; wd: string; cd: string }>
   >({});
@@ -191,7 +206,12 @@ export function AdminSiteEditPageContent() {
         cd: r.criticalDelta != null ? String(r.criticalDelta) : '',
       };
     }
+    const snap: Record<string, boolean> = {};
+    for (const d of site.deviceSnapshotSettings ?? []) {
+      snap[d.deviceId] = d.snapshotsEnabled;
+    }
     setEnabled(en);
+    setSnapshotsEnabled(snap);
     setTh(th0);
   }, [site]);
 
@@ -231,6 +251,10 @@ export function AdminSiteEditPageContent() {
             criticalDelta: parseOptFloat(row.cd),
           };
         }),
+        deviceSnapshotSettings: cameraDevices.map((d) => ({
+          deviceId: d.deviceId,
+          snapshotsEnabled: snapshotsEnabled[d.deviceId] ?? false,
+        })),
       });
       await navigate({ to: '/admin/sites' });
     } catch (err) {
@@ -381,7 +405,7 @@ export function AdminSiteEditPageContent() {
         <CardContent className='pt-6'>
           <form className='space-y-6' onSubmit={(e) => void onSubmit(e)}>
             <div className='space-y-3'>
-              <FormSectionHeading id='site-name-heading'>
+              <FormSectionHeading id='site-name-heading' icon={Building2}>
                 {t('admin.sites.name')}
               </FormSectionHeading>
               <Input
@@ -416,7 +440,7 @@ export function AdminSiteEditPageContent() {
               </div>
             </div>
             <div className='space-y-4'>
-              <FormSectionHeading>
+              <FormSectionHeading icon={ToggleRight}>
                 {t('admin.sites.sensorEnabled')}
               </FormSectionHeading>
               <p className='text-sm text-muted-foreground'>
@@ -505,50 +529,114 @@ export function AdminSiteEditPageContent() {
                 })
               )}
             </div>
-            <div className='space-y-3'>
-              <FormSectionHeading>
+            <div className='space-y-4'>
+              <FormSectionHeading icon={Camera}>
+                {t('admin.sites.cameraSnapshotsTitle')}
+              </FormSectionHeading>
+              <p className='text-sm text-muted-foreground'>
+                {t('admin.sites.cameraSnapshotsHint')}
+              </p>
+              {cameraDevices.length === 0 ? (
+                <p className='text-sm text-muted-foreground'>
+                  {t('admin.sites.cameraSnapshotsNone')}
+                </p>
+              ) : (
+                <div className='space-y-3'>
+                  {cameraDevices.map((d) => (
+                    <label
+                      key={d.deviceId}
+                      className='flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border p-4 text-sm'
+                    >
+                      <input
+                        type='checkbox'
+                        checked={snapshotsEnabled[d.deviceId] ?? false}
+                        onChange={() =>
+                          setSnapshotsEnabled((p) => ({
+                            ...p,
+                            [d.deviceId]: !(p[d.deviceId] ?? false),
+                          }))
+                        }
+                      />
+                      <span className='font-medium'>
+                        {deviceLabel(d.deviceId, d.name)}
+                      </span>
+                      <span className='text-muted-foreground'>
+                        {t('admin.sites.cameraSnapshotsEnableLabel')}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className='space-y-4'>
+              <FormSectionHeading icon={SlidersHorizontal}>
                 {t('admin.sites.thresholds')}
               </FormSectionHeading>
-              <div className='space-y-4'>
-                {reportingRows.map((r) => {
-                  const instanceKey = siteSensorInstanceKey(
-                    r.deviceId,
-                    r.sensorKey,
-                  );
-                  const row = th[instanceKey] ?? {
-                    nm: '',
-                    nM: '',
-                    wd: '',
-                    cd: '',
-                  };
-                  const cat = catalogByKey.get(r.sensorKey);
-                  const reporting = reportingByInstance.get(instanceKey);
+              {reportingRows.length === 0 ? (
+                <p className='text-sm text-muted-foreground'>
+                  {t('admin.sites.deviceForSensorsNoWired')}{' '}
+                  <Link to='/admin/devices' className='underline'>
+                    {t('admin.devices.listTitle')}
+                  </Link>
+                </p>
+              ) : (
+                [...reportingByDevice.entries()].map(([deviceId, rows]) => {
                   const deviceName =
-                    r.deviceName ??
-                    siteDevices?.find((d) => d.deviceId === r.deviceId)?.name;
-                  const sensorLabel = `${deviceLabel(
-                    r.deviceId,
-                    deviceName,
-                  )} · ${
-                    reporting?.displayName ?? cat?.displayName ?? r.sensorKey
-                  }`;
+                    rows[0]?.deviceName ??
+                    siteDevices?.find((d) => d.deviceId === deviceId)?.name;
                   return (
-                    <SiteSensorThresholdOverrideRow
-                      key={instanceKey}
-                      rowId={instanceKey}
-                      sensorKey={r.sensorKey}
-                      sensorLabel={sensorLabel}
-                      icon={reporting?.icon ?? cat?.icon}
-                      catalogPhysicalMin={cat?.physicalMin}
-                      catalogPhysicalMax={cat?.physicalMax}
-                      row={row}
-                      onChange={(next) =>
-                        setTh((p) => ({ ...p, [instanceKey]: next }))
-                      }
-                    />
+                    <div
+                      key={deviceId}
+                      className='min-w-0 space-y-3 rounded-md border border-border p-4'
+                    >
+                      <p className='text-sm font-medium'>
+                        {deviceLabel(deviceId, deviceName)}
+                      </p>
+                      <div className='space-y-3'>
+                        {rows.map((r) => {
+                          const instanceKey = siteSensorInstanceKey(
+                            r.deviceId,
+                            r.sensorKey,
+                          );
+                          const row = th[instanceKey] ?? {
+                            nm: '',
+                            nM: '',
+                            wd: '',
+                            cd: '',
+                          };
+                          const cat = catalogByKey.get(r.sensorKey);
+                          const reporting =
+                            reportingByInstance.get(instanceKey);
+                          const sensorLabel = `${
+                            reporting?.displayName ??
+                            cat?.displayName ??
+                            r.sensorKey
+                          }${
+                            r.model.trim()
+                              ? ` (${r.model})`
+                              : ''
+                          }`;
+                          return (
+                            <SiteSensorThresholdOverrideRow
+                              key={instanceKey}
+                              rowId={instanceKey}
+                              sensorKey={r.sensorKey}
+                              sensorLabel={sensorLabel}
+                              icon={reporting?.icon ?? cat?.icon}
+                              catalogPhysicalMin={cat?.physicalMin}
+                              catalogPhysicalMax={cat?.physicalMax}
+                              row={row}
+                              onChange={(next) =>
+                                setTh((p) => ({ ...p, [instanceKey]: next }))
+                              }
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
-                })}
-              </div>
+                })
+              )}
             </div>
 
             {formError ? (
@@ -565,7 +653,11 @@ export function AdminSiteEditPageContent() {
 
       <Card className='mt-6 border-destructive/30'>
         <CardHeader>
-          <CardTitle className='text-base'>
+          <CardTitle className='flex items-center gap-2 text-base'>
+            <Database
+              className='h-4 w-4 shrink-0 text-muted-foreground'
+              aria-hidden
+            />
             {t('admin.sites.dataManagementTitle')}
           </CardTitle>
           <CardDescription>

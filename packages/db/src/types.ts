@@ -54,6 +54,7 @@ export interface DevicesTable {
   report_interval_seconds: number;
   snapshot_interval_seconds: number;
   has_camera: boolean;
+  snapshots_enabled: boolean;
   name: string | null;
   board: string | null;
   pin_map: import("./sensor-wiring.js").DevicePinMap | null;

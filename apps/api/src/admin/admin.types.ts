@@ -116,6 +116,21 @@ export class SiteSensorReportingModel {
 }
 
 @ObjectType()
+export class SiteDeviceSnapshotSettingsModel {
+  @Field()
+  deviceId!: string;
+
+  @Field(() => String, { nullable: true })
+  deviceName?: string | null;
+
+  @Field()
+  hasCamera!: boolean;
+
+  @Field()
+  snapshotsEnabled!: boolean;
+}
+
+@ObjectType()
 export class SiteSensorThresholdModel {
   @Field()
   deviceId!: string;
@@ -155,6 +170,9 @@ export class AdminSiteModel {
 
   @Field(() => [SiteSensorThresholdModel])
   sensorThresholds!: SiteSensorThresholdModel[];
+
+  @Field(() => [SiteDeviceSnapshotSettingsModel])
+  deviceSnapshotSettings!: SiteDeviceSnapshotSettingsModel[];
 }
 
 @ObjectType()
@@ -182,6 +200,9 @@ export class AdminDeviceModel {
 
   @Field()
   hasCamera!: boolean;
+
+  @Field(() => String, { nullable: true })
+  board?: string | null;
 
   @Field(() => Object, { nullable: true })
   pinMap?: Record<string, unknown> | null;
@@ -390,6 +411,18 @@ export class SiteSensorReportingInput {
 }
 
 @InputType()
+export class SiteDeviceSnapshotSettingsInput {
+  @Field()
+  @IsString()
+  @MinLength(1)
+  deviceId!: string;
+
+  @Field()
+  @IsBoolean()
+  snapshotsEnabled!: boolean;
+}
+
+@InputType()
 export class SiteSensorThresholdInput {
   @Field()
   @IsString()
@@ -457,6 +490,13 @@ export class CreateAdminSiteInput {
   @IsOptional()
   @IsString()
   attachDeviceId?: string | null;
+
+  @Field(() => [SiteDeviceSnapshotSettingsInput], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SiteDeviceSnapshotSettingsInput)
+  deviceSnapshotSettings?: SiteDeviceSnapshotSettingsInput[];
 }
 
 @InputType()
@@ -499,6 +539,13 @@ export class UpdateAdminSiteInput {
   @IsOptional()
   @IsString()
   attachDeviceId?: string | null;
+
+  @Field(() => [SiteDeviceSnapshotSettingsInput], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SiteDeviceSnapshotSettingsInput)
+  deviceSnapshotSettings?: SiteDeviceSnapshotSettingsInput[];
 }
 
 @InputType()
@@ -572,6 +619,12 @@ export class UpdateAdminDeviceInput {
   @IsOptional()
   @IsBoolean()
   hasCamera?: boolean | null;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  board?: string | null;
 
   @Field(() => Object, { nullable: true })
   @IsOptional()

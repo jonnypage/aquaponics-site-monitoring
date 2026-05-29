@@ -50,7 +50,14 @@ export class SitesResolver {
     const out: SiteModel[] = [];
     for (const row of rows) {
       out.push(
-        await this.buildSiteModel(user, row.id, row.name, row.latitude ?? null, row.longitude ?? null)
+        await this.buildSiteModel(
+          user,
+          row.id,
+          row.name,
+          row.latitude ?? null,
+          row.longitude ?? null,
+          false
+        )
       );
     }
     return out;
@@ -70,7 +77,14 @@ export class SitesResolver {
     if (!site) {
       throw new NotFoundException("Site not found");
     }
-    return this.buildSiteModel(user, site.id, site.name, site.latitude ?? null, site.longitude ?? null);
+    return this.buildSiteModel(
+      user,
+      site.id,
+      site.name,
+      site.latitude ?? null,
+      site.longitude ?? null,
+      true
+    );
   }
 
   private async buildSiteModel(
@@ -78,7 +92,8 @@ export class SitesResolver {
     siteId: string,
     name: string,
     latitude: number | null,
-    longitude: number | null
+    longitude: number | null,
+    includeSnapshots: boolean
   ): Promise<SiteModel> {
     const agg = await this.db
       .selectFrom("measurements")
@@ -123,7 +138,10 @@ export class SitesResolver {
       status = SiteStatus.UNKNOWN;
     }
 
-    const latestSnapshot = await this.snapshots.getLatestForSite(siteId);
+    const recentSnapshots = includeSnapshots
+      ? await this.snapshots.getRecentForSite(siteId)
+      : [];
+    const latestSnapshot = recentSnapshots[0] ?? null;
 
     const intervalRow = await this.db
       .selectFrom("devices")
@@ -144,6 +162,7 @@ export class SitesResolver {
       latitude,
       longitude,
       latestSnapshot,
+      recentSnapshots,
       pollIntervalSeconds
     };
   }

@@ -166,7 +166,7 @@ Requires real `firmware.bin` (gitignored; from PlatformIO):
 pnpm firmware:build
 ```
 
-Re-flash after any `firmware/aquaponics-node` change. Serial monitor (**115200**):
+Re-flash after any `firmware/esp-8266-d1-mini` change. Serial monitor (**115200**):
 
 ```bash
 pnpm firmware:monitor -- -p /dev/cu.usbserial-XXXX

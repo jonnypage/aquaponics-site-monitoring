@@ -1,6 +1,6 @@
 # ESP32 CYD installer roadmap
 
-**Status:** Planned post–Phase 6 MVP. The install wizard already lists **ESP32 CYD** as disabled (“coming soon”) and uses an `esp32-cyd` board profile stub in [`apps/web/src/utils/device-board-gpio.ts`](../apps/web/src/utils/device-board-gpio.ts).
+**Status:** Deferred post–Phase 6 MVP. The install wizard now supports **ESP32-S3 CAM** instead — see [`docs/esp32-s3-cam-firmware.md`](esp32-s3-cam-firmware.md). The former `esp32-cyd` board stub was removed from [`apps/web/src/utils/device-board-gpio.ts`](../apps/web/src/utils/device-board-gpio.ts).
 
 ## Goal
 
@@ -20,10 +20,11 @@ Support **ESP32-2432S028 (CYD)** with the same admin install flow as ESP8266: Wi
 
 ## Out of scope until this roadmap is executed
 
-- Flashing CYD from production today (ESP8266 only).
+- Flashing CYD from production today (use ESP8266 or ESP32-S3 CAM).
 - Sharing one `firmware.bin` between boards.
 
 ## References
 
-- Phase 6 ESP8266: [`firmware/aquaponics-node/`](../firmware/aquaponics-node/), [`docs/phase6-agent-prompt.md`](phase6-agent-prompt.md)
+- ESP32-S3 CAM (live): [`docs/esp32-s3-cam-firmware.md`](esp32-s3-cam-firmware.md)
+- Phase 6 ESP8266: [`firmware/esp-8266-d1-mini/`](../firmware/esp-8266-d1-mini/), [`docs/phase6-agent-prompt.md`](phase6-agent-prompt.md)
 - USB on macOS: [`docs/esp8266-usb-macos.md`](esp8266-usb-macos.md) (drivers may differ for CYD USB-serial chips)

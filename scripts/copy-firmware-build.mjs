@@ -1,25 +1,42 @@
 #!/usr/bin/env node
 /**
  * Copy PlatformIO build output into the web static path (gitignored).
- * Run after: pnpm firmware:build (or pio run in firmware/aquaponics-node)
+ * Usage:
+ *   node scripts/copy-firmware-build.mjs [boardId]
+ *   pnpm firmware:copy -- esp32-s3-cam
  */
 import { access, copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const src = path.join(root, "firmware/aquaponics-node/.pio/build/d1_mini/firmware.bin");
-const destDir = path.join(root, "apps/web/public/firmware/esp8266");
-const dest = path.join(destDir, "firmware.bin");
+import { boardsToBuild } from "./firmware-boards.mjs";
 
-try {
-  await access(src);
-} catch {
-  console.error(`Missing ${src}`);
-  console.error("Build first: pnpm firmware:build");
-  process.exit(1);
+const boardId = process.argv[2];
+const boards = boardsToBuild(boardId ? [boardId] : []);
+
+for (const board of boards) {
+  try {
+    await access(board.buildArtifactAbs);
+  } catch {
+    console.error(`Missing ${board.buildArtifactAbs}`);
+    console.error(`Build first: pnpm firmware:build${boardId ? `:${boardId === "esp32-s3-cam" ? "s3" : boardId}` : ""}`);
+    process.exit(1);
+  }
+
+  await mkdir(path.dirname(board.publicAbs), { recursive: true });
+  await copyFile(board.buildArtifactAbs, board.publicAbs);
+  console.log(`Copied ${board.buildArtifactAbs} → ${board.publicAbs}`);
+
+  if (board.webFlashParts) {
+    for (const part of board.webFlashParts) {
+      try {
+        await access(part.buildArtifactAbs);
+      } catch {
+        console.error(`Missing ${part.buildArtifactAbs}`);
+        process.exit(1);
+      }
+      await copyFile(part.buildArtifactAbs, part.publicAbs);
+      console.log(`Copied ${part.buildArtifactAbs} → ${part.publicAbs}`);
+    }
+  }
 }
-
-await mkdir(destDir, { recursive: true });
-await copyFile(src, dest);
-console.log(`Copied ${src} → ${dest}`);

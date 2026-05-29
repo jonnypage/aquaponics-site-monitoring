@@ -46,7 +46,8 @@ export async function seedDemo(db: Kysely<Database>): Promise<void> {
       expected_interval_seconds: 300,
       report_interval_seconds: 300,
       snapshot_interval_seconds: 900,
-      has_camera: false
+      has_camera: false,
+      snapshots_enabled: false
     })
     .onConflict((oc) =>
       oc.column("device_id").doUpdateSet({
@@ -56,6 +57,7 @@ export async function seedDemo(db: Kysely<Database>): Promise<void> {
         report_interval_seconds: 300,
         snapshot_interval_seconds: 900,
         has_camera: false,
+        snapshots_enabled: false,
         updated_at: new Date()
       })
     )

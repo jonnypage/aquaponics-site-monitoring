@@ -1,4 +1,5 @@
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
+import { MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -82,7 +83,10 @@ export function SiteLocationMap({ latitude, longitude, title }: SiteLocationMapP
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{resolvedTitle}</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+          {resolvedTitle}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {!hasPoint ? (

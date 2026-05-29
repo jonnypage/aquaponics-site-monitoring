@@ -97,6 +97,10 @@ export class IngestSnapshotService {
       throw new BadRequestException("Device is not configured with a camera");
     }
 
+    if (!device.snapshots_enabled) {
+      throw new BadRequestException("Camera snapshots are disabled for this device at the site");
+    }
+
     const takenAt = new Date(parsed.timestamp);
     const ingestedAt = new Date();
 

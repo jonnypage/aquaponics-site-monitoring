@@ -207,17 +207,24 @@ export function SiteDetailPageContent() {
 
       <div
         className={
-          site.latestSnapshot
+          site.recentSnapshots.length > 0
             ? 'mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start'
             : 'mb-6'
         }
       >
-        {site.latestSnapshot ? (
+        {site.recentSnapshots.length > 0 ? (
           <div className='min-w-0'>
             <SiteLatestSnapshot
-              imageUrl={site.latestSnapshot.imageUrl}
-              takenAt={site.latestSnapshot.takenAt}
-              deviceId={site.latestSnapshot.deviceId}
+              snapshots={site.recentSnapshots.map((snap) => ({
+                id: snap.id,
+                imageUrl: snap.imageUrl,
+                takenAt: snap.takenAt,
+                deviceId: snap.deviceId,
+                deviceName:
+                  snap.deviceName ??
+                  site.sensorReporting.find((r) => r.deviceId === snap.deviceId)
+                    ?.deviceName,
+              }))}
             />
           </div>
         ) : null}

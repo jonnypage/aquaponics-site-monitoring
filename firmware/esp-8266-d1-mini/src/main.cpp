@@ -524,7 +524,7 @@ void setup()
 {
   Serial.begin(115200);
   Serial.println();
-  Serial.println("aquaponics-node starting");
+  Serial.println("esp-8266-d1-mini starting");
 
   if (!loadDeviceConfig(g_cfg))
   {

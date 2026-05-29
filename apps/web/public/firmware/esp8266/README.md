@@ -10,4 +10,4 @@
 
 The admin install wizard loads `/firmware/esp8266/firmware.bin` from this folder.
 
-See root [`README.md`](../../../../../README.md) (Firmware) and [`firmware/aquaponics-node/README.md`](../../../../../firmware/aquaponics-node/README.md).
+See root [`README.md`](../../../../../README.md) (Firmware) and [`firmware/esp-8266-d1-mini/README.md`](../../../../../firmware/esp-8266-d1-mini/README.md).
