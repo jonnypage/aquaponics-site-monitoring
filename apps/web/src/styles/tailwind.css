@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
- * Core tokens aligned with Underdog / reference app.
+ * Core tokens aligned with reference app.
  *
  * Layout (see dashboard-shell + _authed route):
  *   Authed shell → h-svh overflow-hidden on route wrapper; DashboardShell fills h-full

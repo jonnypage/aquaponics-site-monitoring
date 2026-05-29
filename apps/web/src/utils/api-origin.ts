@@ -2,6 +2,23 @@ function normalizeOrigin(url: string): string {
   return url.trim().replace(/\/$/, "");
 }
 
+/** Normalize user-edited device API URL (trim, drop trailing slash). */
+export function normalizeDeviceApiOrigin(url: string): string {
+  return normalizeOrigin(url);
+}
+
+/** Returns normalized URL or null when empty / not http(s). */
+export function parseDeviceApiOrigin(url: string): string | null {
+  const normalized = normalizeOrigin(url);
+  if (!normalized) {
+    return null;
+  }
+  if (!/^https?:\/\//i.test(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
 /** GraphQL / dashboard API (browser). Keep `localhost` when you open the web app on localhost. */
 export function getPublicApiOrigin(): string {
   const url = import.meta.env.VITE_PUBLIC_API_URL;

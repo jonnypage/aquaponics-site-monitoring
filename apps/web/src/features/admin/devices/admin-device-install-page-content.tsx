@@ -1,37 +1,40 @@
-import { getRouteApi } from "@tanstack/react-router";
-import { Eye, EyeOff } from "lucide-react";
-import { createElement, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { getRouteApi } from '@tanstack/react-router';
+import { Eye, EyeOff } from 'lucide-react';
+import { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { DurationField } from "~/components/admin/duration-field";
-import { InstallSensorPinsFieldset } from "~/components/admin/install-sensor-pins-fieldset";
-import { PageBackLink } from "~/components/layout/page-back-link";
-import { PageHeader } from "~/components/layout/page-header";
-import { Button } from "~/components/ui/button";
-import { ButtonPendingLabel, LoadingIndicator } from "~/components/ui/loading-indicator";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
+import { DurationField } from '~/components/admin/duration-field';
+import { InstallSensorPinsFieldset } from '~/components/admin/install-sensor-pins-fieldset';
+import { PageBackLink } from '~/components/layout/page-back-link';
+import { PageHeader } from '~/components/layout/page-header';
+import { Button } from '~/components/ui/button';
+import {
+  ButtonPendingLabel,
+  LoadingIndicator,
+} from '~/components/ui/loading-indicator';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import {
   useAdminDevice,
   useAdminSites,
   useRotateAdminDeviceApiKeyMutate,
   useSensorCatalog,
-  useUpdateAdminDeviceMutate
-} from "~/hooks/useAdmin";
-import { getDeviceApiOrigin } from "~/utils/api-origin";
+  useUpdateAdminDeviceMutate,
+} from '~/hooks/useAdmin';
+import { getDeviceApiOrigin, parseDeviceApiOrigin } from '~/utils/api-origin';
 import {
   clearDeviceInstallApiKey,
   readDeviceInstallApiKey,
-  writeDeviceInstallApiKey
-} from "~/utils/device-install-api-key";
+  writeDeviceInstallApiKey,
+} from '~/utils/device-install-api-key';
 import {
   DEVICE_BOARD_IDS,
   type DeviceBoardId,
   getDeviceBoardGpioProfile,
   hasBlockingInstallGpioIssues,
-  isDeviceBoardId
-} from "~/utils/device-board-gpio";
+  isDeviceBoardId,
+} from '~/utils/device-board-gpio';
 import {
   applyPinMapToRow,
   buildDevicePinMap,
@@ -40,8 +43,8 @@ import {
   emptyWireMap,
   flattenInstallGpioEntries,
   hasIncludedPinnedSensor,
-  type InstallSensorRow
-} from "~/utils/firmware-sensor-pins";
+  type InstallSensorRow,
+} from '~/utils/firmware-sensor-pins';
 import {
   DEFAULT_REPORT_DURATION,
   DEFAULT_REPORT_INTERVAL_SECONDS,
@@ -49,28 +52,31 @@ import {
   DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
   durationToSeconds,
   secondsToDuration,
-  type DurationValue
-} from "~/utils/duration-input";
+  type DurationValue,
+} from '~/utils/duration-input';
 import {
   CONFIG_REGION_SIZE,
   estimateFirmwareConfigBytes,
   patchFirmwareConfig,
-  type FirmwareDeviceConfig
-} from "~/utils/firmware-config-patch";
+  type FirmwareDeviceConfig,
+} from '~/utils/firmware-config-patch';
 import {
   createEspWebToolsManifestUrls,
-  createEspWebToolsSinglePartManifestUrls
-} from "~/utils/esp-web-manifest-blobs";
-import { repairEsp32AppImageAfterPatch } from "~/utils/esp32-app-image-repair";
+  createEspWebToolsSinglePartManifestUrls,
+} from '~/utils/esp-web-manifest-blobs';
+import { repairEsp32AppImageAfterPatch } from '~/utils/esp32-app-image-repair';
 import {
   normalizeWiringTemplateFromGraphql,
   type DevicePinMap,
-  type SensorWiringTemplate
-} from "~/utils/sensor-wiring";
-import type { SensorType } from "~/utils/sensor-types";
-import { getEspWebInstallSupport, type EspWebInstallSupport } from "~/utils/esp-web-install";
+  type SensorWiringTemplate,
+} from '~/utils/sensor-wiring';
+import type { SensorType } from '~/utils/sensor-types';
+import {
+  getEspWebInstallSupport,
+  type EspWebInstallSupport,
+} from '~/utils/esp-web-install';
 
-const routeApi = getRouteApi("/_authed/admin/devices/$deviceId/install");
+const routeApi = getRouteApi('/_authed/admin/devices/$deviceId/install');
 
 type CatalogRow = {
   key: string;
@@ -82,7 +88,9 @@ type CatalogRow = {
   wiringTemplate: SensorWiringTemplate;
 };
 
-function catalogByKey(catalog: readonly CatalogRow[] | undefined): Map<string, CatalogRow> {
+function catalogByKey(
+  catalog: readonly CatalogRow[] | undefined,
+): Map<string, CatalogRow> {
   const m = new Map<string, CatalogRow>();
   for (const c of catalog ?? []) {
     m.set(c.key, c);
@@ -104,7 +112,7 @@ function buildInitialSensorRows(
     | undefined,
   catalog: readonly CatalogRow[] | undefined,
   unassignedSite: boolean,
-  pinMap: DevicePinMap | null | undefined
+  pinMap: DevicePinMap | null | undefined,
 ): InstallSensorRow[] {
   const byKey = catalogByKey(catalog);
 
@@ -118,7 +126,7 @@ function buildInitialSensorRows(
           : normalizeWiringTemplateFromGraphql(undefined);
         const base: InstallSensorRow = {
           sensorKey: r.sensorKey,
-          sensorType: r.sensorType ?? cat?.sensorType ?? "temperature",
+          sensorType: r.sensorType ?? cat?.sensorType ?? 'temperature',
           model: r.model ?? cat?.model ?? r.displayName,
           displayName: r.displayName,
           icon: r.icon ?? cat?.icon ?? null,
@@ -127,7 +135,7 @@ function buildInitialSensorRows(
           included: r.enabled,
           wiringTemplate,
           wireMap: emptyWireMap(wiringTemplate),
-          extraWires: []
+          extraWires: [],
         };
         return applyPinMapToRow(base, pinMap);
       });
@@ -141,7 +149,9 @@ function buildInitialSensorRows(
   return [...catalog]
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((c) => {
-      const wiringTemplate = normalizeWiringTemplateFromGraphql(c.wiringTemplate);
+      const wiringTemplate = normalizeWiringTemplateFromGraphql(
+        c.wiringTemplate,
+      );
       const base: InstallSensorRow = {
         sensorKey: c.key,
         sensorType: c.sensorType,
@@ -153,7 +163,7 @@ function buildInitialSensorRows(
         included: true,
         wiringTemplate,
         wireMap: emptyWireMap(wiringTemplate),
-        extraWires: []
+        extraWires: [],
       };
       return applyPinMapToRow(base, pinMap);
     });
@@ -162,35 +172,42 @@ function buildInitialSensorRows(
 export function AdminDeviceInstallPageContent() {
   const { deviceId } = routeApi.useParams();
   const { t } = useTranslation();
-  const apiOrigin = getDeviceApiOrigin();
   const { data: device, isLoading, isError, error } = useAdminDevice(deviceId);
   const { data: sites } = useAdminSites();
   const { data: catalog } = useSensorCatalog();
-  const { mutateAsync: updateDevice, isPending: isSaving } = useUpdateAdminDeviceMutate();
-  const { mutateAsync: rotateKey, isPending: isRotatingKey } = useRotateAdminDeviceApiKeyMutate();
+  const { mutateAsync: updateDevice, isPending: isSaving } =
+    useUpdateAdminDeviceMutate();
+  const { mutateAsync: rotateKey, isPending: isRotatingKey } =
+    useRotateAdminDeviceApiKeyMutate();
 
   /** esp-web-tools registers `esp-web-install-button` (not esp-web-tools-install-button). */
   const installRef = useRef<HTMLElement & { manifest?: string }>(null);
   const manifestRevokeRef = useRef<(() => void) | null>(null);
 
-  const [board, setBoard] = useState<DeviceBoardId>("esp8266");
-  const [wifiSsid, setWifiSsid] = useState("");
-  const [wifiPassword, setWifiPassword] = useState("");
+  const [board, setBoard] = useState<DeviceBoardId>('esp8266');
+  const [apiOrigin, setApiOrigin] = useState(getDeviceApiOrigin);
+  const [wifiSsid, setWifiSsid] = useState('');
+  const [wifiPassword, setWifiPassword] = useState('');
   const [showWifiPassword, setShowWifiPassword] = useState(false);
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState('');
   const [hasCamera, setHasCamera] = useState(false);
-  const [reportDuration, setReportDuration] = useState<DurationValue>(DEFAULT_REPORT_DURATION);
-  const [snapshotDuration, setSnapshotDuration] = useState<DurationValue>(DEFAULT_SNAPSHOT_DURATION);
+  const [reportDuration, setReportDuration] = useState<DurationValue>(
+    DEFAULT_REPORT_DURATION,
+  );
+  const [snapshotDuration, setSnapshotDuration] = useState<DurationValue>(
+    DEFAULT_SNAPSHOT_DURATION,
+  );
   const [sensorRows, setSensorRows] = useState<InstallSensorRow[]>([]);
-  const [sensorsInitKey, setSensorsInitKey] = useState("");
+  const [sensorsInitKey, setSensorsInitKey] = useState('');
 
   const [firmwareLoading, setFirmwareLoading] = useState(false);
   const [firmwareError, setFirmwareError] = useState<string | null>(null);
   const [manifestUrl, setManifestUrl] = useState<string | null>(null);
   const [espToolsReady, setEspToolsReady] = useState(false);
-  const [installSupport, setInstallSupport] = useState<EspWebInstallSupport | null>(null);
+  const [installSupport, setInstallSupport] =
+    useState<EspWebInstallSupport | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [step, setStep] = useState<"form" | "flash">("form");
+  const [step, setStep] = useState<'form' | 'flash'>('form');
 
   const catalogRows = useMemo(
     () =>
@@ -201,9 +218,9 @@ export function AdminDeviceInstallPageContent() {
         displayName: c.displayName,
         sortOrder: c.sortOrder,
         icon: c.icon,
-        wiringTemplate: normalizeWiringTemplateFromGraphql(c.wiringTemplate)
+        wiringTemplate: normalizeWiringTemplateFromGraphql(c.wiringTemplate),
       })),
-    [catalog]
+    [catalog],
   );
 
   useEffect(() => {
@@ -214,13 +231,14 @@ export function AdminDeviceInstallPageContent() {
   }, [deviceId]);
 
   const assignedSite = useMemo(
-    () => (device?.siteId ? sites?.find((s) => s.id === device.siteId) : undefined),
-    [device?.siteId, sites]
+    () =>
+      device?.siteId ? sites?.find((s) => s.id === device.siteId) : undefined,
+    [device?.siteId, sites],
   );
 
   const devicePinMap = useMemo(() => {
     const raw = device?.pinMap;
-    if (raw == null || typeof raw !== "object") {
+    if (raw == null || typeof raw !== 'object') {
       return null;
     }
     return raw as DevicePinMap;
@@ -230,14 +248,18 @@ export function AdminDeviceInstallPageContent() {
     if (!device) {
       return;
     }
-    const initKey = `${device.deviceId}:${device.siteId ?? "none"}`;
+    const initKey = `${device.deviceId}:${device.siteId ?? 'none'}`;
     if (sensorsInitKey === initKey) {
       return;
     }
     if (!device.siteId && !catalogRows.length) {
       return;
     }
-    if (device.siteId && !assignedSite?.sensorReporting?.length && !catalogRows.length) {
+    if (
+      device.siteId &&
+      !assignedSite?.sensorReporting?.length &&
+      !catalogRows.length
+    ) {
       return;
     }
     setSensorRows(
@@ -245,8 +267,8 @@ export function AdminDeviceInstallPageContent() {
         assignedSite?.sensorReporting,
         catalogRows,
         device.siteId == null,
-        devicePinMap
-      )
+        devicePinMap,
+      ),
     );
     setSensorsInitKey(initKey);
   }, [assignedSite, catalogRows, device, devicePinMap, sensorsInitKey]);
@@ -263,25 +285,29 @@ export function AdminDeviceInstallPageContent() {
     setSnapshotDuration(secondsToDuration(device.snapshotIntervalSeconds));
   }, [device]);
 
-  const gpioEntries = useMemo(() => flattenInstallGpioEntries(sensorRows), [sensorRows]);
+  const gpioEntries = useMemo(
+    () => flattenInstallGpioEntries(sensorRows),
+    [sensorRows],
+  );
 
   const boardProfile = useMemo(() => getDeviceBoardGpioProfile(board), [board]);
   const effectiveHasCamera = boardProfile.supportsCamera && hasCamera;
 
   const gpioBlocked = useMemo(
     () => hasBlockingInstallGpioIssues(board, gpioEntries),
-    [board, gpioEntries]
+    [board, gpioEntries],
   );
 
   const canPrepare = useMemo(() => {
     const profile = getDeviceBoardGpioProfile(board);
     return (
       profile.installSupported &&
-      wifiSsid.trim() !== "" &&
+      parseDeviceApiOrigin(apiOrigin) != null &&
+      wifiSsid.trim() !== '' &&
       hasIncludedPinnedSensor(sensorRows) &&
       !gpioBlocked
     );
-  }, [board, gpioBlocked, sensorRows, wifiSsid]);
+  }, [apiOrigin, board, gpioBlocked, sensorRows, wifiSsid]);
 
   async function resolveInstallApiKey(): Promise<string> {
     const existing = apiKey.trim() || readDeviceInstallApiKey(deviceId);
@@ -306,12 +332,12 @@ export function AdminDeviceInstallPageContent() {
   function onConnectAndFlash() {
     setFirmwareError(null);
     if (!applyManifestToInstallButton()) {
-      setFirmwareError(t("admin.devices.installConnectMissing"));
+      setFirmwareError(t('admin.devices.installConnectMissing'));
       return;
     }
-    const inner = installRef.current?.shadowRoot?.querySelector("button");
+    const inner = installRef.current?.shadowRoot?.querySelector('button');
     if (!inner) {
-      setFirmwareError(t("admin.devices.installConnectMissing"));
+      setFirmwareError(t('admin.devices.installConnectMissing'));
       return;
     }
     inner.click();
@@ -326,21 +352,25 @@ export function AdminDeviceInstallPageContent() {
       return;
     }
     if (!canPrepare) {
-      if (gpioBlocked) {
-        setFormError(t("admin.devices.installValidationGpio"));
+      if (parseDeviceApiOrigin(apiOrigin) == null) {
+        setFormError(t('admin.devices.installDeviceApiOriginInvalid'));
+      } else if (gpioBlocked) {
+        setFormError(t('admin.devices.installValidationGpio'));
       } else {
-        setFormError(t("admin.devices.installValidation"));
+        setFormError(t('admin.devices.installValidation'));
       }
       return;
     }
 
+    const flashedApiOrigin = parseDeviceApiOrigin(apiOrigin)!;
+
     const reportIntervalSeconds = durationToSeconds(
       reportDuration,
-      DEFAULT_REPORT_INTERVAL_SECONDS
+      DEFAULT_REPORT_INTERVAL_SECONDS,
     );
     const snapshotIntervalSeconds = durationToSeconds(
       snapshotDuration,
-      DEFAULT_SNAPSHOT_INTERVAL_SECONDS
+      DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
     );
     const pinMap = buildDevicePinMap(sensorRows);
     const flashedHasCamera = boardProfile.supportsCamera ? hasCamera : false;
@@ -353,10 +383,12 @@ export function AdminDeviceInstallPageContent() {
         ...(boardProfile.supportsCamera ? { snapshotIntervalSeconds } : {}),
         hasCamera: flashedHasCamera,
         board,
-        pinMap
+        pinMap,
       });
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t("shared.unknownError"));
+      setFormError(
+        err instanceof Error ? err.message : t('shared.unknownError'),
+      );
       return;
     }
 
@@ -367,16 +399,16 @@ export function AdminDeviceInstallPageContent() {
         v: 3,
         deviceId,
         apiKey: installApiKey,
-        apiOrigin,
+        apiOrigin: flashedApiOrigin,
         wifiSsid: wifiSsid.trim(),
         wifiPassword: wifiPassword,
         pins: buildFirmwarePins(sensorRows),
         sensorTypes: buildFirmwareSensorTypes(sensorRows),
-        hasCamera: flashedHasCamera
+        hasCamera: flashedHasCamera,
       };
 
       if (estimateFirmwareConfigBytes(config) > CONFIG_REGION_SIZE - 64) {
-        throw new Error(t("admin.devices.installConfigTooLarge"));
+        throw new Error(t('admin.devices.installConfigTooLarge'));
       }
 
       const patchPart =
@@ -398,29 +430,37 @@ export function AdminDeviceInstallPageContent() {
         const origin = window.location.origin;
         const parts = boardProfile.espWebFlashParts.map((part) => {
           if (part.patchable) {
-            const blob = new Blob([flashImage as BlobPart], { type: "application/octet-stream" });
+            const blob = new Blob([flashImage as BlobPart], {
+              type: 'application/octet-stream',
+            });
             return { url: URL.createObjectURL(blob), offset: part.offset };
           }
           return { url: `${origin}${part.publicPath}`, offset: part.offset };
         });
         const blobs = createEspWebToolsManifestUrls(boardProfile.manifestName, {
           chipFamily: boardProfile.chipFamily,
-          parts
+          parts,
         });
         manifestRevokeRef.current = blobs.revoke;
         setManifestUrl(blobs.manifestUrl);
       } else {
-        const blobs = createEspWebToolsSinglePartManifestUrls(patched, boardProfile.manifestName, {
-          chipFamily: boardProfile.chipFamily,
-          flashOffset: 0
-        });
+        const blobs = createEspWebToolsSinglePartManifestUrls(
+          patched,
+          boardProfile.manifestName,
+          {
+            chipFamily: boardProfile.chipFamily,
+            flashOffset: 0,
+          },
+        );
         manifestRevokeRef.current = blobs.revoke;
         setManifestUrl(blobs.manifestUrl);
       }
       clearDeviceInstallApiKey(deviceId);
-      setStep("flash");
+      setStep('flash');
     } catch (err) {
-      setFirmwareError(err instanceof Error ? err.message : t("shared.unknownError"));
+      setFirmwareError(
+        err instanceof Error ? err.message : t('shared.unknownError'),
+      );
     } finally {
       setFirmwareLoading(false);
     }
@@ -434,13 +474,13 @@ export function AdminDeviceInstallPageContent() {
   }, []);
 
   useEffect(() => {
-    if (step !== "flash") {
+    if (step !== 'flash') {
       setEspToolsReady(false);
       return;
     }
     setInstallSupport(getEspWebInstallSupport());
     let cancelled = false;
-    void import("esp-web-tools").then(() => {
+    void import('esp-web-tools').then(() => {
       if (!cancelled) {
         setEspToolsReady(true);
       }
@@ -451,21 +491,26 @@ export function AdminDeviceInstallPageContent() {
   }, [step]);
 
   useEffect(() => {
-    if (step !== "flash" || !manifestUrl || !espToolsReady || !installRef.current) {
+    if (
+      step !== 'flash' ||
+      !manifestUrl ||
+      !espToolsReady ||
+      !installRef.current
+    ) {
       return;
     }
     installRef.current.manifest = manifestUrl;
   }, [step, manifestUrl, espToolsReady]);
 
   if (isLoading) {
-    return <LoadingIndicator label={t("shared.loading")} />;
+    return <LoadingIndicator label={t('shared.loading')} />;
   }
 
   if (isError || !device) {
     return (
-      <Card className="w-full">
-        <CardContent className="py-6 text-sm text-destructive">
-          {error instanceof Error ? error.message : t("shared.unknownError")}
+      <Card className='w-full'>
+        <CardContent className='py-6 text-sm text-destructive'>
+          {error instanceof Error ? error.message : t('shared.unknownError')}
         </CardContent>
       </Card>
     );
@@ -473,79 +518,118 @@ export function AdminDeviceInstallPageContent() {
 
   return (
     <>
-      <PageHeader title={t("admin.devices.installTitle")} description={t("admin.devices.installDescription")} />
-      <PageBackLink to="/admin/devices/$deviceId/edit" params={{ deviceId }}>
-        {t("admin.devices.backToEdit")}
+      <PageHeader
+        title={t('admin.devices.installTitle')}
+        description={t('admin.devices.installDescription')}
+      />
+      <PageBackLink to='/admin/devices/$deviceId/edit' params={{ deviceId }}>
+        {t('admin.devices.backToEdit')}
       </PageBackLink>
 
-      {step === "form" ? (
-        <Card className="w-full">
+      {step === 'form' ? (
+        <Card className='w-full'>
           <CardHeader>
-            <CardTitle className="text-base">{t("admin.devices.installFormTitle")}</CardTitle>
+            <CardTitle className='text-base'>
+              {t('admin.devices.installFormTitle')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4" onSubmit={(e) => void onPrepareFlash(e)}>
-              <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                <p className="font-medium text-foreground">{t("admin.devices.installDeviceApiOrigin")}</p>
-                <p className="font-mono text-xs text-foreground">{apiOrigin}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("admin.devices.installDeviceApiOriginHint")}
+            <form
+              className='space-y-4'
+              onSubmit={(e) => void onPrepareFlash(e)}
+            >
+              <div className='space-y-2'>
+                <Label htmlFor='apiOrigin'>
+                  {t('admin.devices.installDeviceApiOrigin')}
+                </Label>
+                <p className='text-xs text-muted-foreground'>
+                  {t('admin.devices.installDeviceApiOriginHint')}
                 </p>
+                <Input
+                  id='apiOrigin'
+                  type='url'
+                  inputMode='url'
+                  autoComplete='off'
+                  className='font-mono text-sm'
+                  value={apiOrigin}
+                  onChange={(e) => setApiOrigin(e.target.value)}
+                  placeholder={getDeviceApiOrigin()}
+                  required
+                />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="board">{t("admin.devices.installBoard")}</Label>
+              <div className='space-y-2'>
+                <Label htmlFor='board'>{t('admin.devices.installBoard')}</Label>
+                <p className='text-xs text-muted-foreground'>
+                  {t('admin.devices.installBoardHint')}
+                </p>
                 <select
-                  id="board"
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  id='board'
+                  className='flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm'
                   value={board}
                   onChange={(e) => setBoard(e.target.value as DeviceBoardId)}
                 >
                   {DEVICE_BOARD_IDS.map((id) => {
                     const profile = getDeviceBoardGpioProfile(id);
                     return (
-                      <option key={id} value={id} disabled={!profile.installSupported}>
+                      <option
+                        key={id}
+                        value={id}
+                        disabled={!profile.installSupported}
+                      >
                         {t(profile.labelKey)}
                       </option>
                     );
                   })}
                 </select>
-                <p className="text-xs text-muted-foreground">{t("admin.devices.installBoardHint")}</p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="wifiSsid">{t("admin.devices.installWifiSsid")}</Label>
-                <p className="text-xs text-muted-foreground">{t("admin.devices.installWifiSsidHint")}</p>
-                <Input id="wifiSsid" value={wifiSsid} onChange={(e) => setWifiSsid(e.target.value)} required />
+              <div className='space-y-2'>
+                <Label htmlFor='wifiSsid'>
+                  {t('admin.devices.installWifiSsid')}
+                </Label>
+                <p className='text-xs text-muted-foreground'>
+                  {t('admin.devices.installWifiSsidHint')}
+                </p>
+                <Input
+                  id='wifiSsid'
+                  value={wifiSsid}
+                  onChange={(e) => setWifiSsid(e.target.value)}
+                  required
+                />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="wifiPassword">{t("admin.devices.installWifiPassword")}</Label>
-                <p className="text-xs text-muted-foreground">{t("admin.devices.installWifiPasswordHint")}</p>
-                <div className="relative">
+              <div className='space-y-2'>
+                <Label htmlFor='wifiPassword'>
+                  {t('admin.devices.installWifiPassword')}
+                </Label>
+                <p className='text-xs text-muted-foreground'>
+                  {t('admin.devices.installWifiPasswordHint')}
+                </p>
+                <div className='relative'>
                   <Input
-                    id="wifiPassword"
-                    type={showWifiPassword ? "text" : "password"}
+                    id='wifiPassword'
+                    type={showWifiPassword ? 'text' : 'password'}
                     value={wifiPassword}
                     onChange={(e) => setWifiPassword(e.target.value)}
-                    autoComplete="off"
-                    className="pr-10"
+                    autoComplete='off'
+                    className='pr-10'
                   />
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground"
+                    type='button'
+                    variant='ghost'
+                    size='icon'
+                    className='absolute right-0 top-0 h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground'
                     aria-label={
                       showWifiPassword
-                        ? t("admin.devices.installWifiPasswordHide")
-                        : t("admin.devices.installWifiPasswordShow")
+                        ? t('admin.devices.installWifiPasswordHide')
+                        : t('admin.devices.installWifiPasswordShow')
                     }
                     aria-pressed={showWifiPassword}
                     onClick={() => setShowWifiPassword((visible) => !visible)}
                   >
                     {showWifiPassword ? (
-                      <EyeOff className="h-4 w-4" aria-hidden />
+                      <EyeOff className='h-4 w-4' aria-hidden />
                     ) : (
-                      <Eye className="h-4 w-4" aria-hidden />
+                      <Eye className='h-4 w-4' aria-hidden />
                     )}
                   </Button>
                 </div>
@@ -559,89 +643,118 @@ export function AdminDeviceInstallPageContent() {
               />
 
               {boardProfile.supportsCamera ? (
-                <label className="flex items-center gap-2 text-sm">
+                <label className='flex items-center gap-2 text-sm'>
                   <input
-                    type="checkbox"
+                    type='checkbox'
                     checked={hasCamera}
                     onChange={(e) => setHasCamera(e.target.checked)}
-                    className="rounded border-input"
+                    className='rounded border-input'
                   />
-                  {t("admin.devices.hasCamera")}
+                  {t('admin.devices.hasCamera')}
                 </label>
               ) : null}
 
               <div
                 className={
-                  effectiveHasCamera ? "grid gap-4 sm:grid-cols-2" : "max-w-sm space-y-4"
+                  effectiveHasCamera
+                    ? 'grid gap-4 sm:grid-cols-2'
+                    : 'max-w-sm space-y-4'
                 }
               >
                 <DurationField
-                  id="report"
-                  label={t("admin.devices.telemetryInterval")}
+                  id='report'
+                  label={t('admin.devices.telemetryInterval')}
                   value={reportDuration}
                   onChange={setReportDuration}
                 />
                 {effectiveHasCamera ? (
                   <DurationField
-                    id="snapshot"
-                    label={t("admin.devices.snapshotInterval")}
+                    id='snapshot'
+                    label={t('admin.devices.snapshotInterval')}
                     value={snapshotDuration}
                     onChange={setSnapshotDuration}
                   />
                 ) : null}
               </div>
 
-              {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
-              {firmwareError ? <p className="text-sm text-destructive">{firmwareError}</p> : null}
+              {formError ? (
+                <p className='text-sm text-destructive'>{formError}</p>
+              ) : null}
+              {firmwareError ? (
+                <p className='text-sm text-destructive'>{firmwareError}</p>
+              ) : null}
 
-              <Button type="submit" disabled={!canPrepare || firmwareLoading || isSaving || isRotatingKey}>
-                <ButtonPendingLabel pending={firmwareLoading || isSaving || isRotatingKey}>
+              <Button
+                type='submit'
+                disabled={
+                  !canPrepare || firmwareLoading || isSaving || isRotatingKey
+                }
+              >
+                <ButtonPendingLabel
+                  pending={firmwareLoading || isSaving || isRotatingKey}
+                >
                   {firmwareLoading || isSaving
-                    ? t("admin.devices.installPreparing")
-                    : t("admin.devices.installContinue")}
+                    ? t('admin.devices.installPreparing')
+                    : t('admin.devices.installContinue')}
                 </ButtonPendingLabel>
               </Button>
             </form>
           </CardContent>
         </Card>
       ) : (
-        <Card className="w-full">
+        <Card className='w-full'>
           <CardHeader>
-            <CardTitle className="text-base">{t("admin.devices.installFlashTitle")}</CardTitle>
+            <CardTitle className='text-base'>
+              {t('admin.devices.installFlashTitle')}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">{t("admin.devices.installFlashHint")}</p>
-            <p className="text-sm text-muted-foreground">{t("admin.devices.installFlashMacSerialHint")}</p>
+          <CardContent className='space-y-4'>
+            <p className='text-sm text-muted-foreground'>
+              {t('admin.devices.installFlashHint')}
+            </p>
+            <p className='text-sm text-muted-foreground'>
+              {t('admin.devices.installFlashMacSerialHint')}
+            </p>
             {installSupport == null ? (
-              <LoadingIndicator label={t("shared.loading")} />
+              <LoadingIndicator label={t('shared.loading')} />
             ) : installSupport.ok ? (
-              <div className="space-y-3">
+              <div className='space-y-3'>
                 <Button
-                  type="button"
+                  type='button'
                   disabled={!manifestUrl || !espToolsReady}
                   onClick={onConnectAndFlash}
                 >
                   <ButtonPendingLabel pending={!espToolsReady}>
-                    {t("admin.devices.installConnectFlash")}
+                    {t('admin.devices.installConnectFlash')}
                   </ButtonPendingLabel>
                 </Button>
                 {/* Hidden host for esp-web-tools (client-only import) */}
                 {espToolsReady ? (
-                  <div className="sr-only" aria-hidden>
-                    {createElement("esp-web-install-button", { ref: installRef })}
+                  <div className='sr-only' aria-hidden>
+                    {createElement('esp-web-install-button', {
+                      ref: installRef,
+                    })}
                   </div>
                 ) : null}
-                {firmwareError ? <p className="text-sm text-destructive">{firmwareError}</p> : null}
+                {firmwareError ? (
+                  <p className='text-sm text-destructive'>{firmwareError}</p>
+                ) : null}
               </div>
             ) : (
-              <p className="text-sm text-destructive">
-                {installSupport.reason === "insecure"
-                  ? t("admin.devices.installFlashNotAllowed", { origin: installSupport.origin })
-                  : t("admin.devices.installFlashUnsupported")}
+              <p className='text-sm text-destructive'>
+                {installSupport.reason === 'insecure'
+                  ? t('admin.devices.installFlashNotAllowed', {
+                      origin: installSupport.origin,
+                    })
+                  : t('admin.devices.installFlashUnsupported')}
               </p>
             )}
-            <Button type="button" variant="outline" onClick={() => setStep("form")}>
-              {t("admin.devices.installBackToForm")}
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => setStep('form')}
+            >
+              {t('admin.devices.installBackToForm')}
             </Button>
           </CardContent>
         </Card>
