@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { BadRequestException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import type { Database } from "@aquaponics/db";
 import type { Kysely } from "kysely";
 import { ZodError } from "zod";
@@ -8,20 +7,17 @@ import { IngestAlertService } from "./ingest-alert.service.js";
 import { ingestBodySchema } from "./ingest.schema.js";
 import { requireDeviceSiteId } from "./device-site.util.js";
 import { IngestRateLimiter } from "./ingest-rate-limiter.service.js";
-
-function sha256Hex(plaintext: string): string {
-  return createHash("sha256").update(plaintext, "utf8").digest("hex");
-}
+import { authenticateDeviceByApiKey } from "./device-auth.util.js";
+import { buildDeviceCommands, type DeviceCommandEnvelope } from "./device-commands.util.js";
+import {
+  hasPendingTelemetryRequest,
+  shouldClearTelemetryRequest
+} from "./device-request-fulfillment.util.js";
 
 export interface IngestSuccessResponse {
   ok: true;
   inserted: number;
-  commands: {
-    reportIntervalSeconds: number;
-    snapshotIntervalSeconds: number;
-    hasCamera: boolean;
-    captureImageNow: boolean;
-  };
+  commands: DeviceCommandEnvelope;
 }
 
 @Injectable()
@@ -33,12 +29,6 @@ export class IngestService {
   ) {}
 
   async handleIngest(apiKeyHeader: string | undefined, body: unknown): Promise<IngestSuccessResponse> {
-    if (apiKeyHeader === undefined || apiKeyHeader.trim() === "") {
-      throw new UnauthorizedException("Missing x-api-key header");
-    }
-
-    const apiKey = apiKeyHeader.trim();
-
     let parsed: ReturnType<typeof ingestBodySchema.parse>;
     try {
       parsed = ingestBodySchema.parse(body);
@@ -50,18 +40,7 @@ export class IngestService {
       throw e;
     }
 
-    const keyHash = sha256Hex(apiKey);
-
-    const device = await this.db
-      .selectFrom("devices")
-      .selectAll()
-      .where("device_id", "=", parsed.deviceId)
-      .executeTakeFirst();
-
-    if (!device || device.api_key_hash !== keyHash) {
-      throw new UnauthorizedException("Invalid API key or device");
-    }
-
+    const device = await authenticateDeviceByApiKey(this.db, apiKeyHeader, parsed.deviceId);
     const siteId = requireDeviceSiteId(device);
 
     const catalogRows = await this.db.selectFrom("sensor_catalog").select("key").execute();
@@ -100,6 +79,13 @@ export class IngestService {
     const thresholdBySensor = new Map(thresholds.map((t) => [t.sensor, t]));
 
     const takenAt = new Date(parsed.timestamp);
+    const nowMs = Date.now();
+    const clearTelemetryRequest = shouldClearTelemetryRequest(device, takenAt, nowMs);
+
+    if (!hasPendingTelemetryRequest(device, nowMs)) {
+      this.rateLimiter.assertAllowed(device.device_id, device.expected_interval_seconds);
+    }
+
     const rows = Object.entries(parsed.readings).map(([sensor, value]) => ({
       taken_at: takenAt,
       site_id: siteId,
@@ -108,17 +94,25 @@ export class IngestService {
       value: value as number
     }));
 
-    this.rateLimiter.assertAllowed(device.device_id, device.expected_interval_seconds);
-
     try {
       await this.db.transaction().execute(async (trx) => {
         await trx.insertInto("measurements").values(rows).execute();
+
+        const devicePatch: {
+          last_seen_at: Date;
+          updated_at: Date;
+          telemetry_requested_at?: null;
+        } = {
+          last_seen_at: takenAt,
+          updated_at: new Date()
+        };
+        if (clearTelemetryRequest) {
+          devicePatch.telemetry_requested_at = null;
+        }
+
         await trx
           .updateTable("devices")
-          .set({
-            last_seen_at: takenAt,
-            updated_at: new Date()
-          })
+          .set(devicePatch)
           .where("device_id", "=", device.device_id)
           .execute();
 
@@ -177,23 +171,24 @@ export class IngestService {
         await this.ingestAlerts.syncDeviceOfflineStateForSite(trx, siteId);
       });
     } catch (e) {
-      this.rateLimiter.rollbackLast(device.device_id);
+      if (!hasPendingTelemetryRequest(device, nowMs)) {
+        this.rateLimiter.rollbackLast(device.device_id);
+      }
       throw e;
     }
 
     const siteHasActiveAlert = await this.ingestAlerts.siteHasAnyActiveAlert(siteId);
-    const snapshotsActive = device.has_camera && device.snapshots_enabled;
-    const captureImageNow = snapshotsActive && siteHasActiveAlert;
+
+    const refreshed = await this.db
+      .selectFrom("devices")
+      .selectAll()
+      .where("device_id", "=", device.device_id)
+      .executeTakeFirstOrThrow();
 
     return {
       ok: true,
       inserted: rows.length,
-      commands: {
-        reportIntervalSeconds: device.report_interval_seconds,
-        snapshotIntervalSeconds: device.snapshot_interval_seconds,
-        hasCamera: snapshotsActive,
-        captureImageNow
-      }
+      commands: buildDeviceCommands(refreshed, siteHasActiveAlert, nowMs)
     };
   }
 }

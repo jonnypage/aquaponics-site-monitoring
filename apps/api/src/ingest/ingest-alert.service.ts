@@ -288,14 +288,14 @@ export class IngestAlertService {
   async syncDeviceOfflineStateForSite(executor: DbExec, siteId: string, nowMs: number = Date.now()): Promise<void> {
     const devices = await executor
       .selectFrom("devices")
-      .select(["device_id", "name", "last_seen_at", "expected_interval_seconds"])
+      .select(["device_id", "name", "last_seen_at", "checkin_interval_seconds"])
       .where("site_id", "=", siteId)
       .execute();
 
     const stale = devices.filter((d) =>
       isDeviceConsideredOffline(
         d.last_seen_at != null ? new Date(d.last_seen_at as Date | string) : null,
-        d.expected_interval_seconds,
+        d.checkin_interval_seconds,
         nowMs
       )
     );

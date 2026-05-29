@@ -14,7 +14,7 @@ Concise context for AI coding agents and developers who need orientation before 
 ## Current baseline (update when you ship work)
 
 - **Active phase:** Phases **1–6** MVP **code complete** — operator sign-off: **[docs/phase6-verification.md](docs/phase6-verification.md)** + **[docs/phase6-railway-production.md](docs/phase6-railway-production.md)**. **Phase 7** (notifications) **planned** — **[docs/phase7-agent-prompt.md](docs/phase7-agent-prompt.md)**. Post-MVP: ESP32 CYD ([docs/esp32-cyd-roadmap.md](docs/esp32-cyd-roadmap.md), deferred).
-- **Implemented:** (Phases 1–5 as before.) **Sensor catalog:** migration **`0009_sensor_type_model`** — `sensor_type` + `model` on `sensor_catalog`; default keys `ds18b20`, `bncPhModule`, `floatSwitch`, `yfs201`; heuristics/charts by family, ingest by slug **`key`**. **Phase 6:** snapshots + S3 ingest; **`getSite.latestSnapshot`** / **`adminDevice.recentSnapshots`**; site detail map/snapshot row; **`AdminDeviceRecentSnapshots`** on device edit; admin **reset site measurements** / **clear site snapshots**; install wizard + **`scripts/ensure-or-build-firmware.mjs`** (real `firmware.bin` on CI/Railway); ESP8266 firmware config **`v: 3`** (`sensorTypes` map); wiring v2 + **`0008`**. **ESP32-S3:** [`firmware/esp32-s3-cam/`](firmware/esp32-s3-cam/) — real sensors + optional OV3660 snapshots; install board **`esp32-s3-cam`** — **[docs/esp32-s3-cam-firmware.md](docs/esp32-s3-cam-firmware.md)**. ESP8266: [`firmware/esp-8266-d1-mini/`](firmware/esp-8266-d1-mini/).
+- **Implemented:** (Phases 1–5 as before.) **Sensor catalog:** migration **`0009_sensor_type_model`** — `sensor_type` + `model` on `sensor_catalog`; default keys `ds18b20`, `bncPhModule`, `floatSwitch`, `yfs201`; heuristics/charts by family, ingest by slug **`key`**. **Phase 6:** snapshots + S3 ingest; **`getSite.latestSnapshot`** / **`adminDevice.recentSnapshots`**; site detail map/snapshot row; **`AdminDeviceRecentSnapshots`** on device edit; admin **reset site measurements** / **clear site snapshots**; install wizard + **`scripts/ensure-or-build-firmware.mjs`** (real `firmware.bin` on CI/Railway); ESP8266 firmware config **`v: 3`** (`sensorTypes` map); wiring v2 + **`0008`**. **Device check-in (migration `0012`):** `POST /checkin` heartbeat (~5 min default) returns command envelope; offline detection uses **`checkin_interval_seconds`**; default telemetry **30 min** / snapshots **60 min** on new devices; admin **Send telemetry now** / **Capture snapshot now** (`telemetry_requested_at` / `snapshot_requested_at`). **ESP32-S3 DevKitC-1:** [`firmware/esp32-s3/`](firmware/esp32-s3/) + shared [`firmware/shared/aquaponics-core/`](firmware/shared/aquaponics-core/) check-in loop; install board **`esp32-s3`** — **[docs/esp32-s3-firmware.md](docs/esp32-s3-firmware.md)**. **ESP32-S3 CAM:** [`firmware/esp32-s3-cam/`](firmware/esp32-s3-cam/) — real sensors + optional OV3660 snapshots; install board **`esp32-s3-cam`** — **[docs/esp32-s3-cam-firmware.md](docs/esp32-s3-cam-firmware.md)**. ESP8266: [`firmware/esp-8266-d1-mini/`](firmware/esp-8266-d1-mini/) (legacy telemetry-only loop; check-in deferred).
 - **Not implemented yet:** Phase 7 notifications; ESP32 CYD installer (roadmap only).
 - **Staging sites (ops, no code):** use an admin-only **“Device staging”** site — do not assign to non-admins; assign devices there for calibration ingest; reassign to production when ready.
 - **Env contract:** use **`DATABASE_PUBLIC_URL`** for Postgres (see `README.md`). Do not reintroduce `DATABASE_URL` as the primary app variable without an explicit project decision.
@@ -24,14 +24,17 @@ Concise context for AI coding agents and developers who need orientation before 
 | Path                               | Role                                                                  |
 | ---------------------------------- | --------------------------------------------------------------------- |
 | `apps/api/src/`                    | Nest modules, resolvers, guards, `main.ts`                            |
-| `apps/api/src/ingest/`             | `POST /ingest`, **`POST /ingest/snapshot`**; `ingest-alert.service.ts`, **`ingest-snapshot.service.ts`**, range/heuristics, `captureImageNow` |
+| `apps/api/src/ingest/`             | **`POST /checkin`**, `POST /ingest`, **`POST /ingest/snapshot`**; shared device auth + command builder; on-demand request flags; `ingest-alert.service.ts`, **`ingest-snapshot.service.ts`**, range/heuristics, `captureImageNow` / `sendTelemetryNow` |
 | `apps/api/src/storage/`            | S3-compatible upload + presigned reads (`OBJECT_STORAGE_*`; Railway bucket) |
 | `apps/api/src/snapshots/`          | Snapshot metadata → presigned URLs for GraphQL |
 | `firmware/esp-8266-d1-mini/`        | PlatformIO ESP8266 firmware (outside pnpm) |
-| `firmware/esp32-s3-cam/` | PlatformIO ESP32-S3 — real sensors + optional OV3660 camera |
+| `firmware/esp32-s3/` | PlatformIO ESP32-S3 DevKitC-1 — real sensors, no camera; uses `firmware/shared/aquaponics-core` |
+| `firmware/esp32-s3-cam/` | PlatformIO ESP32-S3 CAM — real sensors + optional OV3660 camera; uses `firmware/shared/aquaponics-core` |
+| `firmware/shared/aquaponics-core/` | Shared Wi-Fi, `POST /checkin` loop, ingest/snapshot scheduling |
 | `apps/web/public/firmware/esp8266/`| Gitignored `firmware.bin` + README; `pnpm firmware:build` / `firmware:ensure` |
-| `apps/web/public/firmware/esp32-s3-cam/`| Gitignored merged `firmware.bin`; `pnpm firmware:build:s3` |
-| `scripts/build-firmware.mjs` | `pnpm firmware:build` (both boards) / `firmware:build:s3` |
+| `apps/web/public/firmware/esp32-s3/`| Gitignored merged `firmware.bin`; `pnpm firmware:build:esp32:s3` |
+| `apps/web/public/firmware/esp32-s3-cam/`| Gitignored merged `firmware.bin`; `pnpm firmware:build:esp32:s3:cam` |
+| `scripts/build-firmware.mjs` | `pnpm firmware:build` (all) / `firmware:build:esp32` / `firmware:build:esp32:s3` / `firmware:build:esp32:s3:cam` |
 | `scripts/generate-firmware-placeholder.mjs` | Placeholder `firmware.bin` |
 | `scripts/ensure-or-build-firmware.mjs` | `predev:web` / `prebuild:web` — placeholder locally, `pio` build on CI/Railway |
 | `scripts/ensure-firmware-binary.mjs` | Placeholder only (`firmware:ensure`) |
@@ -80,8 +83,10 @@ pnpm build:web
 pnpm dev:api
 pnpm dev:web
 pnpm firmware:placeholder   # stub installer binaries (gitignored paths)
-pnpm firmware:build       # ESP8266 + ESP32-S3 CAM (pio + copy)
-pnpm firmware:build:s3    # ESP32-S3 CAM only
+pnpm firmware:build       # ESP8266 + ESP32-S3 DevKit + ESP32-S3 CAM (pio + copy)
+pnpm firmware:build:esp32       # both ESP32-S3 boards
+pnpm firmware:build:esp32:s3    # ESP32-S3 DevKitC-1 only
+pnpm firmware:build:esp32:s3:cam # ESP32-S3 CAM only
 pnpm firmware:copy        # copy only (after manual pio run)
 pnpm migrate:deploy
 pnpm seed

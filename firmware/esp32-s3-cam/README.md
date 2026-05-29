@@ -43,7 +43,7 @@ From repo root:
 
 ```bash
 ls /dev/cu.usbmodem*
-pnpm firmware:monitor:s3 -- -p /dev/cu.usbmodemXXXX
+pnpm firmware:monitor:esp32:s3:cam -- -p /dev/cu.usbmodemXXXX
 ```
 
 ## Build
@@ -51,7 +51,7 @@ pnpm firmware:monitor:s3 -- -p /dev/cu.usbmodemXXXX
 Requires [PlatformIO](https://platformio.org/). Produces a **merged** flash image for esp-web-tools:
 
 ```bash
-pnpm firmware:build:s3
+pnpm firmware:build:esp32:s3:cam
 ```
 
 Output: `apps/web/public/firmware/esp32-s3-cam/firmware.bin` (gitignored).

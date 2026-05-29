@@ -43,9 +43,10 @@ export async function seedDemo(db: Kysely<Database>): Promise<void> {
       device_id: SEED_DEVICE_ID,
       api_key_hash: deviceApiKeyHash,
       site_id: site.id,
-      expected_interval_seconds: 300,
-      report_interval_seconds: 300,
-      snapshot_interval_seconds: 900,
+      expected_interval_seconds: 1800,
+      report_interval_seconds: 1800,
+      snapshot_interval_seconds: 3600,
+      checkin_interval_seconds: 300,
       has_camera: false,
       snapshots_enabled: false
     })
@@ -53,9 +54,10 @@ export async function seedDemo(db: Kysely<Database>): Promise<void> {
       oc.column("device_id").doUpdateSet({
         api_key_hash: deviceApiKeyHash,
         site_id: site.id,
-        expected_interval_seconds: 300,
-        report_interval_seconds: 300,
-        snapshot_interval_seconds: 900,
+        expected_interval_seconds: 1800,
+        report_interval_seconds: 1800,
+        snapshot_interval_seconds: 3600,
+        checkin_interval_seconds: 300,
         has_camera: false,
         snapshots_enabled: false,
         updated_at: new Date()

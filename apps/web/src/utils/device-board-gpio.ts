@@ -2,7 +2,7 @@
  * Per-board GPIO allowlists for the device install wizard.
  */
 
-export const DEVICE_BOARD_IDS = ["esp8266", "esp32-s3-cam"] as const;
+export const DEVICE_BOARD_IDS = ["esp8266", "esp32-s3", "esp32-s3-cam"] as const;
 export type DeviceBoardId = (typeof DEVICE_BOARD_IDS)[number];
 
 export type EspWebToolsChipFamily = "ESP8266" | "ESP32-S3";
@@ -70,6 +70,47 @@ const ESP8266_PROFILE: DeviceBoardGpioProfile = {
   }
 };
 
+/** ESP32-S3-DevKitC-1 N16R8 — telemetry only, no camera. */
+const ESP32_S3_DEVKIT_PROFILE: DeviceBoardGpioProfile = {
+  id: "esp32-s3",
+  labelKey: "admin.devices.installBoardEsp32S3",
+  installSupported: true,
+  supportsCamera: false,
+  firmwarePublicPath: "/firmware/esp32-s3/firmware.app.bin",
+  espWebFlashParts: [
+    { publicPath: "/firmware/esp32-s3/bootloader.bin", offset: 0x0 },
+    { publicPath: "/firmware/esp32-s3/partitions.bin", offset: 0x8000 },
+    { publicPath: "/firmware/esp32-s3/boot_app0.bin", offset: 0xe000 },
+    { publicPath: "/firmware/esp32-s3/firmware.app.bin", offset: 0x10000, patchable: true }
+  ],
+  chipFamily: "ESP32-S3",
+  manifestName: "esp32-s3",
+  allowed: [1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 21, 38, 39, 40, 41, 42, 47, 48],
+  warned: [2],
+  forbidden: {
+    0: "boot",
+    3: "boot",
+    19: "serial",
+    20: "serial",
+    26: "flash",
+    27: "flash",
+    28: "flash",
+    29: "flash",
+    30: "flash",
+    31: "flash",
+    32: "flash",
+    33: "flash",
+    34: "flash",
+    35: "flash",
+    36: "flash",
+    37: "flash",
+    43: "serial",
+    44: "serial",
+    45: "boot",
+    46: "flash"
+  }
+};
+
 /** AliExpress ESP32-S3 CAM (OV3660) — header-safe GPIOs from seller pinout. */
 const ESP32_S3_CAM_PROFILE: DeviceBoardGpioProfile = {
   id: "esp32-s3-cam",
@@ -126,6 +167,7 @@ const ESP32_S3_CAM_PROFILE: DeviceBoardGpioProfile = {
 
 const PROFILES: Record<DeviceBoardId, DeviceBoardGpioProfile> = {
   esp8266: ESP8266_PROFILE,
+  "esp32-s3": ESP32_S3_DEVKIT_PROFILE,
   "esp32-s3-cam": ESP32_S3_CAM_PROFILE
 };
 

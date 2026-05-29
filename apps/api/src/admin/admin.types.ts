@@ -222,8 +222,20 @@ export class AdminDeviceModel {
   @Field(() => Int)
   snapshotIntervalSeconds!: number;
 
+  @Field(() => Int)
+  checkinIntervalSeconds!: number;
+
+  @Field(() => Date, { nullable: true })
+  telemetryRequestedAt?: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  snapshotRequestedAt?: Date | null;
+
   @Field()
   hasCamera!: boolean;
+
+  @Field()
+  snapshotsEnabled!: boolean;
 
   @Field(() => String, { nullable: true })
   board?: string | null;
@@ -641,6 +653,11 @@ export class UpdateAdminDeviceInput {
   @IsOptional()
   @IsNumber()
   snapshotIntervalSeconds?: number | null;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  checkinIntervalSeconds?: number | null;
 
   @Field(() => Boolean, { nullable: true })
   @IsOptional()

@@ -1,27 +1,20 @@
-import { createHash } from "node:crypto";
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  PayloadTooLargeException,
-  ServiceUnavailableException,
-  UnauthorizedException
-} from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, PayloadTooLargeException, ServiceUnavailableException } from "@nestjs/common";
 import type { Database } from "@aquaponics/db";
 import type { Kysely } from "kysely";
 import { ZodError } from "zod";
 import { DB_TOKEN } from "../database/database.constants.js";
 import { StorageService } from "../storage/storage.service.js";
+import { authenticateDeviceByApiKey } from "./device-auth.util.js";
+import {
+  hasPendingSnapshotRequest,
+  shouldClearSnapshotRequest
+} from "./device-request-fulfillment.util.js";
 import {
   ingestSnapshotMetadataSchema,
   SNAPSHOT_MAX_BYTES
 } from "./ingest-snapshot.schema.js";
 import { requireDeviceSiteId } from "./device-site.util.js";
 import { IngestRateLimiter } from "./ingest-rate-limiter.service.js";
-
-function sha256Hex(plaintext: string): string {
-  return createHash("sha256").update(plaintext, "utf8").digest("hex");
-}
 
 export interface IngestSnapshotSuccessResponse {
   ok: true;
@@ -43,10 +36,6 @@ export class IngestSnapshotService {
   ): Promise<IngestSnapshotSuccessResponse> {
     if (!this.storage.isConfigured()) {
       throw new ServiceUnavailableException("Object storage is not configured");
-    }
-
-    if (apiKeyHeader === undefined || apiKeyHeader.trim() === "") {
-      throw new UnauthorizedException("Missing x-api-key header");
     }
 
     if (metadataRaw === undefined || metadataRaw.trim() === "") {
@@ -78,19 +67,7 @@ export class IngestSnapshotService {
       throw new BadRequestException("Invalid metadata JSON");
     }
 
-    const apiKey = apiKeyHeader.trim();
-    const keyHash = sha256Hex(apiKey);
-
-    const device = await this.db
-      .selectFrom("devices")
-      .selectAll()
-      .where("device_id", "=", parsed.deviceId)
-      .executeTakeFirst();
-
-    if (!device || device.api_key_hash !== keyHash) {
-      throw new UnauthorizedException("Invalid API key or device");
-    }
-
+    const device = await authenticateDeviceByApiKey(this.db, apiKeyHeader, parsed.deviceId);
     const siteId = requireDeviceSiteId(device);
 
     if (!device.has_camera) {
@@ -103,14 +80,16 @@ export class IngestSnapshotService {
 
     const takenAt = new Date(parsed.timestamp);
     const ingestedAt = new Date();
+    const nowMs = ingestedAt.getTime();
+    const rateLimitKey = `${device.device_id}:snapshot`;
 
-    this.rateLimiter.assertAllowed(
-      `${device.device_id}:snapshot`,
-      device.snapshot_interval_seconds
-    );
+    if (!hasPendingSnapshotRequest(device, nowMs)) {
+      this.rateLimiter.assertAllowed(rateLimitKey, device.snapshot_interval_seconds);
+    }
 
     const storageKey = this.storage.buildSnapshotKey(siteId, device.device_id, takenAt);
     const bucket = this.storage.getBucketName();
+    const clearSnapshotRequest = shouldClearSnapshotRequest(device, takenAt, nowMs);
 
     try {
       await this.storage.putSnapshot(storageKey, imageBuffer, "image/jpeg");
@@ -130,17 +109,28 @@ export class IngestSnapshotService {
           })
           .execute();
 
+        const devicePatch: {
+          last_seen_at: Date;
+          updated_at: Date;
+          snapshot_requested_at?: null;
+        } = {
+          last_seen_at: ingestedAt,
+          updated_at: ingestedAt
+        };
+        if (clearSnapshotRequest) {
+          devicePatch.snapshot_requested_at = null;
+        }
+
         await trx
           .updateTable("devices")
-          .set({
-            last_seen_at: ingestedAt,
-            updated_at: ingestedAt
-          })
+          .set(devicePatch)
           .where("device_id", "=", device.device_id)
           .execute();
       });
     } catch (e) {
-      this.rateLimiter.rollbackLast(`${device.device_id}:snapshot`);
+      if (!hasPendingSnapshotRequest(device, nowMs)) {
+        this.rateLimiter.rollbackLast(rateLimitKey);
+      }
       throw e;
     }
 

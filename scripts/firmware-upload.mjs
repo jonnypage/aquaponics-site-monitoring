@@ -2,8 +2,8 @@
 /**
  * PlatformIO upload for a firmware board target.
  * Usage:
- *   pnpm firmware:upload:s3 -- --upload-port /dev/cu.usbmodemXXXX
- *   pnpm firmware:upload:s3 -- -p /dev/cu.usbmodemXXXX
+ *   pnpm firmware:upload:esp32:s3:cam -- --upload-port /dev/cu.usbmodemXXXX
+ *   pnpm firmware:upload:esp32:s3:cam -- -p /dev/cu.usbmodemXXXX
  */
 import { spawn } from "node:child_process";
 import path from "node:path";

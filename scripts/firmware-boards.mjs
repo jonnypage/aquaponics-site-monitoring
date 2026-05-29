@@ -21,6 +21,39 @@ export const FIRMWARE_BOARDS = {
     placeholderOffset: 64 * 1024,
     placeholderSize: 256 * 1024
   },
+  "esp32-s3": {
+    id: "esp32-s3",
+    pioDir: "firmware/esp32-s3",
+    pioEnv: "esp32-s3",
+    mergebin: true,
+    buildArtifact: ".pio/build/esp32-s3/firmware.factory.bin",
+    publicRel: "apps/web/public/firmware/esp32-s3/firmware.bin",
+    webFlashParts: [
+      {
+        file: "bootloader.bin",
+        buildArtifact: ".pio/build/esp32-s3/bootloader.bin",
+        offset: 0x0
+      },
+      {
+        file: "partitions.bin",
+        buildArtifact: ".pio/build/esp32-s3/partitions.bin",
+        offset: 0x8000
+      },
+      {
+        file: "boot_app0.bin",
+        buildArtifact: ".pio/build/esp32-s3/boot_app0.bin",
+        offset: 0xe000
+      },
+      {
+        file: "firmware.app.bin",
+        buildArtifact: ".pio/build/esp32-s3/firmware.bin",
+        offset: 0x10000,
+        patchable: true
+      }
+    ],
+    placeholderOffset: 64 * 1024,
+    placeholderSize: 512 * 1024
+  },
   "esp32-s3-cam": {
     id: "esp32-s3-cam",
     pioDir: "firmware/esp32-s3-cam",
@@ -57,6 +90,9 @@ export const FIRMWARE_BOARDS = {
 };
 
 export const FIRMWARE_BOARD_IDS = Object.keys(FIRMWARE_BOARDS);
+
+/** ESP32-S3 DevKit + ESP32-S3 CAM (excludes ESP8266). */
+export const ESP32_FIRMWARE_BOARD_IDS = ["esp32-s3", "esp32-s3-cam"];
 
 export function resolveBoard(id) {
   const board = FIRMWARE_BOARDS[id];

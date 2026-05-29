@@ -1,0 +1,11 @@
+{
+  "name": "aquaponics-sensors",
+  "version": "1.0.0",
+  "description": "Shared sensor drivers for ESP32 aquaponics boards",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "dependencies": {
+    "paulstoffregen/OneWire": "~2.3.8",
+    "milesburton/DallasTemperature": "~4.0.4"
+  }
+}
