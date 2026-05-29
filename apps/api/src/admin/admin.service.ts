@@ -23,6 +23,7 @@ import { DB_TOKEN } from "../database/database.constants.js";
 import { Role } from "../auth/auth.types.js";
 import { IngestAlertService } from "../ingest/ingest-alert.service.js";
 import { SnapshotsService } from "../snapshots/snapshots.service.js";
+import { loadAdminDeviceSensorReadings } from "./admin-device-sensor-readings.util.js";
 import { loadSiteDeviceSnapshotSettings } from "../sites/site-device-snapshots.util.js";
 import { loadSiteSensorReporting } from "../sites/site-sensor-reporting.util.js";
 import {
@@ -242,8 +243,16 @@ export class AdminService {
       board: row.board,
       pinMap: row.pin_map,
       createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at)
+      updatedAt: new Date(row.updated_at),
+      sensorReadings: []
     };
+  }
+
+  private async attachSensorReadings(devices: AdminDeviceModel[]): Promise<void> {
+    const byDevice = await loadAdminDeviceSensorReadings(this.db, devices);
+    for (const device of devices) {
+      device.sensorReadings = byDevice.get(device.deviceId) ?? [];
+    }
   }
 
   async sensorCatalog(): Promise<SensorCatalogEntryModel[]> {
@@ -918,7 +927,9 @@ export class AdminService {
       q = q.where("site_id", "=", siteId);
     }
     const rows = await q.execute();
-    return rows.map((r) => this.mapDeviceRow(r));
+    const devices = rows.map((r) => this.mapDeviceRow(r));
+    await this.attachSensorReadings(devices);
+    return devices;
   }
 
   async adminDevice(id: string): Promise<AdminDeviceModel> {
@@ -926,7 +937,9 @@ export class AdminService {
     if (!row) {
       throw new NotFoundException("Device not found");
     }
-    return this.mapDeviceRow(row);
+    const device = this.mapDeviceRow(row);
+    await this.attachSensorReadings([device]);
+    return device;
   }
 
   async createAdminDevice(input: CreateAdminDeviceInput): Promise<{ device: AdminDeviceModel; plainApiKey: string }> {
@@ -1043,7 +1056,9 @@ export class AdminService {
       }
     }
 
-    return this.mapDeviceRow(row);
+    const device = this.mapDeviceRow(row);
+    await this.attachSensorReadings([device]);
+    return device;
   }
 
   async rotateAdminDeviceApiKey(deviceId: string): Promise<{ plainApiKey: string }> {

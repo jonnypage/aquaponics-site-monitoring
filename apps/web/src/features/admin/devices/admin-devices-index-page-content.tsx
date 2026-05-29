@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { AlertTriangle, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { SensorIcon } from '~/components/sensor-icon';
 import { PageBackLink } from '~/components/layout/page-back-link';
 import { PageHeader } from '~/components/layout/page-header';
 import { Button } from '~/components/ui/button';
@@ -11,6 +12,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { useAdminDevices, useAdminSites } from '~/hooks/useAdmin';
 import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
 import { formatRelativeTime } from '~/utils/format';
+import { formatMeasurementReading } from '~/utils/measurement-reading';
 
 export function AdminDevicesIndexPageContent() {
   const { t } = useTranslation();
@@ -73,6 +75,36 @@ export function AdminDevicesIndexPageContent() {
                       ? formatRelativeTime(new Date(d.lastSeenAt))
                       : '—'}
                   </p>
+                  {d.sensorReadings.length > 0 ? (
+                    <p className='mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs'>
+                      {d.sensorReadings.map((reading) => (
+                        <span
+                          key={reading.sensorKey}
+                          className='inline-flex items-center gap-1 text-muted-foreground'
+                        >
+                          <SensorIcon
+                            name={reading.icon ?? undefined}
+                            className='h-3.5 w-3.5 shrink-0'
+                          />
+                          <span className='text-foreground'>
+                            {reading.displayName}
+                          </span>
+                          <span>
+                            {reading.value != null
+                              ? formatMeasurementReading(
+                                  reading.value,
+                                  reading.unit,
+                                )
+                              : '—'}
+                          </span>
+                        </span>
+                      ))}
+                    </p>
+                  ) : (
+                    <p className='mt-2 text-xs text-muted-foreground'>
+                      {t('admin.devices.sensorReadingsNoSensors')}
+                    </p>
+                  )}
                 </div>
                 <Button variant='outline' size='sm' asChild>
                   <Link

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, CircuitBoard } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { FormSectionHeading } from '~/components/layout/form-section-heading';
@@ -176,7 +176,7 @@ export function SiteDetailPageContent() {
           <div className='space-y-8'>
             {chartSections.map((section) => (
               <section key={section.deviceId} className='space-y-4'>
-                <FormSectionHeading>
+                <FormSectionHeading icon={CircuitBoard}>
                   {deviceLabel(section.deviceId, section.deviceName)}
                 </FormSectionHeading>
                 <div className={SENSOR_GRID_CLASS}>
