@@ -14,6 +14,7 @@ import {
 import { useResolveAlertMutate, type ResolveAlertInput } from '~/hooks/useAPI';
 import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
 import { formatAlertDisplay } from '~/utils/alert-display';
+import { alertTypeDisplayLabel } from '~/utils/alert-sensor-key';
 import { formatRelativeTime } from '~/utils/format';
 
 export type AlertRow = GetAlertsQuery['getAlerts'][number];
@@ -59,7 +60,7 @@ export function AlertCard({ alert, siteName }: AlertCardProps) {
               <Badge variant='outline'>{display.deviceLabel}</Badge>
             ) : null}
             <EntityKeyBadge className='text-muted-foreground'>
-              {alert.type}
+              {alertTypeDisplayLabel(alert.type)}
             </EntityKeyBadge>
           </div>
           <p className='text-sm leading-relaxed text-foreground'>

@@ -57,3 +57,16 @@ export function heuristicAlertDeviceId(type: string): string | null {
   }
   return null;
 }
+
+/** Alert type for UI badges; device id is omitted when shown on its own pill. */
+export function alertTypeDisplayLabel(type: string): string {
+  const base = heuristicBaseType(type);
+  if (base != null && type.startsWith(`${base}:`)) {
+    return base;
+  }
+  const rangeScoped = type.match(/^(range_(?:warning|violation)):[^:]+:(.+)$/);
+  if (rangeScoped?.[1] && rangeScoped[2]) {
+    return `${rangeScoped[1]}:${rangeScoped[2]}`;
+  }
+  return type;
+}

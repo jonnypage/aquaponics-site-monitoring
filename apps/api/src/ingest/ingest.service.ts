@@ -182,7 +182,8 @@ export class IngestService {
     }
 
     const siteHasActiveAlert = await this.ingestAlerts.siteHasAnyActiveAlert(siteId);
-    const captureImageNow = device.has_camera && siteHasActiveAlert;
+    const snapshotsActive = device.has_camera && device.snapshots_enabled;
+    const captureImageNow = snapshotsActive && siteHasActiveAlert;
 
     return {
       ok: true,
@@ -190,7 +191,7 @@ export class IngestService {
       commands: {
         reportIntervalSeconds: device.report_interval_seconds,
         snapshotIntervalSeconds: device.snapshot_interval_seconds,
-        hasCamera: device.has_camera,
+        hasCamera: snapshotsActive,
         captureImageNow
       }
     };

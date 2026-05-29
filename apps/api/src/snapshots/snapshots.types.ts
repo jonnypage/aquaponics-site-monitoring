@@ -8,6 +8,9 @@ export class DeviceSnapshotModel {
   @Field()
   deviceId!: string;
 
+  @Field(() => String, { nullable: true })
+  deviceName?: string | null;
+
   @Field()
   siteId!: string;
 

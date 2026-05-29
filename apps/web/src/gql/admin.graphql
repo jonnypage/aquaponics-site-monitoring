@@ -62,6 +62,12 @@ query AdminSites {
       warningDelta
       criticalDelta
     }
+    deviceSnapshotSettings {
+      deviceId
+      deviceName
+      hasCamera
+      snapshotsEnabled
+    }
   }
 }
 
@@ -75,6 +81,7 @@ query AdminDevices($siteId: String) {
     reportIntervalSeconds
     snapshotIntervalSeconds
     hasCamera
+    board
     createdAt
     updatedAt
   }
@@ -90,6 +97,7 @@ query AdminDevice($id: String!) {
     reportIntervalSeconds
     snapshotIntervalSeconds
     hasCamera
+    board
     pinMap
     createdAt
     updatedAt
@@ -212,6 +220,12 @@ mutation CreateAdminSite($input: CreateAdminSiteInput!) {
       warningDelta
       criticalDelta
     }
+    deviceSnapshotSettings {
+      deviceId
+      deviceName
+      hasCamera
+      snapshotsEnabled
+    }
   }
 }
 
@@ -241,6 +255,12 @@ mutation UpdateAdminSite($input: UpdateAdminSiteInput!) {
       warningDelta
       criticalDelta
     }
+    deviceSnapshotSettings {
+      deviceId
+      deviceName
+      hasCamera
+      snapshotsEnabled
+    }
   }
 }
 
@@ -256,6 +276,7 @@ mutation CreateAdminDevice($input: CreateAdminDeviceInput!) {
       reportIntervalSeconds
       snapshotIntervalSeconds
       hasCamera
+      board
       createdAt
       updatedAt
     }
@@ -273,6 +294,7 @@ mutation UpdateAdminDevice($input: UpdateAdminDeviceInput!) {
     reportIntervalSeconds
     snapshotIntervalSeconds
     hasCamera
+    board
     createdAt
     updatedAt
   }

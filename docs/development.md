@@ -54,7 +54,7 @@ Do not commit real `.env` files.
 
 ## Firmware binary (install wizard)
 
-The ESP8266 image at `apps/web/public/firmware/esp8266/firmware.bin` is **gitignored**. Source lives in [`firmware/aquaponics-node/`](../firmware/aquaponics-node/).
+The ESP8266 image at `apps/web/public/firmware/esp8266/firmware.bin` is **gitignored**. Source lives in [`firmware/esp-8266-d1-mini/`](../firmware/esp-8266-d1-mini/).
 
 | Script | Purpose |
 | ------ | ------- |
@@ -62,7 +62,7 @@ The ESP8266 image at `apps/web/public/firmware/esp8266/firmware.bin` is **gitign
 | `pnpm firmware:monitor` | Serial monitor at **115200** (pass `-- -p /dev/cu.…` for port) |
 | `pnpm firmware:ensure` | Create placeholder if `firmware.bin` is missing (used by `predev:web` / `prebuild:web`) |
 | `pnpm firmware:placeholder` | Force-regenerate placeholder (config markers only; **not** runnable on hardware) |
-| `pnpm firmware:copy` | Copy only (after a manual `pio run` in `firmware/aquaponics-node`) |
+| `pnpm firmware:copy` | Copy only (after a manual `pio run` in `firmware/esp-8266-d1-mini`) |
 
 ```bash
 pnpm firmware:build

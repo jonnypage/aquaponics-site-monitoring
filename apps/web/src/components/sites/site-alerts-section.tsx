@@ -14,7 +14,11 @@ import { AlertSeverity, AlertStatus } from "~/gql/generated/graphql";
 import { useAlerts, useResolveAlertMutate, type ResolveAlertInput } from "~/hooks/useAPI";
 import { useRelativeTimeTick } from "~/hooks/useRelativeTimeTick";
 import { SITE_ALERTS_REFETCH_MS } from "~/utils/site-poll-interval";
-import { sensorCatalogKeyFromAlertType, heuristicAlertSensorType } from "~/utils/alert-sensor-key";
+import {
+  alertTypeDisplayLabel,
+  sensorCatalogKeyFromAlertType,
+  heuristicAlertSensorType
+} from "~/utils/alert-sensor-key";
 import { formatAlertDisplay, type AlertReportingRow } from "~/utils/alert-display";
 import type { SensorType } from "~/utils/sensor-types";
 import { cn } from "~/utils/cn";
@@ -169,7 +173,9 @@ export function SiteAlertsSection({ siteId, sensorReporting }: SiteAlertsSection
                     {display.deviceLabel ? (
                       <Badge variant="outline">{display.deviceLabel}</Badge>
                     ) : null}
-                    <EntityKeyBadge className="text-muted-foreground">{a.type}</EntityKeyBadge>
+                    <EntityKeyBadge className="text-muted-foreground">
+                      {alertTypeDisplayLabel(a.type)}
+                    </EntityKeyBadge>
                   </div>
                   <p className="text-sm text-foreground">{display.message}</p>
                   <p className="text-xs text-muted-foreground">

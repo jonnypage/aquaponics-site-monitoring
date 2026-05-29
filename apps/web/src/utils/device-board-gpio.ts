@@ -1,10 +1,19 @@
 /**
  * Per-board GPIO allowlists for the device install wizard.
- * Extend when adding boards (e.g. esp32-cyd).
  */
 
-export const DEVICE_BOARD_IDS = ["esp8266", "esp32-cyd"] as const;
+export const DEVICE_BOARD_IDS = ["esp8266", "esp32-s3-cam"] as const;
 export type DeviceBoardId = (typeof DEVICE_BOARD_IDS)[number];
+
+export type EspWebToolsChipFamily = "ESP8266" | "ESP32-S3";
+
+export type EspWebFlashPart = {
+  /** Public path to static binary (under apps/web/public). */
+  publicPath: string;
+  offset: number;
+  /** Install wizard patches this part in memory before flash. */
+  patchable?: boolean;
+};
 
 export type GpioBlockReason = "flash" | "boot" | "serial" | "out_of_range" | "board_unsupported";
 
@@ -18,8 +27,17 @@ export interface GpioValidation {
 
 export interface DeviceBoardGpioProfile {
   id: DeviceBoardId;
+  labelKey: string;
   /** When false, install must not flash and any GPIO entry is rejected. */
   installSupported: boolean;
+  /** When false, hide camera/snapshot UI and force hasCamera false in flashed config. */
+  supportsCamera: boolean;
+  /** Public path to firmware.bin (ESP8266 merged image). */
+  firmwarePublicPath: string;
+  /** ESP32 multi-part esp-web-tools layout (bootloader + partitions + app). */
+  espWebFlashParts?: readonly EspWebFlashPart[];
+  chipFamily: EspWebToolsChipFamily;
+  manifestName: string;
   allowed: readonly number[];
   /** Allowed but discouraged (shown as warning; does not block flash). */
   warned: readonly number[];
@@ -29,7 +47,12 @@ export interface DeviceBoardGpioProfile {
 /** WeMos D1 mini / NodeMCU — GPIO numbers (not D-labels). */
 const ESP8266_PROFILE: DeviceBoardGpioProfile = {
   id: "esp8266",
+  labelKey: "admin.devices.installBoardEsp8266",
   installSupported: true,
+  supportsCamera: true,
+  firmwarePublicPath: "/firmware/esp8266/firmware.bin",
+  chipFamily: "ESP8266",
+  manifestName: "esp-8266-d1-mini",
   allowed: [4, 5, 12, 13, 14, 17],
   warned: [16],
   forbidden: {
@@ -47,22 +70,71 @@ const ESP8266_PROFILE: DeviceBoardGpioProfile = {
   }
 };
 
-/** Placeholder until CYD installer ships. */
-const ESP32_CYD_PROFILE: DeviceBoardGpioProfile = {
-  id: "esp32-cyd",
-  installSupported: false,
-  allowed: [],
-  warned: [],
-  forbidden: {}
+/** AliExpress ESP32-S3 CAM (OV3660) — header-safe GPIOs from seller pinout. */
+const ESP32_S3_CAM_PROFILE: DeviceBoardGpioProfile = {
+  id: "esp32-s3-cam",
+  labelKey: "admin.devices.installBoardEsp32S3Cam",
+  installSupported: true,
+  supportsCamera: true,
+  firmwarePublicPath: "/firmware/esp32-s3-cam/firmware.app.bin",
+  espWebFlashParts: [
+    { publicPath: "/firmware/esp32-s3-cam/bootloader.bin", offset: 0x0 },
+    { publicPath: "/firmware/esp32-s3-cam/partitions.bin", offset: 0x8000 },
+    { publicPath: "/firmware/esp32-s3-cam/boot_app0.bin", offset: 0xe000 },
+    { publicPath: "/firmware/esp32-s3-cam/firmware.app.bin", offset: 0x10000, patchable: true }
+  ],
+  chipFamily: "ESP32-S3",
+  manifestName: "esp32-s3-cam",
+  /** Broken out on board headers — not camera / SD / USB / PSRAM / JTAG. */
+  allowed: [1, 14, 21, 47],
+  /** On-board LED (GPIO2) — usable but may skew digital/ADC readings. */
+  warned: [2],
+  forbidden: {
+    0: "boot",
+    3: "boot",
+    4: "flash",
+    5: "flash",
+    6: "flash",
+    7: "flash",
+    8: "flash",
+    9: "flash",
+    10: "flash",
+    11: "flash",
+    12: "flash",
+    13: "flash",
+    15: "flash",
+    16: "flash",
+    17: "flash",
+    18: "flash",
+    19: "serial",
+    20: "serial",
+    35: "flash",
+    36: "flash",
+    37: "flash",
+    38: "flash",
+    39: "flash",
+    40: "flash",
+    41: "flash",
+    42: "flash",
+    43: "serial",
+    44: "serial",
+    45: "boot",
+    46: "flash",
+    48: "flash"
+  }
 };
 
 const PROFILES: Record<DeviceBoardId, DeviceBoardGpioProfile> = {
   esp8266: ESP8266_PROFILE,
-  "esp32-cyd": ESP32_CYD_PROFILE
+  "esp32-s3-cam": ESP32_S3_CAM_PROFILE
 };
 
 export function getDeviceBoardGpioProfile(board: DeviceBoardId): DeviceBoardGpioProfile {
   return PROFILES[board];
+}
+
+export function isDeviceBoardId(value: string): value is DeviceBoardId {
+  return (DEVICE_BOARD_IDS as readonly string[]).includes(value);
 }
 
 export function formatAllowedGpioList(board: DeviceBoardId): string {
@@ -71,8 +143,7 @@ export function formatAllowedGpioList(board: DeviceBoardId): string {
     return "—";
   }
   const base = allowed.join(", ");
-  const warn =
-    warned.length > 0 ? `; caution: ${warned.join(", ")}` : "";
+  const warn = warned.length > 0 ? `; caution: ${warned.join(", ")}` : "";
   if (board === "esp8266") {
     return `${base} (A0 = 17)${warn}`;
   }

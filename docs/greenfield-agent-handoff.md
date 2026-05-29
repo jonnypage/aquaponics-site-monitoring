@@ -93,7 +93,7 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 - Migration **`0006_phase6_snapshots`**; **`StorageModule`**; **`POST /ingest/snapshot`** (503 without `OBJECT_STORAGE_*`).
 - GraphQL **`getSite.latestSnapshot`**, **`adminDevice.recentSnapshots`**; web **`SiteLatestSnapshot`** on site detail.
 - **esp-web-tools** install wizard (Wi‑Fi, catalog wire→GPIO, firmware config **v2**, optional **`devices.pin_map`**); migration **`0008_sensor_wiring_template`**.
-- **`firmware/aquaponics-node/`** (telemetry, stub JPEG snapshots, command handling); gitignored **`apps/web/public/firmware/esp8266/firmware.bin`** (`pnpm firmware:build`; `firmware:placeholder` for installer UI dev).
+- **`firmware/esp-8266-d1-mini/`** (telemetry, stub JPEG snapshots, command handling); gitignored **`apps/web/public/firmware/esp8266/firmware.bin`** (`pnpm firmware:build`; `firmware:placeholder` for installer UI dev).
 
 **Operator / post-MVP:** Railway `OBJECT_STORAGE_*` and web build with PlatformIO ([`phase6-railway-production.md`](phase6-railway-production.md)); §8 hardware snapshot reflash. **Done in code:** admin `recentSnapshots` gallery, firmware deploy hook (`ensure-or-build-firmware.mjs`), ESP32 CYD roadmap stub. **Deferred:** real camera hardware, ESP32 CYD flash.
 
@@ -177,7 +177,7 @@ apps/
 packages/
   db/           Kysely client, types, migrations, seed CLI
 firmware/
-  aquaponics-node/   PlatformIO; not a pnpm workspace
+  esp-8266-d1-mini/   PlatformIO; not a pnpm workspace
 docs/
   esp-device-ingest.md   device HTTP contract (copy or link from legacy)
 ```

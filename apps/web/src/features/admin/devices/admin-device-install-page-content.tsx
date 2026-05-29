@@ -26,9 +26,11 @@ import {
   writeDeviceInstallApiKey
 } from "~/utils/device-install-api-key";
 import {
+  DEVICE_BOARD_IDS,
   type DeviceBoardId,
   getDeviceBoardGpioProfile,
-  hasBlockingInstallGpioIssues
+  hasBlockingInstallGpioIssues,
+  isDeviceBoardId
 } from "~/utils/device-board-gpio";
 import {
   applyPinMapToRow,
@@ -55,7 +57,11 @@ import {
   patchFirmwareConfig,
   type FirmwareDeviceConfig
 } from "~/utils/firmware-config-patch";
-import { createEspWebToolsManifestUrls } from "~/utils/esp-web-manifest-blobs";
+import {
+  createEspWebToolsManifestUrls,
+  createEspWebToolsSinglePartManifestUrls
+} from "~/utils/esp-web-manifest-blobs";
+import { repairEsp32AppImageAfterPatch } from "~/utils/esp32-app-image-repair";
 import {
   normalizeWiringTemplateFromGraphql,
   type DevicePinMap,
@@ -63,8 +69,6 @@ import {
 } from "~/utils/sensor-wiring";
 import type { SensorType } from "~/utils/sensor-types";
 import { getEspWebInstallSupport, type EspWebInstallSupport } from "~/utils/esp-web-install";
-
-const FIRMWARE_URL = "/firmware/esp8266/firmware.bin";
 
 const routeApi = getRouteApi("/_authed/admin/devices/$deviceId/install");
 
@@ -251,17 +255,18 @@ export function AdminDeviceInstallPageContent() {
     if (!device) {
       return;
     }
-    setHasCamera(device.hasCamera);
-    if (device.lastSeenAt == null) {
-      setReportDuration(DEFAULT_REPORT_DURATION);
-      setSnapshotDuration(DEFAULT_SNAPSHOT_DURATION);
-    } else {
-      setReportDuration(secondsToDuration(device.reportIntervalSeconds));
-      setSnapshotDuration(secondsToDuration(device.snapshotIntervalSeconds));
+    if (device.board && isDeviceBoardId(device.board)) {
+      setBoard(device.board);
     }
+    setHasCamera(device.hasCamera);
+    setReportDuration(secondsToDuration(device.reportIntervalSeconds));
+    setSnapshotDuration(secondsToDuration(device.snapshotIntervalSeconds));
   }, [device]);
 
   const gpioEntries = useMemo(() => flattenInstallGpioEntries(sensorRows), [sensorRows]);
+
+  const boardProfile = useMemo(() => getDeviceBoardGpioProfile(board), [board]);
+  const effectiveHasCamera = boardProfile.supportsCamera && hasCamera;
 
   const gpioBlocked = useMemo(
     () => hasBlockingInstallGpioIssues(board, gpioEntries),
@@ -338,14 +343,16 @@ export function AdminDeviceInstallPageContent() {
       DEFAULT_SNAPSHOT_INTERVAL_SECONDS
     );
     const pinMap = buildDevicePinMap(sensorRows);
+    const flashedHasCamera = boardProfile.supportsCamera ? hasCamera : false;
 
     try {
       await updateDevice({
         deviceId: device.deviceId,
         expectedIntervalSeconds: reportIntervalSeconds,
         reportIntervalSeconds,
-        snapshotIntervalSeconds,
-        hasCamera,
+        ...(boardProfile.supportsCamera ? { snapshotIntervalSeconds } : {}),
+        hasCamera: flashedHasCamera,
+        board,
         pinMap
       });
     } catch (err) {
@@ -365,23 +372,51 @@ export function AdminDeviceInstallPageContent() {
         wifiPassword: wifiPassword,
         pins: buildFirmwarePins(sensorRows),
         sensorTypes: buildFirmwareSensorTypes(sensorRows),
-        hasCamera
+        hasCamera: flashedHasCamera
       };
 
       if (estimateFirmwareConfigBytes(config) > CONFIG_REGION_SIZE - 64) {
         throw new Error(t("admin.devices.installConfigTooLarge"));
       }
 
-      const res = await fetch(FIRMWARE_URL);
+      const patchPart =
+        boardProfile.espWebFlashParts?.find((part) => part.patchable) ??
+        ({ publicPath: boardProfile.firmwarePublicPath, offset: 0 } as const);
+
+      const res = await fetch(patchPart.publicPath);
       if (!res.ok) {
         throw new Error(`Failed to load firmware (${res.status})`);
       }
       const buf = await res.arrayBuffer();
       const { patched } = patchFirmwareConfig(buf, config);
+      const flashImage = boardProfile.espWebFlashParts
+        ? await repairEsp32AppImageAfterPatch(patched)
+        : patched;
       manifestRevokeRef.current?.();
-      const blobs = createEspWebToolsManifestUrls(patched, "aquaponics-node");
-      manifestRevokeRef.current = blobs.revoke;
-      setManifestUrl(blobs.manifestUrl);
+
+      if (boardProfile.espWebFlashParts) {
+        const origin = window.location.origin;
+        const parts = boardProfile.espWebFlashParts.map((part) => {
+          if (part.patchable) {
+            const blob = new Blob([flashImage as BlobPart], { type: "application/octet-stream" });
+            return { url: URL.createObjectURL(blob), offset: part.offset };
+          }
+          return { url: `${origin}${part.publicPath}`, offset: part.offset };
+        });
+        const blobs = createEspWebToolsManifestUrls(boardProfile.manifestName, {
+          chipFamily: boardProfile.chipFamily,
+          parts
+        });
+        manifestRevokeRef.current = blobs.revoke;
+        setManifestUrl(blobs.manifestUrl);
+      } else {
+        const blobs = createEspWebToolsSinglePartManifestUrls(patched, boardProfile.manifestName, {
+          chipFamily: boardProfile.chipFamily,
+          flashOffset: 0
+        });
+        manifestRevokeRef.current = blobs.revoke;
+        setManifestUrl(blobs.manifestUrl);
+      }
       clearDeviceInstallApiKey(deviceId);
       setStep("flash");
     } catch (err) {
@@ -465,12 +500,16 @@ export function AdminDeviceInstallPageContent() {
                   value={board}
                   onChange={(e) => setBoard(e.target.value as DeviceBoardId)}
                 >
-                  <option value="esp8266">ESP8266 (D1 mini)</option>
-                  <option value="esp32-cyd" disabled>
-                    ESP32 CYD — {t("admin.devices.installBoardComingSoon")}
-                  </option>
+                  {DEVICE_BOARD_IDS.map((id) => {
+                    const profile = getDeviceBoardGpioProfile(id);
+                    return (
+                      <option key={id} value={id} disabled={!profile.installSupported}>
+                        {t(profile.labelKey)}
+                      </option>
+                    );
+                  })}
                 </select>
-                <p className="text-xs text-muted-foreground">{t("admin.devices.installBoardRoadmap")}</p>
+                <p className="text-xs text-muted-foreground">{t("admin.devices.installBoardHint")}</p>
               </div>
 
               <div className="space-y-2">
@@ -519,19 +558,21 @@ export function AdminDeviceInstallPageContent() {
                 unassignedSite={device.siteId == null}
               />
 
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={hasCamera}
-                  onChange={(e) => setHasCamera(e.target.checked)}
-                  className="rounded border-input"
-                />
-                {t("admin.devices.hasCamera")}
-              </label>
+              {boardProfile.supportsCamera ? (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={hasCamera}
+                    onChange={(e) => setHasCamera(e.target.checked)}
+                    className="rounded border-input"
+                  />
+                  {t("admin.devices.hasCamera")}
+                </label>
+              ) : null}
 
               <div
                 className={
-                  hasCamera ? "grid gap-4 sm:grid-cols-2" : "max-w-sm space-y-4"
+                  effectiveHasCamera ? "grid gap-4 sm:grid-cols-2" : "max-w-sm space-y-4"
                 }
               >
                 <DurationField
@@ -540,7 +581,7 @@ export function AdminDeviceInstallPageContent() {
                   value={reportDuration}
                   onChange={setReportDuration}
                 />
-                {hasCamera ? (
+                {effectiveHasCamera ? (
                   <DurationField
                     id="snapshot"
                     label={t("admin.devices.snapshotInterval")}

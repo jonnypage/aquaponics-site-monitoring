@@ -76,7 +76,7 @@ export function patchFirmwareConfig(
 
   if (!bounds || bounds.payloadEnd <= bounds.payloadStart) {
     throw new Error(
-      `Firmware binary is missing config markers ${CONFIG_BEGIN_MARKER} / ${CONFIG_END_MARKER}. Build firmware from firmware/aquaponics-node first.`
+      `Firmware binary is missing config markers ${CONFIG_BEGIN_MARKER} / ${CONFIG_END_MARKER}. Build firmware with pnpm firmware:build first.`
     );
   }
 

@@ -19,6 +19,6 @@ Postgres table `device_snapshots` holds metadata only.
 
 ## Firmware
 
-- PlatformIO project: [`firmware/aquaponics-node/`](../firmware/aquaponics-node/)
+- PlatformIO project: [`firmware/esp-8266-d1-mini/`](../firmware/esp-8266-d1-mini/)
 - Browser installer: `/admin/devices/$deviceId/install` (esp-web-tools)
 - Installer binary: `apps/web/public/firmware/esp8266/firmware.bin` (gitignored; `pnpm firmware:build`, or `firmware:placeholder` for UI-only dev)

@@ -31,7 +31,7 @@ Hand this document to an implementing agent for **Phase 6 — Firmware installer
 | Web device edit | **`AdminDeviceRecentSnapshots`** gallery |
 | Web install wizard | esp-web-tools, Wi‑Fi, wire→GPIO, `firmware-config-patch` v2, `pin_map`; ESP32 CYD disabled + roadmap link |
 | Admin site edit | Reset measurements + clear site snapshots |
-| **`firmware/aquaponics-node/`** | Telemetry + placekittens JPEG (chunked HTTP download) + v1/v2 pins |
+| **`firmware/esp-8266-d1-mini/`** | Telemetry + placekittens JPEG (chunked HTTP download) + v1/v2 pins |
 | **Firmware deploy hook** | [`scripts/ensure-or-build-firmware.mjs`](../scripts/ensure-or-build-firmware.mjs) — real build on CI/Railway/`FIRMWARE_BUILD=real` |
 | **`apps/web/public/firmware/esp8266/firmware.bin`** | Gitignored; `firmware:build` or placeholder locally |
 
@@ -69,7 +69,7 @@ Hand this document to an implementing agent for **Phase 6 — Firmware installer
 | `apps/web/src/components/admin/admin-device-recent-snapshots.tsx` | Device edit snapshot gallery |
 | `apps/web/src/features/admin/devices/admin-device-install-page-content.tsx` | Install wizard |
 | `apps/web/src/utils/firmware-config-patch.ts` | Config region patch (v2 pins) |
-| `firmware/aquaponics-node/` | PlatformIO ESP8266 firmware |
+| `firmware/esp-8266-d1-mini/` | PlatformIO ESP8266 firmware |
 | `scripts/ensure-or-build-firmware.mjs` | `prebuild:web` / `predev:web` hook |
 | `scripts/build-firmware.mjs` | `pnpm firmware:build` |
 | `apps/web/public/firmware/esp32-cyd/` | CYD placeholder README |
