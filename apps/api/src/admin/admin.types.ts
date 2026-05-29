@@ -176,6 +176,30 @@ export class AdminSiteModel {
 }
 
 @ObjectType()
+export class AdminDeviceSensorReadingModel {
+  @Field()
+  sensorKey!: string;
+
+  @Field(() => SensorType)
+  sensorType!: SensorType;
+
+  @Field()
+  displayName!: string;
+
+  @Field()
+  unit!: string;
+
+  @Field(() => String, { nullable: true })
+  icon?: string | null;
+
+  @Field(() => Float, { nullable: true })
+  value?: number | null;
+
+  @Field(() => Date, { nullable: true })
+  takenAt?: Date | null;
+}
+
+@ObjectType()
 export class AdminDeviceModel {
   @Field()
   deviceId!: string;
@@ -215,6 +239,9 @@ export class AdminDeviceModel {
 
   @Field(() => [DeviceSnapshotModel])
   recentSnapshots?: DeviceSnapshotModel[];
+
+  @Field(() => [AdminDeviceSensorReadingModel])
+  sensorReadings!: AdminDeviceSensorReadingModel[];
 }
 
 @ObjectType()

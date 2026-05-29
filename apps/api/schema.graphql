@@ -123,6 +123,16 @@ type AdminSiteModel {
   deviceSnapshotSettings: [SiteDeviceSnapshotSettingsModel!]!
 }
 
+type AdminDeviceSensorReadingModel {
+  sensorKey: String!
+  sensorType: SensorType!
+  displayName: String!
+  unit: String!
+  icon: String
+  value: Float
+  takenAt: DateTime
+}
+
 type AdminDeviceModel {
   deviceId: String!
   name: String
@@ -137,6 +147,7 @@ type AdminDeviceModel {
   createdAt: DateTime!
   updatedAt: DateTime!
   recentSnapshots: [DeviceSnapshotModel!]!
+  sensorReadings: [AdminDeviceSensorReadingModel!]!
 }
 
 type CreateAdminDevicePayload {

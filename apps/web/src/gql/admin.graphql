@@ -84,6 +84,15 @@ query AdminDevices($siteId: String) {
     board
     createdAt
     updatedAt
+    sensorReadings {
+      sensorKey
+      sensorType
+      displayName
+      unit
+      icon
+      value
+      takenAt
+    }
   }
 }
 
