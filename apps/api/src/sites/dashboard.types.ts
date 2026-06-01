@@ -56,6 +56,10 @@ export class SiteModel {
   /** Min `devices.expected_interval_seconds` for the site; dashboard poll cadence (default 300). */
   @Field()
   pollIntervalSeconds!: number;
+
+  /** True when any device at the site has a pending on-demand telemetry request. */
+  @Field()
+  telemetryRefreshPending!: boolean;
 }
 
 @ObjectType()

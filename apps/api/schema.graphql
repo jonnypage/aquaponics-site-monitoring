@@ -212,6 +212,7 @@ type SiteModel {
   latestSnapshot: DeviceSnapshotModel
   recentSnapshots: [DeviceSnapshotModel!]!
   pollIntervalSeconds: Float!
+  telemetryRefreshPending: Boolean!
 }
 
 enum SiteStatus {
@@ -271,6 +272,7 @@ type Mutation {
   deleteAdminSite(siteId: String!): Boolean!
   resetAdminSiteMeasurements(siteId: String!): ResetAdminSiteMeasurementsPayload!
   clearAdminSiteSnapshots(siteId: String!): ClearAdminSiteSnapshotsPayload!
+  requestSiteTelemetry(siteId: String!): SiteModel!
   resolveAlert(id: String!): Boolean!
 }
 

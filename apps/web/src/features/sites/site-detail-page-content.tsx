@@ -12,10 +12,12 @@ import { SiteLocationMap } from '~/components/sites/site-location-map';
 import { SensorChart } from '~/components/sites/sensor-chart';
 import { SiteStatusBadge } from '~/components/sites/site-status-badge';
 import { TimeRangeTabs } from '~/components/sites/time-range-tabs';
+import { Button } from '~/components/ui/button';
+import { ButtonPendingLabel } from '~/components/ui/loading-indicator';
 import { Card, CardContent } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
 import { TimeRange } from '~/gql/generated/graphql';
-import { useSite } from '~/hooks/useAPI';
+import { useRequestSiteTelemetryMutate, useSite } from '~/hooks/useAPI';
 import { useRelativeTimeTick } from '~/hooks/useRelativeTimeTick';
 import { formatRelativeTime } from '~/utils/format';
 import {
@@ -47,7 +49,10 @@ export function SiteDetailPageContent() {
   const { t } = useTranslation();
   const { siteId } = routeApi.useParams();
   const { data: site, isLoading, isError, error } = useSite(siteId);
+  const { mutateAsync: requestSiteTelemetry, isPending: isRequestingTelemetry } =
+    useRequestSiteTelemetryMutate();
   const [range, setRange] = useState<TimeRange>(TimeRange.Last_24H);
+  const [telemetryError, setTelemetryError] = useState<string | null>(null);
   useRelativeTimeTick();
 
   const enabledReporting = useMemo(
@@ -144,6 +149,18 @@ export function SiteDetailPageContent() {
     : t('siteCard.noReadingsYet');
 
   const pollIntervalMs = sitePollIntervalMs(site.pollIntervalSeconds);
+  const hasDevices = new Set(site.sensorReporting.map((row) => row.deviceId)).size > 0;
+
+  async function onRefreshTelemetry() {
+    setTelemetryError(null);
+    try {
+      await requestSiteTelemetry(siteId);
+    } catch (err) {
+      setTelemetryError(
+        err instanceof Error ? err.message : t('shared.unknownError'),
+      );
+    }
+  }
 
   return (
     <>
@@ -153,12 +170,37 @@ export function SiteDetailPageContent() {
         title={site.name}
         description={t('siteDetailPage.lastReading', { time: lastSeen })}
         actions={
-          <div className='flex items-center gap-3'>
+          <div className='flex flex-wrap items-center gap-3'>
             <SiteStatusBadge status={site.status} />
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={
+                !hasDevices ||
+                isRequestingTelemetry ||
+                site.telemetryRefreshPending
+              }
+              onClick={() => void onRefreshTelemetry()}
+            >
+              <ButtonPendingLabel pending={isRequestingTelemetry}>
+                {site.telemetryRefreshPending
+                  ? t('siteDetailPage.refreshTelemetryPending')
+                  : t('siteDetailPage.refreshTelemetryNow')}
+              </ButtonPendingLabel>
+            </Button>
             <TimeRangeTabs value={range} onChange={setRange} />
           </div>
         }
       />
+
+      {telemetryError ? (
+        <p className='mb-4 text-sm text-destructive'>{telemetryError}</p>
+      ) : site.telemetryRefreshPending ? (
+        <p className='mb-4 text-xs text-muted-foreground'>
+          {t('siteDetailPage.refreshTelemetryPendingHint')}
+        </p>
+      ) : null}
 
       <div className='mb-6'>
         <SiteAlertsSection

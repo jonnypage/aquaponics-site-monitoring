@@ -8,5 +8,6 @@ query GetSites {
     latitude
     longitude
     pollIntervalSeconds
+    telemetryRefreshPending
   }
 }

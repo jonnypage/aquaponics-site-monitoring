@@ -1,0 +1,8 @@
+mutation RequestSiteTelemetry($siteId: String!) {
+  requestSiteTelemetry(siteId: $siteId) {
+    id
+    telemetryRefreshPending
+    lastUpdate
+    status
+  }
+}
