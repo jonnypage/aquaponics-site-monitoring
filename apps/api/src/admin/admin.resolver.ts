@@ -147,6 +147,20 @@ export class AdminResolver {
 
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles("admin")
+  @Mutation(() => AdminDeviceModel)
+  async requestAdminDeviceTelemetry(@Args("deviceId") deviceId: string): Promise<AdminDeviceModel> {
+    return this.admin.requestAdminDeviceTelemetry(deviceId);
+  }
+
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles("admin")
+  @Mutation(() => AdminDeviceModel)
+  async requestAdminDeviceSnapshot(@Args("deviceId") deviceId: string): Promise<AdminDeviceModel> {
+    return this.admin.requestAdminDeviceSnapshot(deviceId);
+  }
+
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles("admin")
   @Mutation(() => RotateAdminDeviceApiKeyPayload)
   async rotateAdminDeviceApiKey(@Args("deviceId") deviceId: string): Promise<{ plainApiKey: string }> {
     return this.admin.rotateAdminDeviceApiKey(deviceId);

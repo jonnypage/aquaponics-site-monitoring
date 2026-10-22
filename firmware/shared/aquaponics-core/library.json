@@ -1,0 +1,10 @@
+{
+  "name": "aquaponics-core",
+  "version": "1.0.0",
+  "description": "Shared Wi-Fi, check-in, ingest, and command parsing for aquaponics device firmware",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "dependencies": {
+    "bblanchon/ArduinoJson": "~7.4.2"
+  }
+}

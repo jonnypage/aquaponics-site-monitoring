@@ -141,7 +141,11 @@ type AdminDeviceModel {
   expectedIntervalSeconds: Int!
   reportIntervalSeconds: Int!
   snapshotIntervalSeconds: Int!
+  checkinIntervalSeconds: Int!
+  telemetryRequestedAt: DateTime
+  snapshotRequestedAt: DateTime
   hasCamera: Boolean!
+  snapshotsEnabled: Boolean!
   board: String
   pinMap: JSON
   createdAt: DateTime!
@@ -208,6 +212,7 @@ type SiteModel {
   latestSnapshot: DeviceSnapshotModel
   recentSnapshots: [DeviceSnapshotModel!]!
   pollIntervalSeconds: Float!
+  telemetryRefreshPending: Boolean!
 }
 
 enum SiteStatus {
@@ -260,11 +265,14 @@ type Mutation {
   updateAdminSite(input: UpdateAdminSiteInput!): AdminSiteModel!
   createAdminDevice(input: CreateAdminDeviceInput!): CreateAdminDevicePayload!
   updateAdminDevice(input: UpdateAdminDeviceInput!): AdminDeviceModel!
+  requestAdminDeviceTelemetry(deviceId: String!): AdminDeviceModel!
+  requestAdminDeviceSnapshot(deviceId: String!): AdminDeviceModel!
   rotateAdminDeviceApiKey(deviceId: String!): RotateAdminDeviceApiKeyPayload!
   deleteAdminDevice(deviceId: String!): Boolean!
   deleteAdminSite(siteId: String!): Boolean!
   resetAdminSiteMeasurements(siteId: String!): ResetAdminSiteMeasurementsPayload!
   clearAdminSiteSnapshots(siteId: String!): ClearAdminSiteSnapshotsPayload!
+  requestSiteTelemetry(siteId: String!): SiteModel!
   resolveAlert(id: String!): Boolean!
 }
 
@@ -391,6 +399,7 @@ input UpdateAdminDeviceInput {
   expectedIntervalSeconds: Int
   reportIntervalSeconds: Int
   snapshotIntervalSeconds: Int
+  checkinIntervalSeconds: Int
   hasCamera: Boolean
   board: String
   pinMap: JSON

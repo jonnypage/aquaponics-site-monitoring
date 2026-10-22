@@ -272,10 +272,10 @@ Shared `createDb()` in `packages/db` should honor **`PG_POOL_MAX`** (default `10
 Spotty Wi-Fi, site power flickers, and short internet outages should not spam `device_offline` alerts. The scheduler compares `devices.last_seen_at` to a per-device tolerance:
 
 ```text
-offline_threshold_seconds = max(expected_interval_seconds * 3, 15 minutes)
+offline_threshold_seconds = max(checkin_interval_seconds * 3, 15 minutes)
 ```
 
-(`15 minutes` = `900` seconds.) Mark a device offline and upsert `device_offline` only when `last_seen_at` is null or older than **`now() - offline_threshold_seconds`**. Successful ingest clears/resolves the offline alert as today. Re-evaluate on each scheduler tick (~60s); do not tighten this formula without an explicit product change.
+(`15 minutes` = `900` seconds.) Mark a device offline and upsert `device_offline` only when `last_seen_at` is null or older than **`now() - offline_threshold_seconds`**. Successful **`POST /checkin`** or ingest updates `last_seen_at` and clears/resolves the offline alert. Re-evaluate on each scheduler tick (~60s); do not tighten this formula without an explicit product change.
 
 ### Ingest rate limiting (`POST /ingest`)
 
@@ -316,7 +316,7 @@ Apply a **simple per-device** rate limit keyed by authenticated device (API key 
 | `MeasurementsModule` | `getMeasurements`, `getSensorMeasurements`                                                                                                                                   |
 | `AlertsModule`       | `getAlerts`, `resolveAlert`, upsert/dedupe, Resend notifier                                                                                                                  |
 | `AnomalyModule`      | Range/spike/flatline rules on ingest                                                                                                                                         |
-| `IngestModule`       | `POST /ingest` (JSON telemetry), `POST /ingest/snapshot` (multipart image), `x-api-key`, zod validation, **per-device rate limit**, **command** fields in telemetry response |
+| `IngestModule`       | `POST /checkin` (heartbeat + commands), `POST /ingest` (JSON telemetry), `POST /ingest/snapshot` (multipart image), `x-api-key`, zod validation, **per-device rate limit**, **command** fields in check-in + ingest responses |
 | `AdminModule`        | Admin queries/mutations, sensor catalog CRUD                                                                                                                                 |
 | `DevicesModule`      | Admin device CRUD, API key generation/rotation                                                                                                                               |
 | `StorageModule`      | S3-compatible client; upload snapshot objects; presigned read URLs for dashboard                                                                                             |
@@ -330,6 +330,7 @@ Use **guards** for `admin` and **site access** (`requireSiteAccess` equivalent: 
 | Method | Path               | Auth                                                                 |
 | ------ | ------------------ | -------------------------------------------------------------------- |
 | POST   | `/graphql`         | Session cookie for dashboard operations                              |
+| POST   | `/checkin`         | `x-api-key` — lightweight heartbeat; returns **commands** (see **Device check-in**) |
 | POST   | `/ingest`          | `x-api-key` — JSON telemetry only (see **Device ingestion**)         |
 | POST   | `/ingest/snapshot` | `x-api-key` — multipart image upload only (see **Camera snapshots**) |
 | GET    | `/health`          | None                                                                 |
@@ -346,7 +347,7 @@ Production: avoid per-request access logs at `info`; use `warn`+ for API process
 ### In-process scheduler
 
 - **Single instance:** scheduler jobs run only in the one deployed API process (see **Scheduler ownership**).
-- **Device offline:** compare `last_seen_at` to **`offline_threshold_seconds = max(expected_interval_seconds * 3, 900)`** before upserting `device_offline` (see **Device heartbeat and offline threshold**).
+- **Device offline:** compare `last_seen_at` to **`offline_threshold_seconds = max(checkin_interval_seconds * 3, 900)`** before upserting `device_offline` (see **Device heartbeat and offline threshold**).
 - **Re-notify:** active critical alerts (`alerts.status = 'active'` + `severity = 'critical'`) → email if cooldown (`COOLDOWN_MINUTES`, default 45) allows.
 
 ### Anomaly / alert types (MVP)
@@ -453,6 +454,30 @@ Scalars: `DateTime`, `JSON` (e.g. `pinMap`).
 
 ---
 
+## Device check-in (`POST /checkin`)
+
+Lightweight heartbeat separate from telemetry. ESP32 firmware wakes every `checkinIntervalSeconds` (default **300**), posts check-in, applies commands, then conditionally posts telemetry and/or snapshots.
+
+- Header: `x-api-key`
+- Body: `{ deviceId, timestamp (ISO 8601 UTC, Z suffix) }` — **no readings**
+- Rate limit: one accepted request per `checkin_interval_seconds` per device (429 + `Retry-After`)
+- On success: update `devices.last_seen_at`, reconcile offline state, return `{ ok: true, commands: { ... } }`
+
+Command envelope matches ingest (see **Response body (commands)**) plus:
+
+| Field | Meaning |
+| ----- | ------- |
+| `checkinIntervalSeconds` | Sleep cadence between check-ins |
+| `sendTelemetryNow` | When `true`, device must POST `/ingest` on this wake (admin on-demand refresh) |
+
+`captureImageNow` is also set when `snapshot_requested_at` is pending (admin **Capture snapshot now**).
+
+Pending request flags clear when the matching `/ingest` or `/ingest/snapshot` arrives (1 h TTL). On-demand posts bypass the telemetry/snapshot rate limit.
+
+**New device defaults:** telemetry/report/expected **1800** s, snapshot **3600** s, check-in **300** s.
+
+---
+
 ## Device ingestion (`POST /ingest`)
 
 Greenfield extends the legacy ingest contract (`docs/esp-device-ingest.md` in the reference repo) with the rules below. **Do not** treat dissolved oxygen as an MVP sensor.
@@ -488,7 +513,7 @@ Rules:
 - **Maximum image size: 5 MB.** Reject with **413** if `image` exceeds this.
 - Apply per-device rate limit (same token as `POST /ingest`).
 - On success: store image to object storage; insert row into `device_snapshots`; update `devices.last_seen_at`.
-- Response: `{ "ok": true }` (no command fields; commands are issued via `POST /ingest` responses only).
+- Response: `{ "ok": true }` (no command fields; commands are issued via **`POST /checkin`** and **`POST /ingest`** responses).
 
 #### Object storage rollout (Railway)
 
@@ -499,27 +524,31 @@ Rules:
 
 ### Response body (commands)
 
-Every successful ingest response includes telemetry ack fields **and** optional **device commands** the firmware must apply until the next response:
+Every successful **check-in** or ingest response includes **device commands** the firmware must apply until the next response:
 
 ```json
 {
   "ok": true,
   "inserted": 4,
   "commands": {
-    "reportIntervalSeconds": 300,
-    "snapshotIntervalSeconds": 900,
+    "checkinIntervalSeconds": 300,
+    "reportIntervalSeconds": 1800,
+    "snapshotIntervalSeconds": 3600,
     "hasCamera": true,
-    "captureImageNow": false
+    "captureImageNow": false,
+    "sendTelemetryNow": false
   }
 }
 ```
 
 | Field                     | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checkinIntervalSeconds`  | Sleep cadence between `POST /checkin` heartbeats (drives offline detection).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `reportIntervalSeconds`   | Server-authoritative telemetry POST interval. Admins change this in the device manager; firmware should replace its local interval when this field is present.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `snapshotIntervalSeconds` | Interval for **unsolicited** snapshot uploads when `has_camera` is true.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `hasCamera`               | Server-authoritative camera flag. Firmware must apply when present so admin toggles take effect without re-flash (initial flash still sets the first value).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `captureImageNow`         | When `true`, device must **POST a new image** to `POST /ingest/snapshot` as soon as practical (before the next snapshot interval). **This field is derived on every response** — the server queries whether the device's site has any active alert (`alerts.status = 'active'`). There is no server-side state or TTL for this flag; it reappears on every ingest response as long as any active alert exists, so the device will receive it again on its next telemetry POST if the alert has not cleared. Firmware should attempt one snapshot per received `true`, then wait for the next ingest response before deciding to send another. |
+| `sendTelemetryNow`        | When `true`, device must POST `/ingest` on this wake (admin on-demand refresh; flag cleared on fulfillment).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `captureImageNow`         | When `true`, device must **POST a new image** to `POST /ingest/snapshot` as soon as practical. Set when the site has any active alert **or** admin requested a snapshot. Cleared on successful snapshot ingest.                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 Admins **manually** change `reportIntervalSeconds` / `snapshotIntervalSeconds` via admin device update; the next ingest response reflects the new values.
 

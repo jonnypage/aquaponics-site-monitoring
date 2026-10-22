@@ -10,4 +10,5 @@ apps/web/.tanstack/tmp/*
 
 # ESP8266 image for install wizard — generate locally or copy from PlatformIO (see README)
 apps/web/public/firmware/esp8266/firmware.bin
+apps/web/public/firmware/esp32-s3/firmware.bin
 apps/web/public/firmware/esp32-s3-cam/firmware.bin

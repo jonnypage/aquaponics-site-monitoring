@@ -80,7 +80,11 @@ query AdminDevices($siteId: String) {
     expectedIntervalSeconds
     reportIntervalSeconds
     snapshotIntervalSeconds
+    checkinIntervalSeconds
+    telemetryRequestedAt
+    snapshotRequestedAt
     hasCamera
+    snapshotsEnabled
     board
     createdAt
     updatedAt
@@ -105,7 +109,11 @@ query AdminDevice($id: String!) {
     expectedIntervalSeconds
     reportIntervalSeconds
     snapshotIntervalSeconds
+    checkinIntervalSeconds
+    telemetryRequestedAt
+    snapshotRequestedAt
     hasCamera
+    snapshotsEnabled
     board
     pinMap
     createdAt
@@ -302,9 +310,31 @@ mutation UpdateAdminDevice($input: UpdateAdminDeviceInput!) {
     expectedIntervalSeconds
     reportIntervalSeconds
     snapshotIntervalSeconds
+    checkinIntervalSeconds
+    telemetryRequestedAt
+    snapshotRequestedAt
     hasCamera
+    snapshotsEnabled
     board
     createdAt
+    updatedAt
+  }
+}
+
+mutation RequestAdminDeviceTelemetry($deviceId: String!) {
+  requestAdminDeviceTelemetry(deviceId: $deviceId) {
+    deviceId
+    telemetryRequestedAt
+    snapshotRequestedAt
+    updatedAt
+  }
+}
+
+mutation RequestAdminDeviceSnapshot($deviceId: String!) {
+  requestAdminDeviceSnapshot(deviceId: $deviceId) {
+    deviceId
+    telemetryRequestedAt
+    snapshotRequestedAt
     updatedAt
   }
 }

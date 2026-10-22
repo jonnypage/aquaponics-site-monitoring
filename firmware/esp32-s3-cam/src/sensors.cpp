@@ -76,7 +76,7 @@ static int flowMeterIndexForSensor(uint8_t sensorIndex) {
   return -1;
 }
 
-static bool readWaterFlow(uint8_t sensorIndex, float reportIntervalSeconds, float &outLpm) {
+static bool readWaterFlow(uint8_t sensorIndex, float elapsedSeconds, float &outLpm) {
   const int meterIdx = flowMeterIndexForSensor(sensorIndex);
   if (meterIdx < 0) {
     return false;
@@ -86,7 +86,7 @@ static bool readWaterFlow(uint8_t sensorIndex, float reportIntervalSeconds, floa
   g_flowPulses[meterIdx] = 0;
   interrupts();
 
-  const float intervalSec = reportIntervalSeconds > 0.0f ? reportIntervalSeconds : 300.0f;
+  const float intervalSec = elapsedSeconds > 0.0f ? elapsedSeconds : 300.0f;
   const float liters = static_cast<float>(pulses) / kYfs201PulsesPerLiter;
   outLpm = liters / (intervalSec / 60.0f);
   return true;
@@ -124,7 +124,7 @@ void initSensorDrivers(const DeviceConfig &cfg) {
   }
 }
 
-void appendSensorReadings(JsonObject readings, const DeviceConfig &cfg, float reportIntervalSeconds) {
+void appendSensorReadings(JsonObject readings, const DeviceConfig &cfg, float elapsedSeconds) {
   for (uint8_t i = 0; i < cfg.sensorCount; ++i) {
     const SensorPinEntry &s = cfg.sensors[i];
     if (s.pin < 0 || s.sensorType.length() == 0) {
@@ -141,7 +141,7 @@ void appendSensorReadings(JsonObject readings, const DeviceConfig &cfg, float re
     } else if (s.sensorType == "waterLevel") {
       ok = readFloatSwitch(s.pin, value);
     } else if (s.sensorType == "waterFlow") {
-      ok = readWaterFlow(i, reportIntervalSeconds, value);
+      ok = readWaterFlow(i, elapsedSeconds, value);
     } else {
       Serial.printf("Sensor %s: unknown type %s\n", s.key.c_str(), s.sensorType.c_str());
       continue;

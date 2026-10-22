@@ -3,7 +3,7 @@
  * Serial monitor at 115200 (matches firmware Serial.begin and platformio.ini).
  * Usage:
  *   pnpm firmware:monitor -- -p /dev/cu.usbmodemXXXX
- *   pnpm firmware:monitor:s3 -- -p /dev/cu.usbmodemXXXX
+ *   pnpm firmware:monitor:esp32:s3:cam -- -p /dev/cu.usbmodemXXXX
  */
 import { spawn } from "node:child_process";
 import path from "node:path";

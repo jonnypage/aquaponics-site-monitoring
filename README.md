@@ -13,7 +13,8 @@ ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and
 | **Firmware in git** | **No** — source in [`firmware/esp-8266-d1-mini/`](firmware/esp-8266-d1-mini/); built `firmware.bin` is gitignored and copied into the web app for the installer |
 | **Phase 7** | Planned (notifications / alert policy) — not started — [`docs/phase7-agent-prompt.md`](docs/phase7-agent-prompt.md) |
 | **Post-MVP** | ESP32 CYD deferred ([`docs/esp32-cyd-roadmap.md`](docs/esp32-cyd-roadmap.md)) |
-| **ESP32-S3 CAM** | Real sensors + optional OV3660 snapshots — [`docs/esp32-s3-cam-firmware.md`](docs/esp32-s3-cam-firmware.md), `pnpm firmware:build:s3` |
+| **ESP32-S3 DevKitC-1** | Real sensors, no camera — [`docs/esp32-s3-firmware.md`](docs/esp32-s3-firmware.md), `pnpm firmware:build:esp32:s3` |
+| **ESP32-S3 CAM** | Real sensors + optional OV3660 snapshots — [`docs/esp32-s3-cam-firmware.md`](docs/esp32-s3-cam-firmware.md), `pnpm firmware:build:esp32:s3:cam` |
 | **Production** | Railway: [`docs/phase6-railway-production.md`](docs/phase6-railway-production.md) — `OBJECT_STORAGE_*` on API; web build with PlatformIO (`FIRMWARE_BUILD=real` or `RAILWAY_ENVIRONMENT`) |
 
 Before calling Phase 6 production-ready on your environment, run [`docs/phase6-verification.md`](docs/phase6-verification.md) (§8 snapshot upload after latest firmware reflash).
@@ -23,6 +24,7 @@ Before calling Phase 6 production-ready on your environment, run [`docs/phase6-v
 ## What Is Working
 
 - **Device telemetry ingest:** devices can `POST /ingest` with an API key and submit readings keyed by catalog slug (`ds18b20`, `bncPhModule`, `floatSwitch`, `yfs201`, …). Each catalog row has a measurement **`sensorType`** (family) plus optional hardware **`model`**; heuristics and chart labels use the family, ingest uses the slug key.
+- **Device check-in:** `POST /checkin` (no readings) heartbeats `last_seen_at` every ~5 min (default `checkin_interval_seconds`) and returns the command envelope (`reportIntervalSeconds`, `snapshotIntervalSeconds`, `checkinIntervalSeconds`, `hasCamera`, `captureImageNow`, `sendTelemetryNow`). New devices default to **30 min** telemetry and **60 min** snapshots. Admin **Send telemetry now** / **Capture snapshot now** set persisted request flags consumed on the next check-in (~≤5 min).
 - **Alerts API & UI:** GraphQL **`getAlerts`** (optional `siteId`, `type`, `status`; site RBAC) and **`resolveAlert`**; dashboard **`/alerts`** (active/all tabs) plus **active alerts** on each **`/sites/$siteId`** page with a link to the global list. In-process **`@nestjs/schedule`** (~60s) keeps **`device_offline`** in sync and emails **critical** alerts via **Resend** when `RESEND_API_KEY` and `ALERT_FROM_EMAIL` are set (`COOLDOWN_MINUTES`, default 45).
 - **Database foundation:** migrations, seed data, users, sites, devices, sensor catalog, measurements, and **Phase 4 alert tables** (`site_sensor_catalog`, `sensor_thresholds`, `alerts` — migrate to `0003` to enable) are managed through `packages/db`. Migration **`0004`** adds optional **`sites.latitude`** / **`sites.longitude`** for admin site forms.
 - **Authenticated API:** the dashboard API uses GraphQL, HTTP-only JWT cookies, bcrypt password hashing, and role-aware access checks. **Profile updates** use **`updateMe`** (current password required; clears the session cookie so the client signs in again). **Admin-only** GraphQL (`sensorCatalog`, `adminUsers` with assignments, `adminSites`, `adminDevices`, catalog and admin CRUD mutations) is implemented in [`apps/api/src/admin/`](apps/api/src/admin/).
@@ -120,19 +122,26 @@ End-to-end flow: build a firmware image → serve it from the web app → flash 
 The installer loads board-specific firmware from `apps/web/public/firmware/{board}/firmware.bin` (gitignored):
 
 - ESP8266: `/firmware/esp8266/firmware.bin`
+- ESP32-S3 DevKitC-1: `/firmware/esp32-s3/firmware.bin`
 - ESP32-S3 CAM: `/firmware/esp32-s3-cam/firmware.bin`
 
 ```bash
-# From repo root — both boards (required for Railway/CI hardware builds)
+# From repo root — all boards (ESP8266 + both ESP32-S3 targets)
 pnpm firmware:build
 
+# Both ESP32-S3 boards
+pnpm firmware:build:esp32
+
+# ESP32-S3 DevKitC-1 only (no camera)
+pnpm firmware:build:esp32:s3
+
 # ESP32-S3 CAM only
-pnpm firmware:build:s3
+pnpm firmware:build:esp32:s3:cam
 ```
 
 `pnpm dev:web` runs `ensure-or-build-firmware` first; locally it creates a **placeholder** if missing (wizard UI only — **do not** flash that to hardware). On **Railway/CI**, the same hook runs **`pnpm firmware:build`** (requires PlatformIO on the build image).
 
-After any C++ change under `firmware/esp-8266-d1-mini/` or `firmware/esp32-s3-cam/`, run `pnpm firmware:build` again, then re-flash devices.
+After any C++ change under `firmware/esp-8266-d1-mini/`, `firmware/esp32-s3/`, or `firmware/esp32-s3-cam/`, run `pnpm firmware:build` again, then re-flash devices.
 
 ### 2. Configure the web app for devices
 
@@ -199,6 +208,15 @@ pnpm seed:demo         # demo site, device, sensor enablement (no user changes)
 pnpm db:setup
 ```
 
+### Check-in (smoke test)
+
+```bash
+curl -sS -X POST "http://localhost:4000/checkin" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: local-dev-ingest-key-change-in-prod-32chars" \
+  -d '{"deviceId":"seed-device-1","timestamp":"2026-05-21T12:00:00.000Z"}'
+```
+
 ### Snapshot ingest (smoke test)
 
 ```bash
@@ -222,8 +240,10 @@ Full checklist: [`docs/phase6-verification.md`](docs/phase6-verification.md).
 | ------- | ------- |
 | `pnpm firmware:ensure` | Create placeholder if `firmware.bin` is missing (`predev:web` / `prebuild:web`) |
 | `pnpm firmware:placeholder` | Force-regenerate placeholder (installer UI only) |
-| `pnpm firmware:build` | PlatformIO build for ESP8266 + ESP32-S3 CAM + copy to `apps/web/public/firmware/…` |
-| `pnpm firmware:build:s3` | ESP32-S3 CAM only (`mergebin` + copy) |
+| `pnpm firmware:build` | PlatformIO build for ESP8266 + both ESP32-S3 targets + copy to `apps/web/public/firmware/…` |
+| `pnpm firmware:build:esp32` | Both ESP32-S3 boards only |
+| `pnpm firmware:build:esp32:s3` | ESP32-S3 DevKitC-1 only |
+| `pnpm firmware:build:esp32:s3:cam` | ESP32-S3 CAM only (`mergebin` + copy) |
 | `pnpm firmware:copy` | Copy only (if you already ran `pio run`) |
 
 See **[Installing firmware (ESP8266)](#installing-firmware-esp8266)** above and **[`docs/phase6-railway-production.md`](docs/phase6-railway-production.md)** for Railway (web build: `bash scripts/railway-build-web.sh` or `pnpm build:web:railway` — not `pip`).

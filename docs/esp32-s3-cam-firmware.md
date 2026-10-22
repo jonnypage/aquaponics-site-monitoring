@@ -13,7 +13,7 @@ Public binary path: `apps/web/public/firmware/esp32-s3-cam/firmware.bin` (gitign
 | Wi‑Fi, ingest, sensor drivers | **Any ESP32-S3** — map sensors to GPIOs allowed for your board in the install wizard |
 | Camera snapshots | ESP32-S3 modules with **PSRAM** and an **OV3660** on the standard CAM DVP pinout in `src/camera.cpp` (DIYables / Freenove-class ESP32-S3 CAM boards) |
 
-Generic ESP32-S3 dev kits without a camera: leave **Has camera** unchecked; telemetry still runs.
+Generic ESP32-S3 dev kits without a camera: use install board **`esp32-s3`** ([`docs/esp32-s3-firmware.md`](esp32-s3-firmware.md)). On ESP32-S3 CAM boards, leave **Has camera** unchecked for telemetry-only.
 
 PlatformIO targets **`esp32-s3-devkitc-1`** with OPI PSRAM — tweak `platformio.ini` if your module differs.
 
@@ -29,9 +29,10 @@ Admin → Devices → **Install** → select **ESP32-S3 CAM**. Same flow as ESP8
 Requires [PlatformIO](https://platformio.org/) on PATH:
 
 ```bash
-pnpm firmware:build:s3    # S3 only
-pnpm firmware:build       # ESP8266 + S3
-pnpm firmware:monitor:s3 -- -p /dev/cu.usbmodemXXXX
+pnpm firmware:build:esp32:s3:cam  # CAM only
+pnpm firmware:build:esp32         # both ESP32-S3 boards
+pnpm firmware:build               # ESP8266 + both ESP32-S3
+pnpm firmware:monitor:esp32:s3:cam -- -p /dev/cu.usbmodemXXXX
 ```
 
 Build runs `pio run` then merges bootloader/partitions/app into `firmware.factory.bin` (flash offset 0 for esp-web-tools).
@@ -47,9 +48,17 @@ Build runs `pio run` then merges bootloader/partitions/app into `firmware.factor
 
 Only sensors **included** in the install wizard (with valid GPIOs) are read. Disabled keys are omitted from ingest.
 
+## Runtime loop
+
+Uses shared [`firmware/shared/aquaponics-core/`](../firmware/shared/aquaponics-core/):
+
+1. Sleep **`checkinIntervalSeconds`** (default 5 min)
+2. `POST /checkin` → parse commands (`sendTelemetryNow`, `captureImageNow`, intervals)
+3. `POST /ingest` when due or on-demand; `POST /ingest/snapshot` when camera enabled and interval/alert/request demands it
+
 ## Camera
 
-When **Has camera** is enabled (flashed config or ingest `commands`):
+When **Has camera** is enabled (flashed config or check-in/ingest `commands`):
 
 - Captures **VGA JPEG** from the onboard OV3660
 - Uploads on `snapshotIntervalSeconds` or when `captureImageNow` is set (same API contract as ESP8266)
@@ -78,7 +87,7 @@ Many **ESP32-S3 CAM** boards expose **two USB connectors** (or one USB-C plus a 
 | **UART bridge** (CH340/CP2102 class) | Application `Serial` logs | `esp32-s3-cam starting`, Wi‑Fi, sensors, `Telemetry OK` |
 | **Native USB** (chip USB/JTAG) | ROM boot + flash/download | Often **only** `ESP-ROM` / `entry 0x403c98d0`, then silence |
 
-**Use the UART-bridge port** for `pnpm firmware:monitor:s3` and pick the **same** port in Chrome when flashing from the install wizard. If you open the wrong port, it looks like a boot loop or “no firmware” even when the device is healthy.
+**Use the UART-bridge port** for `pnpm firmware:monitor:esp32:s3:cam` and pick the **same** port in Chrome when flashing from the install wizard. If you open the wrong port, it looks like a boot loop or “no firmware” even when the device is healthy.
 
 On macOS, list devices: `ls /dev/cu.usbmodem*`. After reset, the working port usually logs `rst:0x15 (USB_UART_CHIP_RESET)` and app output within a few seconds.
 

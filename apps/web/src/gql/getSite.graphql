@@ -36,5 +36,6 @@ query GetSite($id: String!) {
       byteSize
     }
     pollIntervalSeconds
+    telemetryRefreshPending
   }
 }

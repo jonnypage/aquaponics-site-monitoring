@@ -2,8 +2,10 @@
 /**
  * PlatformIO build + copy to apps/web/public/firmware/{board}/firmware.bin
  * Usage:
- *   pnpm firmware:build          # both boards
- *   pnpm firmware:build:s3       # esp32-s3-cam only
+ *   pnpm firmware:build              # all boards (ESP8266 + ESP32-S3 + ESP32-S3 CAM)
+ *   pnpm firmware:build:esp32        # both ESP32-S3 targets
+ *   pnpm firmware:build:esp32:s3     # ESP32-S3 DevKitC-1 only
+ *   pnpm firmware:build:esp32:s3:cam # ESP32-S3 CAM only
  */
 import { spawn } from "node:child_process";
 import path from "node:path";

@@ -1,5 +1,5 @@
-import { ForbiddenException, Inject, NotFoundException, UseGuards } from "@nestjs/common";
-import { Args, Query, Resolver } from "@nestjs/graphql";
+import { BadRequestException, ForbiddenException, Inject, NotFoundException, UseGuards } from "@nestjs/common";
+import { Args, Mutation, Query, Resolver } from "@nestjs/graphql";
 import type { Database, User } from "@aquaponics/db";
 import type { Kysely } from "kysely";
 import { CurrentUser } from "../auth/current-user.decorator.js";
@@ -11,6 +11,7 @@ import { filterAlertsForEnabledSensorsOnly, loadAlertFilterContext } from "./sit
 import { SiteModel, SiteStatus } from "./dashboard.types.js";
 import { SnapshotsService } from "../snapshots/snapshots.service.js";
 import { loadSiteSensorReporting } from "./site-sensor-reporting.util.js";
+import { requestSiteDeviceTelemetry, siteTelemetryRefreshPending } from "./site-device-requests.util.js";
 
 function userRoleToGql(role: User["role"]): Role {
   return role as Role;
@@ -87,6 +88,36 @@ export class SitesResolver {
     );
   }
 
+  @UseGuards(GqlAuthGuard)
+  @Mutation(() => SiteModel)
+  async requestSiteTelemetry(@Args("siteId") siteId: string, @CurrentUser() user: User): Promise<SiteModel> {
+    if (!(await this.authService.requireSiteAccess(user, siteId))) {
+      throw new ForbiddenException("No access to this site");
+    }
+    const site = await this.db
+      .selectFrom("sites")
+      .select(["id", "name", "latitude", "longitude"])
+      .where("id", "=", siteId)
+      .executeTakeFirst();
+    if (!site) {
+      throw new NotFoundException("Site not found");
+    }
+
+    const updated = await requestSiteDeviceTelemetry(this.db, siteId);
+    if (updated === 0) {
+      throw new BadRequestException("No devices are assigned to this site");
+    }
+
+    return this.buildSiteModel(
+      user,
+      site.id,
+      site.name,
+      site.latitude ?? null,
+      site.longitude ?? null,
+      true
+    );
+  }
+
   private async buildSiteModel(
     user: User,
     siteId: string,
@@ -152,6 +183,8 @@ export class SitesResolver {
     const pollIntervalSeconds =
       typeof rawMin === "number" && Number.isFinite(rawMin) && rawMin > 0 ? rawMin : 300;
 
+    const telemetryRefreshPending = await siteTelemetryRefreshPending(this.db, siteId);
+
     return {
       id: siteId,
       name,
@@ -163,7 +196,8 @@ export class SitesResolver {
       longitude,
       latestSnapshot,
       recentSnapshots,
-      pollIntervalSeconds
+      pollIntervalSeconds,
+      telemetryRefreshPending
     };
   }
 }

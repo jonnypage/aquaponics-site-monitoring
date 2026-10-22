@@ -31,9 +31,11 @@ import {
   syncSiteSensorCatalogForDevice
 } from "../sites/site-sensor-sync.util.js";
 
-const DEFAULT_TELEMETRY_INTERVAL_SECONDS = 300;
+const DEFAULT_TELEMETRY_INTERVAL_SECONDS = 1800;
+const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = 3600;
+const DEFAULT_CHECKIN_INTERVAL_SECONDS = 300;
 
-const VALID_DEVICE_BOARDS = new Set(["esp8266", "esp32-s3-cam"]);
+const VALID_DEVICE_BOARDS = new Set(["esp8266", "esp32-s3", "esp32-s3-cam"]);
 
 function normalizeDeviceBoard(value: string | null | undefined): string | null {
   if (value == null) {
@@ -225,7 +227,11 @@ export class AdminService {
     expected_interval_seconds: number;
     report_interval_seconds: number;
     snapshot_interval_seconds: number;
+    checkin_interval_seconds: number;
+    telemetry_requested_at: Date | null;
+    snapshot_requested_at: Date | null;
     has_camera: boolean;
+    snapshots_enabled: boolean;
     board: string | null;
     pin_map: DevicePinMap | null;
     created_at: Date;
@@ -239,7 +245,11 @@ export class AdminService {
       expectedIntervalSeconds: row.expected_interval_seconds,
       reportIntervalSeconds: row.report_interval_seconds,
       snapshotIntervalSeconds: row.snapshot_interval_seconds,
+      checkinIntervalSeconds: row.checkin_interval_seconds,
+      telemetryRequestedAt: row.telemetry_requested_at ? new Date(row.telemetry_requested_at) : null,
+      snapshotRequestedAt: row.snapshot_requested_at ? new Date(row.snapshot_requested_at) : null,
       hasCamera: row.has_camera,
+      snapshotsEnabled: row.snapshots_enabled,
       board: row.board,
       pinMap: row.pin_map,
       createdAt: new Date(row.created_at),
@@ -966,7 +976,8 @@ export class AdminService {
         site_id: siteId,
         expected_interval_seconds: telemetryIntervalSeconds,
         report_interval_seconds: telemetryIntervalSeconds,
-        snapshot_interval_seconds: input.snapshotIntervalSeconds ?? 1800,
+        snapshot_interval_seconds: input.snapshotIntervalSeconds ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+        checkin_interval_seconds: DEFAULT_CHECKIN_INTERVAL_SECONDS,
         has_camera: input.hasCamera ?? false,
         snapshots_enabled: false,
         updated_at: new Date()
@@ -1013,6 +1024,7 @@ export class AdminService {
       expected_interval_seconds: number;
       report_interval_seconds: number;
       snapshot_interval_seconds: number;
+      checkin_interval_seconds: number;
       has_camera: boolean;
       snapshots_enabled: boolean;
       updated_at: Date;
@@ -1021,6 +1033,7 @@ export class AdminService {
       expected_interval_seconds: telemetryInterval.expected,
       report_interval_seconds: telemetryInterval.report,
       snapshot_interval_seconds: input.snapshotIntervalSeconds ?? existing.snapshot_interval_seconds,
+      checkin_interval_seconds: input.checkinIntervalSeconds ?? existing.checkin_interval_seconds,
       has_camera: nextHasCamera,
       snapshots_enabled: nextHasCamera ? existing.snapshots_enabled : false,
       updated_at: new Date()
@@ -1056,6 +1069,54 @@ export class AdminService {
       }
     }
 
+    const device = this.mapDeviceRow(row);
+    await this.attachSensorReadings([device]);
+    return device;
+  }
+
+  async requestAdminDeviceTelemetry(deviceId: string): Promise<AdminDeviceModel> {
+    const existing = await this.db
+      .selectFrom("devices")
+      .selectAll()
+      .where("device_id", "=", deviceId)
+      .executeTakeFirst();
+    if (!existing) {
+      throw new NotFoundException("Device not found");
+    }
+    const now = new Date();
+    const row = await this.db
+      .updateTable("devices")
+      .set({ telemetry_requested_at: now, updated_at: now })
+      .where("device_id", "=", deviceId)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    const device = this.mapDeviceRow(row);
+    await this.attachSensorReadings([device]);
+    return device;
+  }
+
+  async requestAdminDeviceSnapshot(deviceId: string): Promise<AdminDeviceModel> {
+    const existing = await this.db
+      .selectFrom("devices")
+      .selectAll()
+      .where("device_id", "=", deviceId)
+      .executeTakeFirst();
+    if (!existing) {
+      throw new NotFoundException("Device not found");
+    }
+    if (!existing.has_camera) {
+      throw new BadRequestException("Device is not configured with a camera");
+    }
+    if (!existing.snapshots_enabled) {
+      throw new BadRequestException("Camera snapshots are disabled for this device at the site");
+    }
+    const now = new Date();
+    const row = await this.db
+      .updateTable("devices")
+      .set({ snapshot_requested_at: now, updated_at: now })
+      .where("device_id", "=", deviceId)
+      .returningAll()
+      .executeTakeFirstOrThrow();
     const device = this.mapDeviceRow(row);
     await this.attachSensorReadings([device]);
     return device;

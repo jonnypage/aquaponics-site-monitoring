@@ -53,6 +53,9 @@ export interface DevicesTable {
   expected_interval_seconds: number;
   report_interval_seconds: number;
   snapshot_interval_seconds: number;
+  checkin_interval_seconds: number;
+  telemetry_requested_at: Timestamp | null;
+  snapshot_requested_at: Timestamp | null;
   has_camera: boolean;
   snapshots_enabled: boolean;
   name: string | null;

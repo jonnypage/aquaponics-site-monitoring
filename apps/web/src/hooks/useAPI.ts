@@ -7,6 +7,7 @@ import {
   LoginDocument,
   LogoutDocument,
   ResolveAlertDocument,
+  RequestSiteTelemetryDocument,
   UpdateMeDocument,
   type GetAlertsQuery,
   type GetAlertsQueryVariables,
@@ -19,6 +20,8 @@ import {
   type LogoutMutation,
   type ResolveAlertMutation,
   type ResolveAlertMutationVariables,
+  type RequestSiteTelemetryMutation,
+  type RequestSiteTelemetryMutationVariables,
   type TimeRange,
   type UpdateMeMutation,
   type UpdateMeMutationVariables
@@ -138,6 +141,25 @@ export function useAlerts(
     refetchInterval: siteScoped
       ? (options?.refetchIntervalMs ?? SITE_ALERTS_REFETCH_MS)
       : false
+  });
+}
+
+export function useRequestSiteTelemetryMutate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (siteId: string) => {
+      const variables: RequestSiteTelemetryMutationVariables = { siteId };
+      const r = await graphqlRequest<RequestSiteTelemetryMutation>(
+        RequestSiteTelemetryDocument,
+        variables
+      );
+      return unwrap("requestSiteTelemetry", r).requestSiteTelemetry;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(siteQueryKey(data.id), data);
+      invalidateSiteDetailQueries(queryClient, data.id);
+      void queryClient.invalidateQueries({ queryKey: sitesQueryKey });
+    }
   });
 }
 

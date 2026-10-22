@@ -14,6 +14,8 @@ import {
   DeleteSensorCatalogEntryDocument,
   ResetAdminSiteMeasurementsDocument,
   ResetAdminUserPasswordDocument,
+  RequestAdminDeviceSnapshotDocument,
+  RequestAdminDeviceTelemetryDocument,
   RotateAdminDeviceApiKeyDocument,
   SensorCatalogDocument,
   UpdateAdminDeviceDocument,
@@ -46,6 +48,10 @@ import {
   type DeleteSensorCatalogEntryMutationVariables,
   type ResetAdminUserPasswordMutation,
   type ResetAdminUserPasswordMutationVariables,
+  type RequestAdminDeviceSnapshotMutation,
+  type RequestAdminDeviceSnapshotMutationVariables,
+  type RequestAdminDeviceTelemetryMutation,
+  type RequestAdminDeviceTelemetryMutationVariables,
   type RotateAdminDeviceApiKeyMutation,
   type RotateAdminDeviceApiKeyMutationVariables,
   type SensorCatalogQuery,
@@ -293,6 +299,42 @@ export function useUpdateAdminDeviceMutate() {
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: adminDevicesQueryKey(undefined) });
       void queryClient.invalidateQueries({ queryKey: adminDeviceQueryKey(variables.deviceId) });
+    }
+  });
+}
+
+export function useRequestDeviceTelemetryMutate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (deviceId: string) => {
+      const variables: RequestAdminDeviceTelemetryMutationVariables = { deviceId };
+      const r = await graphqlRequest<RequestAdminDeviceTelemetryMutation>(
+        RequestAdminDeviceTelemetryDocument,
+        variables
+      );
+      return unwrap("requestAdminDeviceTelemetry", r).requestAdminDeviceTelemetry;
+    },
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: adminDevicesQueryKey(undefined) });
+      void queryClient.invalidateQueries({ queryKey: adminDeviceQueryKey(data.deviceId) });
+    }
+  });
+}
+
+export function useRequestDeviceSnapshotMutate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (deviceId: string) => {
+      const variables: RequestAdminDeviceSnapshotMutationVariables = { deviceId };
+      const r = await graphqlRequest<RequestAdminDeviceSnapshotMutation>(
+        RequestAdminDeviceSnapshotDocument,
+        variables
+      );
+      return unwrap("requestAdminDeviceSnapshot", r).requestAdminDeviceSnapshot;
+    },
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: adminDevicesQueryKey(undefined) });
+      void queryClient.invalidateQueries({ queryKey: adminDeviceQueryKey(data.deviceId) });
     }
   });
 }

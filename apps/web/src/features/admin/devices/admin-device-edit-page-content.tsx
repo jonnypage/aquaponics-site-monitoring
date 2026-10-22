@@ -1,5 +1,5 @@
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PageBackLink } from "~/components/layout/page-back-link";
@@ -12,7 +12,15 @@ import { AdminDeviceRecentSnapshots } from "~/components/admin/admin-device-rece
 import { EntityKeyBadge } from "~/components/ui/entity-key-badge";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { useAdminDevice, useAdminSites, useDeleteAdminDeviceMutate, useUpdateAdminDeviceMutate } from "~/hooks/useAdmin";
+import {
+  useAdminDevice,
+  useAdminSites,
+  useDeleteAdminDeviceMutate,
+  useRequestDeviceSnapshotMutate,
+  useRequestDeviceTelemetryMutate,
+  useUpdateAdminDeviceMutate
+} from "~/hooks/useAdmin";
+import { getDeviceBoardGpioProfile, isDeviceBoardId } from "~/utils/device-board-gpio";
 
 const routeApi = getRouteApi("/_authed/admin/devices/$deviceId/edit");
 
@@ -25,6 +33,17 @@ function parseOptInt(s: string, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function isPendingRequest(requestedAt: string | null | undefined): boolean {
+  if (!requestedAt) {
+    return false;
+  }
+  const atMs = Date.parse(requestedAt);
+  if (!Number.isFinite(atMs)) {
+    return false;
+  }
+  return Date.now() - atMs <= 60 * 60 * 1000;
+}
+
 export function AdminDeviceEditPageContent() {
   const { deviceId } = routeApi.useParams();
   const { t } = useTranslation();
@@ -33,14 +52,28 @@ export function AdminDeviceEditPageContent() {
   const { data: sites } = useAdminSites();
   const { mutateAsync: updateDevice, isPending: isSaving } = useUpdateAdminDeviceMutate();
   const { mutateAsync: deleteDevice, isPending: isDeleting } = useDeleteAdminDeviceMutate();
+  const { mutateAsync: requestTelemetry, isPending: isRequestingTelemetry } = useRequestDeviceTelemetryMutate();
+  const { mutateAsync: requestSnapshot, isPending: isRequestingSnapshot } = useRequestDeviceSnapshotMutate();
 
   const [name, setName] = useState("");
   const [siteId, setSiteId] = useState("");
   const [telemetryInterval, setTelemetryInterval] = useState("");
+  const [checkinInterval, setCheckinInterval] = useState("");
   const [snapshot, setSnapshot] = useState("");
   const [hasCamera, setHasCamera] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const boardSupportsCamera = useMemo(() => {
+    if (device?.board && isDeviceBoardId(device.board)) {
+      return getDeviceBoardGpioProfile(device.board).supportsCamera;
+    }
+    return true;
+  }, [device?.board]);
+
+  const telemetryPending = isPendingRequest(device?.telemetryRequestedAt);
+  const snapshotPending = isPendingRequest(device?.snapshotRequestedAt);
+  const canRequestSnapshot = boardSupportsCamera && device?.hasCamera && device?.snapshotsEnabled;
 
   useEffect(() => {
     if (!device) {
@@ -49,6 +82,7 @@ export function AdminDeviceEditPageContent() {
     setName(device.name ?? "");
     setSiteId(device.siteId ?? "");
     setTelemetryInterval(String(device.reportIntervalSeconds));
+    setCheckinInterval(String(device.checkinIntervalSeconds));
     setSnapshot(String(device.snapshotIntervalSeconds));
     setHasCamera(device.hasCamera);
   }, [device]);
@@ -66,10 +100,35 @@ export function AdminDeviceEditPageContent() {
         siteId: siteId === "" ? null : siteId,
         expectedIntervalSeconds: parseOptInt(telemetryInterval, device.reportIntervalSeconds),
         reportIntervalSeconds: parseOptInt(telemetryInterval, device.reportIntervalSeconds),
+        checkinIntervalSeconds: parseOptInt(checkinInterval, device.checkinIntervalSeconds),
         snapshotIntervalSeconds: parseOptInt(snapshot, device.snapshotIntervalSeconds),
-        hasCamera
+        hasCamera: boardSupportsCamera ? hasCamera : false
       });
       await navigate({ to: "/admin/devices" });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : t("shared.unknownError"));
+    }
+  }
+
+  async function onRequestTelemetry() {
+    if (!device) {
+      return;
+    }
+    setFormError(null);
+    try {
+      await requestTelemetry(device.deviceId);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : t("shared.unknownError"));
+    }
+  }
+
+  async function onRequestSnapshot() {
+    if (!device) {
+      return;
+    }
+    setFormError(null);
+    try {
+      await requestSnapshot(device.deviceId);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : t("shared.unknownError"));
     }
@@ -140,6 +199,15 @@ export function AdminDeviceEditPageContent() {
               </select>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="checkin-interval">{t("admin.devices.checkinInterval")}</Label>
+              <p className="text-xs text-muted-foreground">{t("admin.devices.checkinIntervalHint")}</p>
+              <Input
+                id="checkin-interval"
+                value={checkinInterval}
+                onChange={(e) => setCheckinInterval(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="telemetry-interval">{t("admin.devices.telemetryInterval")}</Label>
               <p className="text-xs text-muted-foreground">{t("admin.devices.telemetryIntervalHint")}</p>
               <Input
@@ -147,17 +215,63 @@ export function AdminDeviceEditPageContent() {
                 value={telemetryInterval}
                 onChange={(e) => setTelemetryInterval(e.target.value)}
               />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={hasCamera} onChange={() => setHasCamera((v) => !v)} />
-              {t("admin.devices.hasCamera")}
-            </label>
-            <p className="text-xs text-muted-foreground">{t("admin.devices.hasCameraHint")}</p>
-            {hasCamera ? (
-              <div className="space-y-2">
-                <Label htmlFor="snap">{t("admin.devices.snapshotInterval")}</Label>
-                <Input id="snap" value={snapshot} onChange={(e) => setSnapshot(e.target.value)} />
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isRequestingTelemetry || telemetryPending}
+                  onClick={() => void onRequestTelemetry()}
+                >
+                  <ButtonPendingLabel pending={isRequestingTelemetry}>
+                    {telemetryPending
+                      ? t("admin.devices.sendTelemetryPending")
+                      : t("admin.devices.sendTelemetryNow")}
+                  </ButtonPendingLabel>
+                </Button>
+                {telemetryPending ? (
+                  <p className="text-xs text-muted-foreground">{t("admin.devices.sendTelemetryPendingHint")}</p>
+                ) : null}
               </div>
+            </div>
+            {boardSupportsCamera ? (
+              <>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={hasCamera} onChange={() => setHasCamera((v) => !v)} />
+                  {t("admin.devices.hasCamera")}
+                </label>
+                <p className="text-xs text-muted-foreground">{t("admin.devices.hasCameraHint")}</p>
+                {hasCamera ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="snap">{t("admin.devices.snapshotInterval")}</Label>
+                    <Input id="snap" value={snapshot} onChange={(e) => setSnapshot(e.target.value)} />
+                    {canRequestSnapshot ? (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isRequestingSnapshot || snapshotPending}
+                          onClick={() => void onRequestSnapshot()}
+                        >
+                          <ButtonPendingLabel pending={isRequestingSnapshot}>
+                            {snapshotPending
+                              ? t("admin.devices.captureSnapshotPending")
+                              : t("admin.devices.captureSnapshotNow")}
+                          </ButtonPendingLabel>
+                        </Button>
+                        {snapshotPending ? (
+                          <p className="text-xs text-muted-foreground">
+                            {t("admin.devices.captureSnapshotPendingHint")}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : device.hasCamera && !device.snapshotsEnabled ? (
+                      <p className="text-xs text-muted-foreground">{t("admin.devices.snapshotsDisabledHint")}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
             ) : null}
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             <div className="flex flex-wrap gap-2">
@@ -172,7 +286,7 @@ export function AdminDeviceEditPageContent() {
         </CardContent>
       </Card>
 
-      {device.hasCamera || (device.recentSnapshots?.length ?? 0) > 0 ? (
+      {boardSupportsCamera && (device.hasCamera || (device.recentSnapshots?.length ?? 0) > 0) ? (
         <div className="mt-6">
           <AdminDeviceRecentSnapshots
             deviceId={device.deviceId}

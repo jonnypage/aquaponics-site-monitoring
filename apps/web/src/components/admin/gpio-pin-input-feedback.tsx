@@ -11,6 +11,10 @@ function reasonMessageKey(reason: GpioBlockReason | "invalid" | "warning_gpio"):
   switch (reason) {
     case "flash":
       return "admin.devices.installGpioErrorFlash";
+    case "camera":
+      return "admin.devices.installGpioErrorCamera";
+    case "reserved":
+      return "admin.devices.installGpioErrorReserved";
     case "boot":
       return "admin.devices.installGpioErrorBoot";
     case "serial":
