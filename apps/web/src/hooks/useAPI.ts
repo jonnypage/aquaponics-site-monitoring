@@ -156,7 +156,9 @@ export function useRequestSiteTelemetryMutate() {
       return unwrap("requestSiteTelemetry", r).requestSiteTelemetry;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(siteQueryKey(data.id), data);
+      queryClient.setQueryData(siteQueryKey(data.id), (prev) =>
+        prev ? { ...prev, ...data } : prev
+      );
       invalidateSiteDetailQueries(queryClient, data.id);
       void queryClient.invalidateQueries({ queryKey: sitesQueryKey });
     }

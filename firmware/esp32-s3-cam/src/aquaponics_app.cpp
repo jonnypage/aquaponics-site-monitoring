@@ -4,6 +4,35 @@
 
 namespace aquaponics {
 
+namespace {
+
+int intervalOrFallback(int value, int fallback) {
+  return value > 0 ? value : fallback;
+}
+
+bool intervalElapsed(unsigned long lastMs, int intervalSeconds, unsigned long nowMs) {
+  if (lastMs == 0) {
+    return true;
+  }
+  const int intervalSec = intervalOrFallback(intervalSeconds, 1);
+  return nowMs - lastMs >= static_cast<unsigned long>(intervalSec) * 1000UL;
+}
+
+unsigned long remainingIntervalSeconds(unsigned long lastMs, int intervalSeconds, unsigned long nowMs) {
+  const int intervalSec = intervalOrFallback(intervalSeconds, 1);
+  if (lastMs == 0) {
+    return 0;
+  }
+  const unsigned long intervalMs = static_cast<unsigned long>(intervalSec) * 1000UL;
+  const unsigned long elapsed = nowMs - lastMs;
+  if (elapsed >= intervalMs) {
+    return 0;
+  }
+  return (intervalMs - elapsed + 999UL) / 1000UL;
+}
+
+}  // namespace
+
 AquaponicsApp::AquaponicsApp(DeviceConfig &cfg, AppendReadingsFn appendReadings, PostSnapshotFn postSnapshot,
                              LoopHookFn loopHook)
     : g_cfg(cfg), g_appendReadings(appendReadings), g_postSnapshot(postSnapshot), g_loopHook(loopHook) {}
@@ -18,13 +47,22 @@ bool AquaponicsApp::parseCommands(const String &body) {
     return false;
   }
   if (!commands["checkinIntervalSeconds"].isNull()) {
-    g_commands.checkinIntervalSeconds = commands["checkinIntervalSeconds"].as<int>();
+    const int value = commands["checkinIntervalSeconds"].as<int>();
+    if (value > 0) {
+      g_commands.checkinIntervalSeconds = value;
+    }
   }
   if (!commands["reportIntervalSeconds"].isNull()) {
-    g_commands.reportIntervalSeconds = commands["reportIntervalSeconds"].as<int>();
+    const int value = commands["reportIntervalSeconds"].as<int>();
+    if (value > 0) {
+      g_commands.reportIntervalSeconds = value;
+    }
   }
   if (!commands["snapshotIntervalSeconds"].isNull()) {
-    g_commands.snapshotIntervalSeconds = commands["snapshotIntervalSeconds"].as<int>();
+    const int value = commands["snapshotIntervalSeconds"].as<int>();
+    if (value > 0) {
+      g_commands.snapshotIntervalSeconds = value;
+    }
   }
   if (!commands["hasCamera"].isNull()) {
     g_commands.hasCamera = commands["hasCamera"].as<bool>();
@@ -66,15 +104,15 @@ bool AquaponicsApp::postTelemetry(float elapsedSeconds, String &responseBody, in
   return httpPostJson(g_cfg.apiOrigin, "/ingest", g_cfg.apiKey, payload, responseBody, httpCode, responseHeaders);
 }
 
+bool AquaponicsApp::shouldCheckin(unsigned long nowMs) const {
+  return intervalElapsed(g_lastCheckinMs, g_commands.checkinIntervalSeconds, nowMs);
+}
+
 bool AquaponicsApp::shouldSendTelemetry(unsigned long nowMs) const {
   if (g_commands.sendTelemetryNow) {
     return true;
   }
-  if (g_lastReportMs == 0) {
-    return true;
-  }
-  const unsigned long intervalMs = static_cast<unsigned long>(g_commands.reportIntervalSeconds) * 1000UL;
-  return nowMs - g_lastReportMs >= intervalMs;
+  return intervalElapsed(g_lastReportMs, g_commands.reportIntervalSeconds, nowMs);
 }
 
 bool AquaponicsApp::shouldSendSnapshot(unsigned long nowMs) const {
@@ -84,11 +122,23 @@ bool AquaponicsApp::shouldSendSnapshot(unsigned long nowMs) const {
   if (g_commands.captureImageNow) {
     return true;
   }
-  if (g_lastSnapshotMs == 0) {
-    return true;
+  return intervalElapsed(g_lastSnapshotMs, g_commands.snapshotIntervalSeconds, nowMs);
+}
+
+unsigned long AquaponicsApp::sleepSeconds(unsigned long nowMs) const {
+  unsigned long sleepSec = remainingIntervalSeconds(g_lastCheckinMs, g_commands.checkinIntervalSeconds, nowMs);
+  const unsigned long reportSec = remainingIntervalSeconds(g_lastReportMs, g_commands.reportIntervalSeconds, nowMs);
+  if (reportSec < sleepSec) {
+    sleepSec = reportSec;
   }
-  const unsigned long intervalMs = static_cast<unsigned long>(g_commands.snapshotIntervalSeconds) * 1000UL;
-  return nowMs - g_lastSnapshotMs >= intervalMs;
+  if (g_commands.hasCamera && g_postSnapshot != nullptr) {
+    const unsigned long snapSec =
+        remainingIntervalSeconds(g_lastSnapshotMs, g_commands.snapshotIntervalSeconds, nowMs);
+    if (snapSec < sleepSec) {
+      sleepSec = snapSec;
+    }
+  }
+  return sleepSec < 1 ? 1 : sleepSec;
 }
 
 void AquaponicsApp::loop() {
@@ -103,31 +153,35 @@ void AquaponicsApp::loop() {
 
   const unsigned long wakeMs = millis();
 
-  String body;
-  String headers;
-  int code = 0;
+  // Check-in is rate-limited to checkinIntervalSeconds. Telemetry/snapshots may be due sooner.
+  if (shouldCheckin(wakeMs)) {
+    String body;
+    String headers;
+    int code = 0;
 
-  if (!postCheckin(body, code, headers)) {
-    delay(5000);
-    return;
+    if (!postCheckin(body, code, headers)) {
+      delay(5000);
+      return;
+    }
+
+    if (code == 429) {
+      const int waitSec = parseRetryAfterSeconds(headers);
+      Serial.printf("Check-in rate limited, waiting %ds\n", waitSec);
+      delay(static_cast<unsigned long>(waitSec) * 1000UL);
+      return;
+    }
+
+    if (code < 200 || code >= 300) {
+      Serial.printf("Check-in HTTP %d: %s\n", code, body.c_str());
+      delay(10000);
+      return;
+    }
+
+    g_lastCheckinMs = wakeMs;
+    parseCommands(body);
+    Serial.printf("Check-in OK (checkin=%ds report=%ds snapshot=%ds)\n", g_commands.checkinIntervalSeconds,
+                  g_commands.reportIntervalSeconds, g_commands.snapshotIntervalSeconds);
   }
-
-  if (code == 429) {
-    const int waitSec = parseRetryAfterSeconds(headers);
-    Serial.printf("Check-in rate limited, waiting %ds\n", waitSec);
-    delay(static_cast<unsigned long>(waitSec) * 1000UL);
-    return;
-  }
-
-  if (code < 200 || code >= 300) {
-    Serial.printf("Check-in HTTP %d: %s\n", code, body.c_str());
-    delay(10000);
-    return;
-  }
-
-  parseCommands(body);
-  Serial.printf("Check-in OK (checkin=%ds report=%ds snapshot=%ds)\n", g_commands.checkinIntervalSeconds,
-                g_commands.reportIntervalSeconds, g_commands.snapshotIntervalSeconds);
 
   if (shouldSendTelemetry(wakeMs)) {
     const float elapsedSec =
@@ -174,7 +228,11 @@ void AquaponicsApp::loop() {
     }
   }
 
-  delay(static_cast<unsigned long>(g_commands.checkinIntervalSeconds) * 1000UL);
+  const unsigned long waitSec = sleepSeconds(millis());
+  Serial.printf("Next wake in %lus (checkin=%ds report=%ds snapshot=%ds)\n", waitSec,
+                g_commands.checkinIntervalSeconds, g_commands.reportIntervalSeconds,
+                g_commands.snapshotIntervalSeconds);
+  delay(waitSec * 1000UL);
 }
 
 }  // namespace aquaponics

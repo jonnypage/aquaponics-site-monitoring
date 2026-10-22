@@ -11,8 +11,9 @@
 namespace
 {
 
-  constexpr int kFallbackReportSeconds = 300;
-  constexpr int kFallbackSnapshotSeconds = 900;
+  constexpr int kFallbackCheckinSeconds = 300;
+  constexpr int kFallbackReportSeconds = 1800;
+  constexpr int kFallbackSnapshotSeconds = 3600;
   constexpr unsigned long kWifiReconnectMs = 15000;
 
 #ifndef UD_WIFI_DEBUG
@@ -20,11 +21,46 @@ namespace
 #endif
 
   DeviceConfig g_cfg;
+  int g_checkinIntervalSeconds = kFallbackCheckinSeconds;
   int g_reportIntervalSeconds = kFallbackReportSeconds;
   int g_snapshotIntervalSeconds = kFallbackSnapshotSeconds;
   bool g_captureImageNow = false;
+  bool g_sendTelemetryNow = false;
+  unsigned long g_lastCheckinMs = 0;
+  unsigned long g_lastReportMs = 0;
   unsigned long g_lastSnapshotMs = 0;
   unsigned long g_lastWifiAttemptMs = 0;
+
+  int intervalOrFallback(int value, int fallback)
+  {
+    return value > 0 ? value : fallback;
+  }
+
+  bool intervalElapsed(unsigned long lastMs, int intervalSeconds, unsigned long nowMs)
+  {
+    if (lastMs == 0)
+    {
+      return true;
+    }
+    const int intervalSec = intervalOrFallback(intervalSeconds, 1);
+    return nowMs - lastMs >= static_cast<unsigned long>(intervalSec) * 1000UL;
+  }
+
+  unsigned long remainingIntervalSeconds(unsigned long lastMs, int intervalSeconds, unsigned long nowMs)
+  {
+    const int intervalSec = intervalOrFallback(intervalSeconds, 1);
+    if (lastMs == 0)
+    {
+      return 0;
+    }
+    const unsigned long intervalMs = static_cast<unsigned long>(intervalSec) * 1000UL;
+    const unsigned long elapsed = nowMs - lastMs;
+    if (elapsed >= intervalMs)
+    {
+      return 0;
+    }
+    return (intervalMs - elapsed + 999UL) / 1000UL;
+  }
 
   String iso8601Utc()
   {
@@ -184,25 +220,49 @@ namespace
     {
       return false;
     }
+    if (!commands["checkinIntervalSeconds"].isNull())
+    {
+      const int value = commands["checkinIntervalSeconds"].as<int>();
+      if (value > 0)
+      {
+        g_checkinIntervalSeconds = value;
+      }
+    }
     if (!commands["reportIntervalSeconds"].isNull())
     {
-      g_reportIntervalSeconds = commands["reportIntervalSeconds"].as<int>();
+      const int value = commands["reportIntervalSeconds"].as<int>();
+      if (value > 0)
+      {
+        g_reportIntervalSeconds = value;
+      }
     }
     if (!commands["snapshotIntervalSeconds"].isNull())
     {
-      g_snapshotIntervalSeconds = commands["snapshotIntervalSeconds"].as<int>();
+      const int value = commands["snapshotIntervalSeconds"].as<int>();
+      if (value > 0)
+      {
+        g_snapshotIntervalSeconds = value;
+      }
     }
     if (!commands["hasCamera"].isNull())
     {
       g_cfg.hasCamera = commands["hasCamera"].as<bool>();
     }
-    if (!commands["captureImageNow"].isNull() && g_cfg.hasCamera)
+    if (!commands["captureImageNow"].isNull())
     {
-      g_captureImageNow = commands["captureImageNow"].as<bool>();
+      g_captureImageNow = g_cfg.hasCamera && commands["captureImageNow"].as<bool>();
     }
     else
     {
       g_captureImageNow = false;
+    }
+    if (!commands["sendTelemetryNow"].isNull())
+    {
+      g_sendTelemetryNow = commands["sendTelemetryNow"].as<bool>();
+    }
+    else
+    {
+      g_sendTelemetryNow = false;
     }
     return true;
   }
@@ -224,62 +284,64 @@ namespace
     return line.toInt() > 0 ? line.toInt() : 60;
   }
 
+  bool postJson(const String &path, const String &jsonBody, String &responseBody, int &httpCode,
+                String &responseHeaders)
+  {
+    WiFiClient plain;
+    WiFiClientSecure secure;
+    HTTPClient http;
+    const String url = g_cfg.apiOrigin + path;
+    bool began = false;
+    if (g_cfg.apiOrigin.startsWith("https://"))
+    {
+      secure.setInsecure();
+      began = http.begin(secure, url);
+    }
+    else
+    {
+      began = http.begin(plain, url);
+    }
+    if (!began)
+    {
+      return false;
+    }
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("x-api-key", g_cfg.apiKey);
+    httpCode = http.POST(jsonBody);
+    responseBody = http.getString();
+    responseHeaders = http.header("Retry-After").length() ? String("Retry-After: ") + http.header("Retry-After") : "";
+    http.end();
+    return httpCode > 0;
+  }
+
+  bool postCheckin(String &responseBody, int &httpCode, String &responseHeaders)
+  {
+    if (!ensureWifi())
+    {
+      return false;
+    }
+    JsonDocument body;
+    body["deviceId"] = g_cfg.deviceId;
+    body["timestamp"] = iso8601Utc();
+    String payload;
+    serializeJson(body, payload);
+    return postJson("/checkin", payload, responseBody, httpCode, responseHeaders);
+  }
+
   bool postTelemetry(String &responseBody, int &httpCode, String &responseHeaders)
   {
     if (!ensureWifi())
     {
       return false;
     }
-
-    WiFiClient client;
-    if (g_cfg.apiOrigin.startsWith("https://"))
-    {
-      WiFiClientSecure secure;
-      secure.setInsecure();
-      HTTPClient http;
-      if (!http.begin(secure, g_cfg.apiOrigin + "/ingest"))
-      {
-        return false;
-      }
-      http.addHeader("Content-Type", "application/json");
-      http.addHeader("x-api-key", g_cfg.apiKey);
-
-      JsonDocument body;
-      body["deviceId"] = g_cfg.deviceId;
-      body["timestamp"] = iso8601Utc();
-      JsonObject readings = body["readings"].to<JsonObject>();
-      appendReadings(readings);
-
-      String payload;
-      serializeJson(body, payload);
-      httpCode = http.POST(payload);
-      responseBody = http.getString();
-      responseHeaders = http.header("Retry-After").length() ? String("Retry-After: ") + http.header("Retry-After") : "";
-      http.end();
-      return httpCode > 0;
-    }
-
-    HTTPClient http;
-    if (!http.begin(client, g_cfg.apiOrigin + "/ingest"))
-    {
-      return false;
-    }
-    http.addHeader("Content-Type", "application/json");
-    http.addHeader("x-api-key", g_cfg.apiKey);
-
     JsonDocument body;
     body["deviceId"] = g_cfg.deviceId;
     body["timestamp"] = iso8601Utc();
     JsonObject readings = body["readings"].to<JsonObject>();
     appendReadings(readings);
-
     String payload;
     serializeJson(body, payload);
-    httpCode = http.POST(payload);
-    responseBody = http.getString();
-    responseHeaders = http.header("Retry-After").length() ? String("Retry-After: ") + http.header("Retry-After") : "";
-    http.end();
-    return httpCode > 0;
+    return postJson("/ingest", payload, responseBody, httpCode, responseHeaders);
   }
 
   // Small placeholder JPEG — ESP8266 heap cannot hold 640×360 (~48 KiB) plus multipart body.
@@ -503,7 +565,21 @@ namespace
     return httpCode > 0;
   }
 
-  bool shouldSendSnapshot()
+  bool shouldCheckin(unsigned long nowMs)
+  {
+    return intervalElapsed(g_lastCheckinMs, g_checkinIntervalSeconds, nowMs);
+  }
+
+  bool shouldSendTelemetry(unsigned long nowMs)
+  {
+    if (g_sendTelemetryNow)
+    {
+      return true;
+    }
+    return intervalElapsed(g_lastReportMs, g_reportIntervalSeconds, nowMs);
+  }
+
+  bool shouldSendSnapshot(unsigned long nowMs)
   {
     if (!g_cfg.hasCamera)
     {
@@ -514,8 +590,26 @@ namespace
     {
       return true;
     }
-    const unsigned long intervalMs = static_cast<unsigned long>(g_snapshotIntervalSeconds) * 1000UL;
-    return millis() - g_lastSnapshotMs >= intervalMs;
+    return intervalElapsed(g_lastSnapshotMs, g_snapshotIntervalSeconds, nowMs);
+  }
+
+  unsigned long sleepSeconds(unsigned long nowMs)
+  {
+    unsigned long sleepSec = remainingIntervalSeconds(g_lastCheckinMs, g_checkinIntervalSeconds, nowMs);
+    const unsigned long reportSec = remainingIntervalSeconds(g_lastReportMs, g_reportIntervalSeconds, nowMs);
+    if (reportSec < sleepSec)
+    {
+      sleepSec = reportSec;
+    }
+    if (g_cfg.hasCamera)
+    {
+      const unsigned long snapSec = remainingIntervalSeconds(g_lastSnapshotMs, g_snapshotIntervalSeconds, nowMs);
+      if (snapSec < sleepSec)
+      {
+        sleepSec = snapSec;
+      }
+    }
+    return sleepSec < 1 ? 1 : sleepSec;
   }
 
 } // namespace
@@ -574,37 +668,74 @@ void loop()
     return;
   }
 
-  String body;
-  String headers;
-  int code = 0;
+  const unsigned long wakeMs = millis();
 
-  if (!postTelemetry(body, code, headers))
+  // Check-in is rate-limited to checkinIntervalSeconds. Telemetry/snapshots may be due sooner.
+  if (shouldCheckin(wakeMs))
   {
-    delay(5000);
-    return;
-  }
+    String body;
+    String headers;
+    int code = 0;
 
-  if (code == 429)
-  {
-    const int waitSec = parseRetryAfterSeconds(headers);
-    Serial.printf("Rate limited, waiting %ds\n", waitSec);
-    delay(static_cast<unsigned long>(waitSec) * 1000UL);
-    return;
-  }
+    if (!postCheckin(body, code, headers))
+    {
+      delay(5000);
+      return;
+    }
 
-  if (code >= 200 && code < 300)
-  {
+    if (code == 429)
+    {
+      const int waitSec = parseRetryAfterSeconds(headers);
+      Serial.printf("Check-in rate limited, waiting %ds\n", waitSec);
+      delay(static_cast<unsigned long>(waitSec) * 1000UL);
+      return;
+    }
+
+    if (code < 200 || code >= 300)
+    {
+      Serial.printf("Check-in HTTP %d: %s\n", code, body.c_str());
+      delay(10000);
+      return;
+    }
+
+    g_lastCheckinMs = wakeMs;
     parseCommands(body);
-    Serial.printf("Telemetry OK, next report in %ds\n", g_reportIntervalSeconds);
-  }
-  else
-  {
-    Serial.printf("Telemetry HTTP %d: %s\n", code, body.c_str());
-    delay(10000);
-    return;
+    Serial.printf("Check-in OK (checkin=%ds report=%ds snapshot=%ds)\n", g_checkinIntervalSeconds,
+                  g_reportIntervalSeconds, g_snapshotIntervalSeconds);
   }
 
-  if (shouldSendSnapshot())
+  if (shouldSendTelemetry(wakeMs))
+  {
+    String ingestBody;
+    String ingestHeaders;
+    int ingestCode = 0;
+    if (!postTelemetry(ingestBody, ingestCode, ingestHeaders))
+    {
+      delay(5000);
+      return;
+    }
+
+    if (ingestCode == 429)
+    {
+      delay(static_cast<unsigned long>(parseRetryAfterSeconds(ingestHeaders)) * 1000UL);
+      return;
+    }
+
+    if (ingestCode >= 200 && ingestCode < 300)
+    {
+      g_lastReportMs = wakeMs;
+      parseCommands(ingestBody);
+      Serial.println("Telemetry uploaded");
+    }
+    else
+    {
+      Serial.printf("Telemetry HTTP %d: %s\n", ingestCode, ingestBody.c_str());
+      delay(10000);
+      return;
+    }
+  }
+
+  if (shouldSendSnapshot(wakeMs))
   {
     int snapCode = 0;
     String snapHeaders;
@@ -616,7 +747,7 @@ void loop()
       }
       else if (snapCode >= 200 && snapCode < 300)
       {
-        g_lastSnapshotMs = millis();
+        g_lastSnapshotMs = wakeMs;
         g_captureImageNow = false;
         Serial.println("Snapshot uploaded");
       }
@@ -627,5 +758,8 @@ void loop()
     }
   }
 
-  delay(static_cast<unsigned long>(g_reportIntervalSeconds) * 1000UL);
+  const unsigned long waitSec = sleepSeconds(millis());
+  Serial.printf("Next wake in %lus (checkin=%ds report=%ds snapshot=%ds)\n", waitSec,
+                g_checkinIntervalSeconds, g_reportIntervalSeconds, g_snapshotIntervalSeconds);
+  delay(waitSec * 1000UL);
 }

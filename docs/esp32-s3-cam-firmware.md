@@ -52,8 +52,8 @@ Only sensors **included** in the install wizard (with valid GPIOs) are read. Dis
 
 Uses shared [`firmware/shared/aquaponics-core/`](../firmware/shared/aquaponics-core/):
 
-1. Sleep **`checkinIntervalSeconds`** (default 5 min)
-2. `POST /checkin` → parse commands (`sendTelemetryNow`, `captureImageNow`, intervals)
+1. Sleep until the **next due** check-in, telemetry, or snapshot (a short `reportIntervalSeconds` is not gated by the 5 min check-in default)
+2. `POST /checkin` only when `checkinIntervalSeconds` elapsed → parse commands (`sendTelemetryNow`, `captureImageNow`, intervals)
 3. `POST /ingest` when due or on-demand; `POST /ingest/snapshot` when camera enabled and interval/alert/request demands it
 
 ## Camera

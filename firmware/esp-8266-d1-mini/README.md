@@ -37,7 +37,14 @@ The admin install wizard patches a 2 KiB region between `__UD_CFG_BEGIN__` and `
 - **`v: 3`** (preferred): per-sensor role map plus **`sensorTypes`** map; `null` disables a sensor. Legacy **`v: 2`** / **`v: 1`** still supported.
 - `hasCamera` — when true, uploads a small 16:9 JPEG from placekittens.com (320×180); when false, no snapshots (including alert-driven `captureImageNow`).
 
-Telemetry intervals and **`hasCamera`** come from the server via `POST /ingest` `commands` — the flashed JSON is only the initial value until the first successful ingest.
+Intervals and **`hasCamera`** come from the server via `POST /checkin` and `POST /ingest` `commands` — the flashed JSON is only the initial value until the first successful check-in.
+
+Runtime loop matches ESP32-S3:
+
+1. Sleep until the next due check-in, telemetry, or snapshot
+2. `POST /checkin` when `checkinIntervalSeconds` elapsed (default 5 min)
+3. `POST /ingest` when `sendTelemetryNow` or `reportIntervalSeconds` elapsed (default 30 min)
+4. `POST /ingest/snapshot` when camera is enabled and a snapshot is due
 
 ## HTTPS
 
