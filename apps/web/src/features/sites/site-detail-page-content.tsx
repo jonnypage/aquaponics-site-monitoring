@@ -149,7 +149,9 @@ export function SiteDetailPageContent() {
     : t('siteCard.noReadingsYet');
 
   const pollIntervalMs = sitePollIntervalMs(site.pollIntervalSeconds);
-  const hasDevices = new Set(site.sensorReporting.map((row) => row.deviceId)).size > 0;
+  const sensorReporting = site.sensorReporting ?? [];
+  const recentSnapshots = site.recentSnapshots ?? [];
+  const hasDevices = new Set(sensorReporting.map((row) => row.deviceId)).size > 0;
 
   async function onRefreshTelemetry() {
     setTelemetryError(null);
@@ -205,7 +207,7 @@ export function SiteDetailPageContent() {
       <div className='mb-6'>
         <SiteAlertsSection
           siteId={site.id}
-          sensorReporting={site.sensorReporting}
+          sensorReporting={sensorReporting}
         />
       </div>
 
@@ -249,22 +251,22 @@ export function SiteDetailPageContent() {
 
       <div
         className={
-          site.recentSnapshots.length > 0
+          recentSnapshots.length > 0
             ? 'mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start'
             : 'mb-6'
         }
       >
-        {site.recentSnapshots.length > 0 ? (
+        {recentSnapshots.length > 0 ? (
           <div className='min-w-0'>
             <SiteLatestSnapshot
-              snapshots={site.recentSnapshots.map((snap) => ({
+              snapshots={recentSnapshots.map((snap) => ({
                 id: snap.id,
                 imageUrl: snap.imageUrl,
                 takenAt: snap.takenAt,
                 deviceId: snap.deviceId,
                 deviceName:
                   snap.deviceName ??
-                  site.sensorReporting.find((r) => r.deviceId === snap.deviceId)
+                  sensorReporting.find((r) => r.deviceId === snap.deviceId)
                     ?.deviceName,
               }))}
             />

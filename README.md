@@ -9,7 +9,7 @@ ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and
 | Area | Status |
 | ---- | ------ |
 | **Phases 1–6 (MVP)** | Implemented in code — ingest, alerts, dashboard, admin CRUD, snapshots, ESP8266 install wizard |
-| **Hardware (ESP8266 D1 mini)** | Validated locally: browser flash via esp-web-tools, Wi‑Fi join, `POST /ingest` to a LAN API, serial logs at 115200 |
+| **Hardware (ESP8266 D1 mini)** | Validated locally: browser flash via esp-web-tools, Wi‑Fi join, `POST /checkin` + `POST /ingest` to a LAN API, serial logs at 115200 |
 | **Firmware in git** | **No** — source in [`firmware/esp-8266-d1-mini/`](firmware/esp-8266-d1-mini/); built `firmware.bin` is gitignored and copied into the web app for the installer |
 | **Phase 7** | Planned (notifications / alert policy) — not started — [`docs/phase7-agent-prompt.md`](docs/phase7-agent-prompt.md) |
 | **Post-MVP** | ESP32 CYD deferred ([`docs/esp32-cyd-roadmap.md`](docs/esp32-cyd-roadmap.md)) |

@@ -40,14 +40,17 @@ class AquaponicsApp {
   LoopHookFn g_loopHook;
 
   DeviceCommands g_commands;
+  unsigned long g_lastCheckinMs = 0;
   unsigned long g_lastReportMs = 0;
   unsigned long g_lastSnapshotMs = 0;
 
   bool parseCommands(const String &body);
   bool postCheckin(String &responseBody, int &httpCode, String &responseHeaders);
   bool postTelemetry(float elapsedSeconds, String &responseBody, int &httpCode, String &responseHeaders);
+  bool shouldCheckin(unsigned long nowMs) const;
   bool shouldSendTelemetry(unsigned long nowMs) const;
   bool shouldSendSnapshot(unsigned long nowMs) const;
+  unsigned long sleepSeconds(unsigned long nowMs) const;
 };
 
 }  // namespace aquaponics

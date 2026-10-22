@@ -47,12 +47,12 @@ Build runs `pio run` then merges bootloader/partitions/app into `firmware.factor
 
 Uses shared [`firmware/shared/aquaponics-core/`](../firmware/shared/aquaponics-core/):
 
-1. Sleep **`checkinIntervalSeconds`** (default 5 min from server)
-2. `POST /checkin` → parse commands
+1. Sleep until the **next due** check-in, telemetry, or snapshot (not check-in alone — a 10s `reportIntervalSeconds` reports every 10s even if check-in stays at 5 min)
+2. `POST /checkin` only when `checkinIntervalSeconds` elapsed → parse commands
 3. `POST /ingest` when `sendTelemetryNow` or report interval elapsed (default **30 min**)
 4. YFS201 flow rate uses **actual elapsed seconds** since last report (correct after on-demand telemetry)
 
-Serial: `Check-in OK`, `Telemetry uploaded`.
+Serial: `Check-in OK`, `Telemetry uploaded`, `Next wake in …`.
 
 ## Sensors (catalog keys)
 
