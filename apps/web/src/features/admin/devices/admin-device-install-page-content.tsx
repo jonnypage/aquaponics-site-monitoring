@@ -29,7 +29,7 @@ import {
   writeDeviceInstallApiKey,
 } from '~/utils/device-install-api-key';
 import {
-  DEVICE_BOARD_IDS,
+  installBoardChoices,
   type DeviceBoardId,
   getDeviceBoardGpioProfile,
   hasBlockingInstallGpioIssues,
@@ -568,7 +568,7 @@ export function AdminDeviceInstallPageContent() {
                   value={board}
                   onChange={(e) => setBoard(e.target.value as DeviceBoardId)}
                 >
-                  {DEVICE_BOARD_IDS.map((id) => {
+                  {installBoardChoices(board).map((id) => {
                     const profile = getDeviceBoardGpioProfile(id);
                     return (
                       <option

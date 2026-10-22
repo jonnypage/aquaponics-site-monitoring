@@ -14,7 +14,7 @@ ESP-based devices send telemetry to a NestJS API, PostgreSQL stores readings and
 | **Phase 7** | Planned (notifications / alert policy) — not started — [`docs/phase7-agent-prompt.md`](docs/phase7-agent-prompt.md) |
 | **Post-MVP** | ESP32 CYD deferred ([`docs/esp32-cyd-roadmap.md`](docs/esp32-cyd-roadmap.md)) |
 | **ESP32-S3 DevKitC-1** | Real sensors, no camera — [`docs/esp32-s3-firmware.md`](docs/esp32-s3-firmware.md), `pnpm firmware:build:esp32:s3` |
-| **ESP32-S3 CAM** | Real sensors + optional OV3660 snapshots — [`docs/esp32-s3-cam-firmware.md`](docs/esp32-s3-cam-firmware.md), `pnpm firmware:build:esp32:s3:cam` |
+| **ESP32-S3 CAM** | Firmware exists — **hidden from the install wizard for now** — [`docs/esp32-s3-cam-firmware.md`](docs/esp32-s3-cam-firmware.md) |
 | **Production** | Railway: [`docs/phase6-railway-production.md`](docs/phase6-railway-production.md) — `OBJECT_STORAGE_*` on API; web build with PlatformIO (`FIRMWARE_BUILD=real` or `RAILWAY_ENVIRONMENT`) |
 
 Before calling Phase 6 production-ready on your environment, run [`docs/phase6-verification.md`](docs/phase6-verification.md) (§8 snapshot upload after latest firmware reflash).
