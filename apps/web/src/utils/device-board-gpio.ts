@@ -15,7 +15,14 @@ export type EspWebFlashPart = {
   patchable?: boolean;
 };
 
-export type GpioBlockReason = "flash" | "boot" | "serial" | "out_of_range" | "board_unsupported";
+export type GpioBlockReason =
+  | "flash"
+  | "camera"
+  | "reserved"
+  | "boot"
+  | "serial"
+  | "out_of_range"
+  | "board_unsupported";
 
 export type GpioValidationLevel = "ok" | "warning" | "error";
 
@@ -133,35 +140,35 @@ const ESP32_S3_CAM_PROFILE: DeviceBoardGpioProfile = {
   forbidden: {
     0: "boot",
     3: "boot",
-    4: "flash",
-    5: "flash",
-    6: "flash",
-    7: "flash",
-    8: "flash",
-    9: "flash",
-    10: "flash",
-    11: "flash",
-    12: "flash",
-    13: "flash",
-    15: "flash",
-    16: "flash",
-    17: "flash",
-    18: "flash",
+    4: "camera",
+    5: "camera",
+    6: "camera",
+    7: "camera",
+    8: "camera",
+    9: "camera",
+    10: "camera",
+    11: "camera",
+    12: "camera",
+    13: "camera",
+    15: "camera",
+    16: "camera",
+    17: "camera",
+    18: "camera",
     19: "serial",
     20: "serial",
     35: "flash",
     36: "flash",
     37: "flash",
-    38: "flash",
-    39: "flash",
-    40: "flash",
-    41: "flash",
-    42: "flash",
+    38: "reserved",
+    39: "reserved",
+    40: "reserved",
+    41: "reserved",
+    42: "reserved",
     43: "serial",
     44: "serial",
     45: "boot",
-    46: "flash",
-    48: "flash"
+    46: "reserved",
+    48: "reserved"
   }
 };
 
