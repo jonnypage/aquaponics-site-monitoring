@@ -5,6 +5,16 @@
 export const DEVICE_BOARD_IDS = ["esp8266", "esp32-s3", "esp32-s3-cam"] as const;
 export type DeviceBoardId = (typeof DEVICE_BOARD_IDS)[number];
 
+/** Boards offered in the install wizard. CAM stays in `DEVICE_BOARD_IDS` for existing devices. */
+export const INSTALL_BOARD_IDS = ["esp8266", "esp32-s3"] as const satisfies readonly DeviceBoardId[];
+
+export function installBoardChoices(current: DeviceBoardId): DeviceBoardId[] {
+  if ((INSTALL_BOARD_IDS as readonly DeviceBoardId[]).includes(current)) {
+    return [...INSTALL_BOARD_IDS];
+  }
+  return [...INSTALL_BOARD_IDS, current];
+}
+
 export type EspWebToolsChipFamily = "ESP8266" | "ESP32-S3";
 
 export type EspWebFlashPart = {
