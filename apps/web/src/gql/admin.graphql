@@ -42,6 +42,7 @@ query AdminSites {
     name
     latitude
     longitude
+    notificationEmails
     sensorReporting {
       deviceId
       deviceName
@@ -217,6 +218,7 @@ mutation CreateAdminSite($input: CreateAdminSiteInput!) {
     name
     latitude
     longitude
+    notificationEmails
     sensorReporting {
       deviceId
       deviceName
@@ -252,6 +254,7 @@ mutation UpdateAdminSite($input: UpdateAdminSiteInput!) {
     name
     latitude
     longitude
+    notificationEmails
     sensorReporting {
       deviceId
       deviceName

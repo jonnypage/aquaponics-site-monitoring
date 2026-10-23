@@ -53,7 +53,7 @@ Staging and future edge cases need **per-site control** over outbound notificati
 
 Hook points in current code:
 
-- [`apps/api/src/scheduler/scheduler.service.ts`](../apps/api/src/scheduler/scheduler.service.ts) — critical re-notify loop + email send
+- [`apps/api/src/scheduler/scheduler.service.ts`](../apps/api/src/scheduler/scheduler.service.ts) — one-shot critical email send
 - [`apps/api/src/alerts/alerts.service.ts`](../apps/api/src/alerts/alerts.service.ts) — `resolveRecipientEmailsForSite`
 - Optionally [`apps/api/src/ingest/ingest-alert.service.ts`](../apps/api/src/ingest/ingest-alert.service.ts) — skip alert **upsert** for suppressed sites (cleaner `/alerts` list) vs email-only suppress
 
@@ -72,7 +72,7 @@ Channels under consideration (not committed to all in V1):
 
 ```text
 Scheduler / ingest (alert created)
-    → NotificationPolicyService (site flags, severity, cooldown)
+    → NotificationPolicyService (site flags, severity, one-shot last_notified_at)
     → NotificationDispatcher
          → EmailChannel (Resend)
          → SmsChannel (?)
@@ -81,8 +81,8 @@ Scheduler / ingest (alert created)
 ```
 
 - Keep **one Node process** MVP assumption; no Redis/queues unless volume forces it.
-- Reuse **`alerts.last_notified_at`** + `COOLDOWN_MINUTES` per `(site, type)` for email; extend or add `notification_deliveries` table if per-channel dedupe is needed.
-- Recipients: today = **all admins** + **`user_sites` assignees** for the site; Phase 7 may add per-user phone numbers and channel opt-in.
+- Reuse **`alerts.last_notified_at`** as a one-shot guard and **`COOLDOWN_MINUTES`** as debounce from `created_at`. Extend or add `notification_deliveries` if per-channel dedupe is needed. Do not reintroduce periodic re-notify.
+- Recipients: **`sites.notification_emails`** only (set on the admin site form). Phase 7 may add per-user phone numbers and channel opt-in; do not reintroduce a blanket admin email list.
 
 ---
 
@@ -123,7 +123,7 @@ See **Post-MVP / deferred work** in [`greenfield-agent-handoff.md`](greenfield-a
 ## Verification (when Phase 7 starts)
 
 - Staging site with `suppress_notifications: true` — ingest still works; alerts optional in DB; **no** email.
-- Production site with Resend configured — critical alert sends email after cooldown.
+- Production site with Resend configured — a new critical still active after `COOLDOWN_MINUTES` sends one email; the same active alert does not mail again.
 - Non-admin without staging assignment — cannot `getSite` staging id (403).
 
 ---

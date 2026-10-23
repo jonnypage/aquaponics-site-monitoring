@@ -118,6 +118,7 @@ type AdminSiteModel {
   name: String!
   latitude: Float
   longitude: Float
+  notificationEmails: [String!]!
   sensorReporting: [SiteSensorReportingModel!]!
   sensorThresholds: [SiteSensorThresholdModel!]!
   deviceSnapshotSettings: [SiteDeviceSnapshotSettingsModel!]!
@@ -346,6 +347,7 @@ input CreateAdminSiteInput {
   name: String!
   latitude: Float
   longitude: Float
+  notificationEmails: [String!]
   sensorReporting: [SiteSensorReportingInput!]
   sensorThresholds: [SiteSensorThresholdInput!]
   attachDeviceId: String
@@ -377,6 +379,7 @@ input UpdateAdminSiteInput {
   name: String
   latitude: Float
   longitude: Float
+  notificationEmails: [String!]
   sensorReporting: [SiteSensorReportingInput!]
   sensorThresholds: [SiteSensorThresholdInput!]
   attachDeviceId: String

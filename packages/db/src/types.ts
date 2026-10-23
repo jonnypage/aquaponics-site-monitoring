@@ -20,6 +20,8 @@ export interface SitesTable {
   name: string;
   latitude: number | null;
   longitude: number | null;
+  /** Critical-alert recipients for this site only. Empty = no outbound email. */
+  notification_emails: Generated<string[]>;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
