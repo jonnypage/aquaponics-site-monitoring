@@ -72,10 +72,10 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 
 - `alerts` table + partial unique index for active dedupe.
 - **Anomaly engine** on ingest (and any scheduler hooks): range bands (warning + critical deltas), MVP spike/flatline heuristics, `range_violation:<key>` (critical) / `range_warning:<key>` (warning); respect `site_sensor_catalog` + `sensor_thresholds` (see **Effective threshold bands**).
-- **Scheduler:** device offline detection using **heartbeat tolerance** (`max(expected_interval_seconds * 3, 15 minutes)`); critical re-notify loop; **single API instance** only (see **Scheduler ownership**).
-- **Email:** Resend; cooldown (`COOLDOWN_MINUTES`); recipient resolution (admins + `user_sites`).
+- **Scheduler:** device offline detection using **heartbeat tolerance** (`max(expected_interval_seconds * 3, 15 minutes)`); one-shot critical email; **single API instance** only (see **Scheduler ownership**).
+- **Email:** Resend; one send per new critical after `COOLDOWN_MINUTES` debounce (`created_at`); recipients = `sites.notification_emails` only.
 - Dashboard **alerts** views (global + per-site); `resolveAlert` if in contract.
-- **Exit criteria:** out-of-range ingest creates alert; critical alert sends email (with cooldown); offline device alert fires from scheduler.
+- **Exit criteria:** out-of-range ingest creates alert; critical still active after `COOLDOWN_MINUTES` sends one email; offline device alert fires from scheduler.
 
 ### Phase 5 — Admin tooling
 
@@ -107,13 +107,13 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 
 - Ingest + scheduler **create and update** `alerts` (range, heuristics, `device_offline`).
 - Dashboard **`/alerts`** and per-site alert sections; **`resolveAlert`**.
-- **Email** via Resend in scheduler when `RESEND_API_KEY` + `ALERT_FROM_EMAIL` are set; `COOLDOWN_MINUTES` per `(site_id, type)`.
-- Recipients today: **all `admin` users** + users in **`user_sites`** for that site.
+- **Email** via Resend in scheduler when `RESEND_API_KEY` + `ALERT_FROM_EMAIL` are set; **one email** per new critical if still active after `COOLDOWN_MINUTES` (`created_at` debounce; `last_notified_at` set on send).
+- Recipients: **`sites.notification_emails`** only (admin site form). Empty list = no outbound email. Admins and `user_sites` assignees are **not** auto-included.
 
-**Operational guidance until Phase 7 (no extra schema):**
+**Operational guidance until remaining Phase 7 work:**
 
-- **Staging / calibration:** use a normal admin-only site (e.g. “Device staging”) — do not assign it to non-admins; assign test devices there for ingest validation; reassign to production when ready (measurements remain on the staging site).
-- **Noise:** loose thresholds on staging, resolve test alerts in UI, or wait for site-level **`suppress_notifications`** in Phase 7.
+- **Staging / calibration:** use a normal admin-only site (e.g. “Device staging”) — do not assign it to non-admins; assign test devices there for ingest validation; reassign to production when ready (measurements remain on the staging site). Leave **`notification_emails` empty** so staging criticals stay on the dashboard.
+- **Noise:** loose thresholds on staging, resolve test alerts in UI, or leave the site notification list empty.
 
 **Phase 7 direction (draft):**
 
@@ -122,9 +122,9 @@ Implement the greenfield repo **in this order**. Each phase should be deployable
 | **Email** | Production-ready Resend setup, templates, docs. |
 | **Site policy** | `suppress_notifications` (and optionally `notification_min_severity`) on `sites` — admin site form; scheduler/dispatcher skip outbound notify. |
 | **Channels** | Pluggable dispatcher; evaluate **SMS**, **WhatsApp**, **Signal** (Signal has ops/API constraints — not committed for V1). |
-| **Architecture** | `NotificationPolicyService` + channel adapters; keep single API process; extend cooldown/dedupe if per-channel delivery is added. |
+| **Architecture** | `NotificationPolicyService` + channel adapters; keep single API process; extend one-shot/`notification_deliveries` if per-channel delivery is added. |
 
-**Exit criteria (draft):** staging site can suppress all outbound notifications; production site sends critical email with cooldown; dispatcher structured for at least one additional channel behind a feature flag.
+**Exit criteria (draft):** staging site can suppress all outbound notifications; production site sends one email per new critical after debounce; dispatcher structured for at least one additional channel behind a feature flag.
 
 **Non-goals for first Phase 7 slice:** Redis/queues, guaranteed delivery, live Signal/WhatsApp unless explicitly scoped in Phase 7b/c.
 
@@ -139,7 +139,7 @@ MVP for roughly **30 aquaponics sites**:
 - Store **device camera snapshot metadata** in PostgreSQL; store **image bytes only in S3-compatible object storage** (not Postgres `bytea`).
 - Derive site **health** from active alerts and enabled sensors.
 - Detect **explainable** anomalies (range, spike/drop, flatline on MVP sensor keys; generic range types for other catalog keys).
-- **Email** operators on **critical** alerts with per-(site, type) cooldown.
+- **Email** operators on **critical** alerts once per new event after a `COOLDOWN_MINUTES` debounce (same active `(site, type)` is not re-mailed).
 - **Dashboard**: site list + map, site detail + charts, **latest device camera snapshot** (when present), alerts (global + per-site), account settings.
 - **Admin** (`admin` role): users, sites, devices (API keys + install wizard), global sensor catalog, per-site sensor enablement and threshold overrides.
 
@@ -298,7 +298,7 @@ Apply a **simple per-device** rate limit keyed by authenticated device (API key 
 - If Railway **replica count** is increased later, scheduler ownership and duplicate-job risk must be revisited before scaling horizontally.
 - **If two instances accidentally run concurrently** (e.g. Railway rolling deploy overlap): duplication must be **safe** via DB-level idempotency for every scheduler output:
   - Alert upsert: idempotent via partial unique index (`WHERE status = 'active'` on `(site_id, type)`).
-  - Re-notify emails: idempotent via `alerts.last_notified_at` — the scheduler checks `now() - last_notified_at > COOLDOWN_MINUTES` before sending; a concurrent second instance will see the same `last_notified_at` value (updated by the first) and skip. **This is the only email-send guard; it must be an atomic `UPDATE ... WHERE last_notified_at < threshold` to avoid a race window.**
+  - Critical emails: debounce then one-shot — send only when `last_notified_at IS NULL` and `created_at < now() - COOLDOWN_MINUTES`. **This is the only email-send guard; it must be an atomic `UPDATE ... WHERE last_notified_at IS NULL AND created_at < threshold` to avoid a race window.** Resolve before the window and nothing is sent. A later outage inserts a new active row and starts a new debounce.
 - Do not attempt to "fix" dual-run with Redis or a job queue — that is a deliberate non-goal for the MVP.
 
 ---
@@ -320,7 +320,7 @@ Apply a **simple per-device** rate limit keyed by authenticated device (API key 
 | `AdminModule`        | Admin queries/mutations, sensor catalog CRUD                                                                                                                                 |
 | `DevicesModule`      | Admin device CRUD, API key generation/rotation                                                                                                                               |
 | `StorageModule`      | S3-compatible client; upload snapshot objects; presigned read URLs for dashboard                                                                                             |
-| `SchedulerModule`    | `@nestjs/schedule`: device offline check (~60s), critical re-notify (~5m)                                                                                                    |
+| `SchedulerModule`    | `@nestjs/schedule`: device offline check (~60s), one-shot critical email (~60s)                                                                                                    |
 | `HealthModule`       | `GET /health` → `{ ok: true }`                                                                                                                                               |
 
 Use **guards** for `admin` and **site access** (`requireSiteAccess` equivalent: admin sees all; others only assigned `user_sites`).
@@ -348,7 +348,7 @@ Production: avoid per-request access logs at `info`; use `warn`+ for API process
 
 - **Single instance:** scheduler jobs run only in the one deployed API process (see **Scheduler ownership**).
 - **Device offline:** compare `last_seen_at` to **`offline_threshold_seconds = max(checkin_interval_seconds * 3, 900)`** before upserting `device_offline` (see **Device heartbeat and offline threshold**).
-- **Re-notify:** active critical alerts (`alerts.status = 'active'` + `severity = 'critical'`) → email if cooldown (`COOLDOWN_MINUTES`, default 45) allows.
+- **Notify:** active criticals (`status = 'active'` + `severity = 'critical'` + `last_notified_at IS NULL` + `created_at` older than `COOLDOWN_MINUTES`, default 45) → one email, then stop.
 
 ### Anomaly / alert types (MVP)
 
@@ -445,7 +445,7 @@ Implement the following operations (full SDL reference: legacy `apps/api/src/gra
 - `updateMe(input)` — requires `currentPassword`; optional name, email, newPassword; sign out client after success.
 - `createAdminUser` / `updateAdminUser` — **admin**; password min 8 chars; `assignedSiteIds` replaces join rows on update; cannot demote last admin.
 - `resetAdminUserPassword(id, newPassword)` — **admin**; no current password.
-- `createAdminSite` / `updateAdminSite` — **admin**; GPS lat/lng together; `sensorReporting` for every catalog sensor; optional `sensorThresholds` as `{ key, normalMin, normalMax, warningDelta, criticalDelta }` per sensor (all nullable — null = use catalog default for that bound); `criticalDelta` must be ≥ `warningDelta` when both are set; optional `deviceId` to attach device.
+- `createAdminSite` / `updateAdminSite` — **admin**; GPS lat/lng together; optional `notificationEmails` (critical-alert recipients for that site only; empty = no email); `sensorReporting` for every catalog sensor; optional `sensorThresholds` as `{ key, normalMin, normalMax, warningDelta, criticalDelta }` per sensor (all nullable — null = use catalog default for that bound); `criticalDelta` must be ≥ `warningDelta` when both are set; optional `deviceId` to attach device.
 - `createSensorCatalogEntry` / `updateSensorCatalogEntry` / `deleteSensorCatalogEntry` — **admin**; new catalog row → `site_sensor_catalog` for all sites with **`enabled: false`**.
 - `createAdminDevice` / `updateAdminDevice` / `rotateAdminDeviceApiKey` / `deleteAdminDevice` — **admin**; plaintext API key returned once on create/rotate.
 - `resolveAlert(id)` — user with site access may dismiss.
@@ -704,7 +704,7 @@ Copy pattern: per-package `.env` for local dev (`packages/db`, `apps/api`, `apps
 | `PUBLIC_API_URL` / `VITE_PUBLIC_API_URL` | —        | yes      | Browser GraphQL base                                                                                                                                                                             |
 | `RESEND_API_KEY`                         | yes      | —        |                                                                                                                                                                                                  |
 | `ALERT_FROM_EMAIL`                       | yes      | —        |                                                                                                                                                                                                  |
-| `COOLDOWN_MINUTES`                       | optional | —        | default 45                                                                                                                                                                                       |
+| `COOLDOWN_MINUTES`                       | optional | —        | debounce before the one critical email; default 45                                                                                                                                               |
 | `PG_POOL_MAX`                            | optional | optional | Lower on API                                                                                                                                                                                     |
 | `OBJECT_STORAGE_*`                       | optional | —        | S3-compatible snapshot storage; required in production once snapshots are enabled (see **Camera snapshots**)                                                                                     |
 | `INGEST_RATE_LIMIT_*`                    | optional | —        | Per-device `POST /ingest` caps (see **Ingest rate limiting**)                                                                                                                                    |

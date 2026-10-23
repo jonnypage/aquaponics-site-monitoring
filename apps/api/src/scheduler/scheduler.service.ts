@@ -24,7 +24,7 @@ export class SchedulerService {
     private readonly mailer: ResendMailerService
   ) {}
 
-  /** ~60s: device offline reconciliation + critical alert emails (cooldown-gated). */
+  /** ~60s: device offline reconciliation + debounced one-shot critical emails. */
   @Interval(60_000)
   async runPeriodicJobs(): Promise<void> {
     try {
@@ -41,13 +41,13 @@ export class SchedulerService {
   }
 
   private async notifyCriticalAlertsDue(): Promise<void> {
-    const cooldownMs = parseCooldownMinutes() * 60 * 1000;
-    const threshold = new Date(Date.now() - cooldownMs);
+    const debounceMs = parseCooldownMinutes() * 60 * 1000;
+    const openedBefore = new Date(Date.now() - debounceMs);
 
-    const candidates = await this.alertsService.listCriticalAlertsNeedingNotify(threshold);
+    const candidates = await this.alertsService.listCriticalAlertsNeedingNotify(openedBefore);
 
     for (const row of candidates) {
-      const claimed = await this.alertsService.claimCriticalNotifySlot(row.id, threshold);
+      const claimed = await this.alertsService.claimCriticalNotifySlot(row.id, openedBefore);
       if (!claimed) {
         continue;
       }

@@ -1,11 +1,12 @@
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
   DEFAULT_SITE_MAP_CENTER,
   SiteLocationMapPicker,
 } from '~/components/admin/site-location-map-picker';
+import { SiteNotificationEmailsFieldset } from '~/components/admin/site-notification-emails-fieldset';
 
 import { FormSectionHeading } from '~/components/layout/form-section-heading';
 import { PageBackLink } from '~/components/layout/page-back-link';
@@ -13,12 +14,11 @@ import { PageHeader } from '~/components/layout/page-header';
 import { Button } from '~/components/ui/button';
 import {
   ButtonPendingLabel,
-  LoadingIndicator,
 } from '~/components/ui/loading-indicator';
 import { Card, CardContent } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
-import { useCreateAdminSiteMutate } from '~/hooks/useAdmin';
+import { useAdminUsers, useCreateAdminSiteMutate } from '~/hooks/useAdmin';
 
 function parseOptFloat(s: string): number | null {
   const t = s.trim();
@@ -33,11 +33,19 @@ export function AdminSiteNewPageContent() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { mutateAsync: createSite, isPending } = useCreateAdminSiteMutate();
+  const { data: users } = useAdminUsers();
 
   const [name, setName] = useState('');
   const [lat, setLat] = useState(String(DEFAULT_SITE_MAP_CENTER.lat));
   const [lng, setLng] = useState(String(DEFAULT_SITE_MAP_CENTER.lng));
+  const [notificationEmails, setNotificationEmails] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const userEmailSuggestions = useMemo(
+    () =>
+      [...new Set((users ?? []).map((u) => u.email.toLowerCase().trim()))].sort(),
+    [users],
+  );
 
   const onMapPick = useCallback((la: number, ln: number) => {
     setLat(la.toFixed(6));
@@ -58,6 +66,7 @@ export function AdminSiteNewPageContent() {
         name,
         latitude: latN,
         longitude: lngN,
+        notificationEmails,
       });
       await navigate({ to: '/admin/sites' });
     } catch (err) {
@@ -90,6 +99,11 @@ export function AdminSiteNewPageContent() {
               latitude={lat}
               longitude={lng}
               onPick={onMapPick}
+            />
+            <SiteNotificationEmailsFieldset
+              emails={notificationEmails}
+              onChange={setNotificationEmails}
+              suggestions={userEmailSuggestions}
             />
             <div className='grid gap-4 sm:grid-cols-2'>
               <div className='space-y-2'>

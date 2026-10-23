@@ -2,6 +2,7 @@ import { Field, Float, InputType, Int, ObjectType } from "@nestjs/graphql";
 import { DeviceSnapshotModel } from "../snapshots/snapshots.types.js";
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -164,6 +165,9 @@ export class AdminSiteModel {
 
   @Field(() => Float, { nullable: true })
   longitude?: number | null;
+
+  @Field(() => [String])
+  notificationEmails!: string[];
 
   @Field(() => [SiteSensorReportingModel])
   sensorReporting!: SiteSensorReportingModel[];
@@ -511,6 +515,13 @@ export class CreateAdminSiteInput {
   @IsNumber()
   longitude?: number | null;
 
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true })
+  @ArrayMaxSize(20)
+  notificationEmails?: string[];
+
   @Field(() => [SiteSensorReportingInput], { nullable: true })
   @IsOptional()
   @IsArray()
@@ -559,6 +570,13 @@ export class UpdateAdminSiteInput {
   @IsOptional()
   @IsNumber()
   longitude?: number | null;
+
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true })
+  @ArrayMaxSize(20)
+  notificationEmails?: string[];
 
   @Field(() => [SiteSensorReportingInput], { nullable: true })
   @IsOptional()

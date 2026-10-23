@@ -82,6 +82,7 @@ import type {
   UpdateAdminUserInput,
   UpdateSensorCatalogEntryInput
 } from "./admin.types.js";
+import { normalizeNotificationEmails } from "../alerts/notification-emails.util.js";
 import { normalizeDevicePinMap } from "./device-pin-map.util.js";
 import type { SensorWiringTemplateInput } from "./sensor-wiring.graphql-types.js";
 import { SensorType } from "../sensors/sensor-type.types.js";
@@ -719,6 +720,7 @@ export class AdminService {
       name: site.name,
       latitude: site.latitude ?? null,
       longitude: site.longitude ?? null,
+      notificationEmails: site.notification_emails ?? [],
       sensorReporting,
       sensorThresholds,
       deviceSnapshotSettings
@@ -751,6 +753,7 @@ export class AdminService {
             name: input.name.trim(),
             latitude: input.latitude ?? null,
             longitude: input.longitude ?? null,
+            notification_emails: normalizeNotificationEmails(input.notificationEmails),
             updated_at: new Date()
           })
           .returning("id")
@@ -857,6 +860,10 @@ export class AdminService {
             name,
             latitude: lat ?? null,
             longitude: lng ?? null,
+            notification_emails:
+              input.notificationEmails !== undefined
+                ? normalizeNotificationEmails(input.notificationEmails)
+                : existing.notification_emails,
             updated_at: new Date()
           })
           .where("id", "=", input.id)

@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { SiteLocationMapPicker } from '~/components/admin/site-location-map-picker';
+import { SiteNotificationEmailsFieldset } from '~/components/admin/site-notification-emails-fieldset';
 import { SiteSensorThresholdOverrideRow } from '~/components/admin/site-sensor-threshold-override-row';
 
 import { FormSectionHeading } from '~/components/layout/form-section-heading';
@@ -34,6 +35,7 @@ import { Label } from '~/components/ui/label';
 import {
   useAdminDevices,
   useAdminSites,
+  useAdminUsers,
   useClearAdminSiteSnapshotsMutate,
   useDeleteAdminSiteMutate,
   useResetAdminSiteMeasurementsMutate,
@@ -69,6 +71,7 @@ export function AdminSiteEditPageContent() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: sites, isLoading } = useAdminSites();
+  const { data: users } = useAdminUsers();
   const { data: catalog } = useSensorCatalog();
   const { data: siteDevices } = useAdminDevices(siteId);
   const { mutateAsync: updateSite, isPending } = useUpdateAdminSiteMutate();
@@ -151,9 +154,16 @@ export function AdminSiteEditPageContent() {
     [siteDevices],
   );
 
+  const userEmailSuggestions = useMemo(
+    () =>
+      [...new Set((users ?? []).map((u) => u.email.toLowerCase().trim()))].sort(),
+    [users],
+  );
+
   const [name, setName] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
+  const [notificationEmails, setNotificationEmails] = useState<string[]>([]);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [snapshotsEnabled, setSnapshotsEnabled] = useState<Record<string, boolean>>(
     {},
@@ -190,6 +200,7 @@ export function AdminSiteEditPageContent() {
     setName(site.name);
     setLat(site.latitude != null ? String(site.latitude) : '');
     setLng(site.longitude != null ? String(site.longitude) : '');
+    setNotificationEmails([...(site.notificationEmails ?? [])]);
     const en: Record<string, boolean> = {};
     const th0: Record<
       string,
@@ -233,6 +244,7 @@ export function AdminSiteEditPageContent() {
         name,
         latitude: latN,
         longitude: lngN,
+        notificationEmails,
         sensorReporting: reportingRows.map((r) => ({
           deviceId: r.deviceId,
           sensorKey: r.sensorKey,
@@ -416,6 +428,11 @@ export function AdminSiteEditPageContent() {
                 required
               />
             </div>
+            <SiteNotificationEmailsFieldset
+              emails={notificationEmails}
+              onChange={setNotificationEmails}
+              suggestions={userEmailSuggestions}
+            />
             <SiteLocationMapPicker
               latitude={lat}
               longitude={lng}

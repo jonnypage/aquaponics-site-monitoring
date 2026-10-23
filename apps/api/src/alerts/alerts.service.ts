@@ -102,7 +102,7 @@ export class AlertsService {
     return true;
   }
 
-  async listCriticalAlertsNeedingNotify(threshold: Date) {
+  async listCriticalAlertsNeedingNotify(openedBefore: Date) {
     const rows = await this.db
       .selectFrom("alerts")
       .innerJoin("sites", "sites.id", "alerts.site_id")
@@ -115,9 +115,8 @@ export class AlertsService {
       ])
       .where("alerts.status", "=", "active")
       .where("alerts.severity", "=", "critical")
-      .where((eb) =>
-        eb.or([eb("alerts.last_notified_at", "is", null), eb("alerts.last_notified_at", "<", threshold)])
-      )
+      .where("alerts.last_notified_at", "is", null)
+      .where("alerts.created_at", "<", openedBefore)
       .orderBy("alerts.created_at", "asc")
       .limit(50)
       .execute();
@@ -148,10 +147,10 @@ export class AlertsService {
   }
 
   /**
-   * Atomic claim for email send: only one concurrent scheduler instance should pass.
-   * Returns true when this call updated the row (caller should send email).
+   * Atomic claim after debounce: send only if still active, never mailed, and
+   * older than `openedBefore`. Concurrent workers lose the race and skip.
    */
-  async claimCriticalNotifySlot(alertId: string, threshold: Date): Promise<boolean> {
+  async claimCriticalNotifySlot(alertId: string, openedBefore: Date): Promise<boolean> {
     const now = new Date();
     const updated = await this.db
       .updateTable("alerts")
@@ -159,9 +158,8 @@ export class AlertsService {
       .where("id", "=", alertId)
       .where("status", "=", "active")
       .where("severity", "=", "critical")
-      .where((eb) =>
-        eb.or([eb("last_notified_at", "is", null), eb("last_notified_at", "<", threshold)])
-      )
+      .where("last_notified_at", "is", null)
+      .where("created_at", "<", openedBefore)
       .returning("id")
       .executeTakeFirst();
 
@@ -169,22 +167,11 @@ export class AlertsService {
   }
 
   async resolveRecipientEmailsForSite(siteId: string): Promise<string[]> {
-    const admins = await this.db.selectFrom("users").select("email").where("role", "=", "admin").execute();
-
-    const assigned = await this.db
-      .selectFrom("users")
-      .innerJoin("user_sites", "user_sites.user_id", "users.id")
-      .select("users.email as email")
-      .where("user_sites.site_id", "=", siteId)
-      .execute();
-
-    const emails = new Set<string>();
-    for (const r of admins) {
-      emails.add(r.email.toLowerCase().trim());
-    }
-    for (const r of assigned) {
-      emails.add(r.email.toLowerCase().trim());
-    }
-    return [...emails];
+    const site = await this.db
+      .selectFrom("sites")
+      .select("notification_emails")
+      .where("id", "=", siteId)
+      .executeTakeFirst();
+    return [...(site?.notification_emails ?? [])];
   }
 }

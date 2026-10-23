@@ -32,7 +32,7 @@ AUTH_SECRET=local-dev-secret
 WEB_ORIGIN=http://localhost:3333   # enables CORS for local web app
 ```
 
-Optional on the API (Phase 4 email): `RESEND_API_KEY`, `ALERT_FROM_EMAIL`, and `COOLDOWN_MINUTES` (defaults to 45). Without Resend env vars, device-offline and critical-alert scheduler jobs still run; email sends are skipped with a warning in logs.
+Optional on the API (Phase 4 email): `RESEND_API_KEY`, `ALERT_FROM_EMAIL`, and `COOLDOWN_MINUTES` (defaults to 45). Without Resend env vars, device-offline and critical-alert scheduler jobs still run; email sends are skipped with a warning in logs. A new critical is emailed **once** only if it is still active after the cooldown (debounce from `alerts.created_at`). Resolve it first and nothing is sent.
 
 Minimum `apps/web/.env`:
 
