@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 
 #include "config.h"
+#include "sensors.h"
 
 namespace
 {
@@ -72,41 +73,6 @@ namespace
     return String(buf);
   }
 
-  void logWifiStatusLine(const char *label)
-  {
-    Serial.print(label);
-    Serial.print(" status=");
-    const uint8_t st = WiFi.status();
-    Serial.print(st);
-    switch (st)
-    {
-    case WL_IDLE_STATUS:
-      Serial.println(" (IDLE)");
-      break;
-    case WL_NO_SSID_AVAIL:
-      Serial.println(" (NO_SSID_AVAIL)");
-      break;
-    case WL_SCAN_COMPLETED:
-      Serial.println(" (SCAN_COMPLETED)");
-      break;
-    case WL_CONNECTED:
-      Serial.println(" (CONNECTED)");
-      break;
-    case WL_CONNECT_FAILED:
-      Serial.println(" (CONNECT_FAILED)");
-      break;
-    case WL_CONNECTION_LOST:
-      Serial.println(" (CONNECTION_LOST)");
-      break;
-    case WL_DISCONNECTED:
-      Serial.println(" (DISCONNECTED)");
-      break;
-    default:
-      Serial.println(" (?)");
-      break;
-    }
-  }
-
 #if UD_WIFI_DEBUG
   void logWifiCredentialsDebug()
   {
@@ -115,10 +81,6 @@ namespace
     Serial.print(g_cfg.wifiSsid);
     Serial.print("] len=");
     Serial.println(g_cfg.wifiSsid.length());
-    Serial.print("  password: [");
-    Serial.print(g_cfg.wifiPassword);
-    Serial.print("] len=");
-    Serial.println(g_cfg.wifiPassword.length());
   }
 #endif
 
@@ -149,63 +111,8 @@ namespace
     }
     g_lastWifiAttemptMs = now;
     WiFi.disconnect();
-#if UD_WIFI_DEBUG
-    Serial.println("DEBUG WiFi reconnect attempt:");
-    logWifiCredentialsDebug();
-#endif
     WiFi.begin(g_cfg.wifiSsid.c_str(), g_cfg.wifiPassword.c_str());
     return false;
-  }
-
-  /** Simulated reading: ADC + uniform random + jitter so ingest flatline heuristics do not false-positive. */
-  float readDummyWithJitter(int pin, float base, float span, float jitterAmp)
-  {
-    pinMode(static_cast<uint8_t>(pin), INPUT);
-    const int raw = analogRead(pin);
-    randomSeed(static_cast<unsigned long>(micros()) ^ static_cast<unsigned long>(raw));
-    const float adcPart = (static_cast<float>(raw) / 1023.0f) * span * 0.35f;
-    const float randPart = (static_cast<float>(random(0, 10001)) / 10000.0f) * span * 0.65f;
-    const float jitter = (static_cast<float>(random(0, 2001) - 1000) / 1000.0f) * jitterAmp;
-    const float v = base + adcPart + randPart + jitter;
-    return roundf(v * 1000.0f) / 1000.0f;
-  }
-
-  void addReading(JsonObject readings, const String &sensorKey, const String &sensorType, int pin)
-  {
-    if (pin < 0)
-    {
-      return;
-    }
-    if (sensorType == "temperature")
-    {
-      // Flatline threshold ≤ 0.02°C over 10 readings
-      readings[sensorKey] = readDummyWithJitter(pin, 20.0f, 10.0f, 0.06f);
-    }
-    else if (sensorType == "ph")
-    {
-      // Flatline ≤ 0.008; keep jitter small to limit false ph_drift
-      readings[sensorKey] = readDummyWithJitter(pin, 6.5f, 2.0f, 0.012f);
-    }
-    else if (sensorType == "waterLevel")
-    {
-      readings[sensorKey] = readDummyWithJitter(pin, 70.0f, 30.0f, 0.25f);
-    }
-    else if (sensorType == "waterFlow")
-    {
-      readings[sensorKey] = readDummyWithJitter(pin, 0.5f, 2.0f, 0.02f);
-    }
-    else
-    {
-      readings[sensorKey] = readDummyWithJitter(pin, 0.0f, 1.0f, 0.05f);
-    }
-  }
-
-  void appendReadings(JsonObject readings)
-  {
-    for (uint8_t i = 0; i < g_cfg.sensorCount; ++i)
-    {
-      addReading(readings, g_cfg.sensors[i].key, g_cfg.sensors[i].sensorType, g_cfg.sensors[i].pin);
-    }
   }
 
   bool parseCommands(const String &body)
@@ -328,7 +235,7 @@ namespace
     return postJson("/checkin", payload, responseBody, httpCode, responseHeaders);
   }
 
-  bool postTelemetry(String &responseBody, int &httpCode, String &responseHeaders)
+  bool postTelemetry(float elapsedSeconds, String &responseBody, int &httpCode, String &responseHeaders)
   {
     if (!ensureWifi())
     {
@@ -338,7 +245,8 @@ namespace
     body["deviceId"] = g_cfg.deviceId;
     body["timestamp"] = iso8601Utc();
     JsonObject readings = body["readings"].to<JsonObject>();
-    appendReadings(readings);
+    const float elapsed = elapsedSeconds > 0.0f ? elapsedSeconds : static_cast<float>(g_reportIntervalSeconds);
+    appendSensorReadings(readings, g_cfg, elapsed);
     String payload;
     serializeJson(body, payload);
     return postJson("/ingest", payload, responseBody, httpCode, responseHeaders);
@@ -619,19 +527,23 @@ void setup()
   Serial.begin(115200);
   Serial.println();
   Serial.println("esp-8266-d1-mini starting");
+  Serial.flush();
 
   if (!loadDeviceConfig(g_cfg))
   {
     Serial.println("Device config not loaded — fix above and re-flash from Install");
+    Serial.flush();
     return;
   }
 
   Serial.print("Device ");
   Serial.print(g_cfg.deviceId);
   Serial.print(" API ");
-  Serial.print(g_cfg.apiOrigin);
-  Serial.print(" camera ");
-  Serial.println(g_cfg.hasCamera ? "yes" : "no");
+  Serial.println(g_cfg.apiOrigin);
+  Serial.printf("Sensors configured: %u\n", g_cfg.sensorCount);
+  Serial.flush();
+
+  initSensorDrivers(g_cfg);
 
 #if UD_WIFI_DEBUG
   logWifiCredentialsDebug();
@@ -656,7 +568,8 @@ void setup()
   }
   else
   {
-    logWifiStatusLine("WiFi connect failed");
+    Serial.print("WiFi connect failed status=");
+    Serial.println(WiFi.status());
   }
 }
 
@@ -706,10 +619,14 @@ void loop()
 
   if (shouldSendTelemetry(wakeMs))
   {
+    const float elapsedSec =
+        g_lastReportMs == 0 ? static_cast<float>(g_reportIntervalSeconds)
+                            : static_cast<float>(wakeMs - g_lastReportMs) / 1000.0f;
+
     String ingestBody;
     String ingestHeaders;
     int ingestCode = 0;
-    if (!postTelemetry(ingestBody, ingestCode, ingestHeaders))
+    if (!postTelemetry(elapsedSec, ingestBody, ingestCode, ingestHeaders))
     {
       delay(5000);
       return;

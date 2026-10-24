@@ -43,7 +43,7 @@ Same 2 KiB patch slot as ESP8266 (`__UD_CFG_BEGIN__` / `__UD_CFG_END__`), JSON *
 
 ## Sensor drivers
 
-Real hardware drivers — **not** ESP8266-style dummy/jitter reporting.
+Real hardware drivers. Failed reads are omitted from ingest.
 
 | Catalog key | Driver |
 |-------------|--------|

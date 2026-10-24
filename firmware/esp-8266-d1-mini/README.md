@@ -14,7 +14,7 @@ If you run `pio device monitor` from the wrong directory, PlatformIO defaults to
 
 ## Debug WiFi credentials on serial
 
-`platformio.ini` sets `-DUD_WIFI_DEBUG=1` by default (temporary): boot logs print SSID and password at 115200. Set `-DUD_WIFI_DEBUG=0` in `build_flags` before production.
+`platformio.ini` sets `-DUD_WIFI_DEBUG=1` by default (temporary): boot logs print the SSID at 115200, same as the ESP32-S3 firmware. Set `-DUD_WIFI_DEBUG=0` in `build_flags` before production.
 
 ## Build
 
@@ -38,6 +38,19 @@ The admin install wizard patches a 2 KiB region between `__UD_CFG_BEGIN__` and `
 - `hasCamera` — when true, uploads a small 16:9 JPEG from placekittens.com (320×180); when false, no snapshots (including alert-driven `captureImageNow`).
 
 Intervals and **`hasCamera`** come from the server via `POST /checkin` and `POST /ingest` `commands` — the flashed JSON is only the initial value until the first successful check-in.
+
+## Sensor drivers
+
+Real hardware drivers. Failed reads are omitted from ingest.
+
+| Catalog key | Driver |
+|-------------|--------|
+| `ds18b20` | OneWire + DallasTemperature on `signal` GPIO |
+| `bncPhModule` | 10-bit ADC on **A0 only** (install wizard GPIO **17**). Header is 0–3.3 V via the D1 mini divider. Default map: pH 7 @ 2.5 V, ~0.18 V/pH |
+| `floatSwitch` | Digital input, pull-up — LOW = 100 % water level. GPIO16 has no internal pull-up |
+| `yfs201` | Rising-edge interrupt — 450 pulses/L → L/min over the report interval. A0 and GPIO16 cannot count pulses |
+
+Boot and sensor lines match the ESP32-S3 firmware (`Sensors configured`, `Sensor <key> (<type>): …`, `Check-in OK`, `Telemetry uploaded`, `WiFi connect failed status=`). Snapshots are still a downloaded JPEG when `hasCamera` is set — this board has no camera.
 
 Runtime loop matches ESP32-S3:
 
