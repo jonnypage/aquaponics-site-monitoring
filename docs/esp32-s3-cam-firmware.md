@@ -102,5 +102,5 @@ See [`docs/esp8266-usb-macos.md`](esp8266-usb-macos.md) for general serial troub
 
 ## Related
 
-- ESP8266 (stub sensors + optional placekitten snapshots): [`firmware/esp-8266-d1-mini/`](../firmware/esp-8266-d1-mini/)
+- ESP8266 (real sensors, optional placekitten snapshots): [`firmware/esp-8266-d1-mini/`](../firmware/esp-8266-d1-mini/)
 - ESP32 CYD (deferred): [`docs/esp32-cyd-roadmap.md`](esp32-cyd-roadmap.md)

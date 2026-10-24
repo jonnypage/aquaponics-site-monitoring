@@ -179,9 +179,13 @@ Press **RST** on the board. Expected lines:
 ```text
 esp-8266-d1-mini starting
 Device <uuid> API http://192.168.x.x:4000
+Sensors configured: 1
 Connecting WiFi........
 IP: 192.168.x.x
-Telemetry OK, next report in 300s
+Check-in OK (checkin=300s report=1800s snapshot=3600s)
+Sensor ds18b20 (temperature): 21.500
+Telemetry uploaded
+Next wake in 300s (checkin=300s report=1800s snapshot=3600s)
 ```
 
 **Dashboard:** open the device’s site — `last_seen` and charts should update within the report interval (~300s by default).
