@@ -12,7 +12,7 @@ Install board id: **`esp32-s3`**
 
 | Board | Sensors | Camera |
 |-------|---------|--------|
-| ESP8266 | Real drivers (pH ADC only on A0 / GPIO17) | Optional placekittens.com stub JPEG |
+| ESP8266 | Real drivers (pH ADC only on A0 / GPIO17) | **None** — no camera or snapshot code |
 | **ESP32-S3 DevKitC-1** (`esp32-s3`) | **Real drivers** (same stack as CAM) | **None** — no UI toggle, no firmware code |
 | ESP32-S3 CAM (`esp32-s3-cam`) | Real drivers | Optional OV3660 JPEG snapshots |
 
@@ -100,4 +100,4 @@ Same port for the admin install wizard in Chrome.
 ## Related
 
 - ESP32-S3 CAM (real sensors + optional camera): [`docs/esp32-s3-cam-firmware.md`](esp32-s3-cam-firmware.md)
-- ESP8266 (real sensors, stub snapshots): [`firmware/esp-8266-d1-mini/`](../firmware/esp-8266-d1-mini/)
+- ESP8266 (real sensors, no camera): [`firmware/esp-8266-d1-mini/`](../firmware/esp-8266-d1-mini/)

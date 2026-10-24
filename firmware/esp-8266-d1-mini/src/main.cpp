@@ -14,23 +14,41 @@ namespace
 
   constexpr int kFallbackCheckinSeconds = 300;
   constexpr int kFallbackReportSeconds = 1800;
-  constexpr int kFallbackSnapshotSeconds = 3600;
   constexpr unsigned long kWifiReconnectMs = 15000;
+  constexpr unsigned long kWifiConnectWaitMs = 15000;
+  constexpr unsigned long kHttpTimeoutMs = 15000;
+  constexpr unsigned long kSleepChunkMs = 1000;
+  constexpr unsigned long kTelemetryFailBackoffMs = 30000;
+  constexpr unsigned long kCheckinFailBackoffMs = 5000;
+  // Server-controlled intervals are clamped so interval * 1000 can never overflow 32 bits.
+  constexpr int kMaxIntervalSeconds = 7 * 24 * 60 * 60;
+
+  // Anything before 2020-01-01 UTC means the clock was never set by NTP.
+  constexpr long kMinValidEpoch = 1577836800L;
+  constexpr unsigned long kNtpRetryMs = 60000;
+  constexpr int kNtpBootAttempts = 40;  // x 500 ms
+  constexpr int kNtpRetryAttempts = 20; // x 500 ms
 
 #ifndef UD_WIFI_DEBUG
 #define UD_WIFI_DEBUG 0
 #endif
 
+  // Maintenance reboot after 7 days of uptime. Far below the ~49 day millis() wrap, needs no clock.
+  constexpr unsigned long kRebootAfterUptimeMs = 7UL * 24UL * 60UL * 60UL * 1000UL;
+
   DeviceConfig g_cfg;
+  bool g_configLoaded = false;
   int g_checkinIntervalSeconds = kFallbackCheckinSeconds;
   int g_reportIntervalSeconds = kFallbackReportSeconds;
-  int g_snapshotIntervalSeconds = kFallbackSnapshotSeconds;
-  bool g_captureImageNow = false;
+  // False until a check-in/ingest response supplies intervals; logged so defaults are never mistaken for server values.
+  bool g_intervalsFromServer = false;
   bool g_sendTelemetryNow = false;
   unsigned long g_lastCheckinMs = 0;
   unsigned long g_lastReportMs = 0;
-  unsigned long g_lastSnapshotMs = 0;
   unsigned long g_lastWifiAttemptMs = 0;
+  unsigned long g_lastNtpAttemptMs = 0;
+  unsigned long g_checkinBackoffUntilMs = 0;
+  unsigned long g_telemetryBackoffUntilMs = 0;
 
   int intervalOrFallback(int value, int fallback)
   {
@@ -45,22 +63,6 @@ namespace
     }
     const int intervalSec = intervalOrFallback(intervalSeconds, 1);
     return nowMs - lastMs >= static_cast<unsigned long>(intervalSec) * 1000UL;
-  }
-
-  unsigned long remainingIntervalSeconds(unsigned long lastMs, int intervalSeconds, unsigned long nowMs)
-  {
-    const int intervalSec = intervalOrFallback(intervalSeconds, 1);
-    if (lastMs == 0)
-    {
-      return 0;
-    }
-    const unsigned long intervalMs = static_cast<unsigned long>(intervalSec) * 1000UL;
-    const unsigned long elapsed = nowMs - lastMs;
-    if (elapsed >= intervalMs)
-    {
-      return 0;
-    }
-    return (intervalMs - elapsed + 999UL) / 1000UL;
   }
 
   String iso8601Utc()
@@ -84,18 +86,63 @@ namespace
   }
 #endif
 
-  bool syncTime()
+  bool clockIsSet()
+  {
+    return time(nullptr) > kMinValidEpoch;
+  }
+
+  /** (Re)start SNTP and wait up to attempts x 500 ms for the clock to be set. */
+  bool syncTime(int attempts)
   {
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-    for (int i = 0; i < 40; ++i)
+    for (int i = 0; i < attempts; ++i)
     {
-      if (time(nullptr) > 1577836800L)
+      if (clockIsSet())
       {
         return true;
       }
       delay(500);
     }
+    return clockIsSet();
+  }
+
+  /**
+   * Telemetry and check-ins carry the device clock, so nothing is sent while it reads 1970.
+   * Retries NTP at most once per kNtpRetryMs.
+   */
+  bool ensureClock()
+  {
+    if (clockIsSet())
+    {
+      return true;
+    }
+    const unsigned long now = millis();
+    if (g_lastNtpAttemptMs != 0 && now - g_lastNtpAttemptMs < kNtpRetryMs)
+    {
+      return false;
+    }
+    g_lastNtpAttemptMs = now;
+    Serial.println("Clock not set, retrying NTP");
+    if (syncTime(kNtpRetryAttempts))
+    {
+      Serial.println("NTP synced");
+      return true;
+    }
+    Serial.println("NTP failed, will retry");
     return false;
+  }
+
+  /** Restart after 7 days of uptime. Only called between requests, never mid-HTTP. */
+  void maybeWeeklyReboot()
+  {
+    if (millis() < kRebootAfterUptimeMs)
+    {
+      return;
+    }
+    Serial.println("Weekly maintenance reboot (7 days uptime)");
+    Serial.flush();
+    delay(200);
+    ESP.restart();
   }
 
   bool ensureWifi()
@@ -105,26 +152,45 @@ namespace
       return true;
     }
     const unsigned long now = millis();
-    if (now - g_lastWifiAttemptMs < kWifiReconnectMs)
+    if (g_lastWifiAttemptMs != 0 && now - g_lastWifiAttemptMs < kWifiReconnectMs)
     {
       return false;
     }
     g_lastWifiAttemptMs = now;
     WiFi.disconnect();
     WiFi.begin(g_cfg.wifiSsid.c_str(), g_cfg.wifiPassword.c_str());
-    return false;
+    Serial.print("Connecting WiFi");
+    const unsigned long giveUpMs = millis() + kWifiConnectWaitMs;
+    while (WiFi.status() != WL_CONNECTED && static_cast<long>(giveUpMs - millis()) > 0)
+    {
+      delay(500);
+      Serial.print(".");
+    }
+    Serial.println();
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      Serial.print("WiFi connect failed status=");
+      Serial.println(WiFi.status());
+      return false;
+    }
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+    return true;
   }
 
   bool parseCommands(const String &body)
   {
     JsonDocument doc;
-    if (deserializeJson(doc, body))
+    const DeserializationError err = deserializeJson(doc, body);
+    if (err)
     {
+      Serial.printf("Commands: JSON parse failed (%s)\n", err.c_str());
       return false;
     }
     JsonObjectConst commands = doc["commands"].as<JsonObjectConst>();
     if (commands.isNull())
     {
+      Serial.println("Commands: missing commands object");
       return false;
     }
     if (!commands["checkinIntervalSeconds"].isNull())
@@ -132,7 +198,8 @@ namespace
       const int value = commands["checkinIntervalSeconds"].as<int>();
       if (value > 0)
       {
-        g_checkinIntervalSeconds = value;
+        g_checkinIntervalSeconds = value > kMaxIntervalSeconds ? kMaxIntervalSeconds : value;
+        g_intervalsFromServer = true;
       }
     }
     if (!commands["reportIntervalSeconds"].isNull())
@@ -140,29 +207,11 @@ namespace
       const int value = commands["reportIntervalSeconds"].as<int>();
       if (value > 0)
       {
-        g_reportIntervalSeconds = value;
+        g_reportIntervalSeconds = value > kMaxIntervalSeconds ? kMaxIntervalSeconds : value;
+        g_intervalsFromServer = true;
       }
     }
-    if (!commands["snapshotIntervalSeconds"].isNull())
-    {
-      const int value = commands["snapshotIntervalSeconds"].as<int>();
-      if (value > 0)
-      {
-        g_snapshotIntervalSeconds = value;
-      }
-    }
-    if (!commands["hasCamera"].isNull())
-    {
-      g_cfg.hasCamera = commands["hasCamera"].as<bool>();
-    }
-    if (!commands["captureImageNow"].isNull())
-    {
-      g_captureImageNow = g_cfg.hasCamera && commands["captureImageNow"].as<bool>();
-    }
-    else
-    {
-      g_captureImageNow = false;
-    }
+    // hasCamera / snapshot / captureImageNow are ignored: this board has no camera.
     if (!commands["sendTelemetryNow"].isNull())
     {
       g_sendTelemetryNow = commands["sendTelemetryNow"].as<bool>();
@@ -171,6 +220,8 @@ namespace
     {
       g_sendTelemetryNow = false;
     }
+    Serial.printf("Commands applied (checkin=%ds report=%ds sendNow=%d)\n", g_checkinIntervalSeconds,
+                  g_reportIntervalSeconds, g_sendTelemetryNow ? 1 : 0);
     return true;
   }
 
@@ -212,6 +263,9 @@ namespace
     {
       return false;
     }
+    static const char *kCollectHeaders[] = {"Retry-After"};
+    http.collectHeaders(kCollectHeaders, 1);
+    http.setTimeout(kHttpTimeoutMs);
     http.addHeader("Content-Type", "application/json");
     http.addHeader("x-api-key", g_cfg.apiKey);
     httpCode = http.POST(jsonBody);
@@ -235,8 +289,14 @@ namespace
     return postJson("/checkin", payload, responseBody, httpCode, responseHeaders);
   }
 
-  bool postTelemetry(float elapsedSeconds, String &responseBody, int &httpCode, String &responseHeaders)
+  /**
+   * Returns false when nothing was sent. `noReadings` is set when every sensor failed: the API rejects an
+   * empty `readings` object with 400, so the upload is skipped instead.
+   */
+  bool postTelemetry(float elapsedSeconds, String &responseBody, int &httpCode, String &responseHeaders,
+                     bool &noReadings)
   {
+    noReadings = false;
     if (!ensureWifi())
     {
       return false;
@@ -247,239 +307,55 @@ namespace
     JsonObject readings = body["readings"].to<JsonObject>();
     const float elapsed = elapsedSeconds > 0.0f ? elapsedSeconds : static_cast<float>(g_reportIntervalSeconds);
     appendSensorReadings(readings, g_cfg, elapsed);
+    if (readings.size() == 0)
+    {
+      noReadings = true;
+      return false;
+    }
     String payload;
     serializeJson(body, payload);
     return postJson("/ingest", payload, responseBody, httpCode, responseHeaders);
   }
 
-  // Small placeholder JPEG — ESP8266 heap cannot hold 640×360 (~48 KiB) plus multipart body.
-  constexpr char kPlacekittenUrl[] = "https://placekittens.com/320/180";
-  constexpr size_t kSnapshotMaxBytes = 16384;
-  constexpr unsigned long kStreamIdleMs = 5000;
-
-  size_t readAvail(WiFiClient *stream, uint8_t *dest, size_t destCap)
+  bool isBackoffActive(unsigned long backoffUntilMs, unsigned long nowMs)
   {
-    const int avail = stream->available();
-    if (avail <= 0 || destCap == 0)
-    {
-      return 0;
-    }
-    const size_t want = static_cast<size_t>(avail);
-    return stream->readBytes(dest, want < destCap ? want : destCap);
+    return backoffUntilMs != 0 && nowMs < backoffUntilMs;
   }
 
-  /** Read GET body when Content-Length is missing (chunked) or declared. */
-  bool readHttpResponseBody(HTTPClient &http, uint8_t **outBuf, size_t *outLen, size_t maxBytes)
+  unsigned long deadlineFromLast(unsigned long lastMs, int intervalSeconds, unsigned long nowMs)
   {
-    *outBuf = nullptr;
-    *outLen = 0;
-
-    WiFiClient *stream = http.getStreamPtr();
-    if (!stream)
+    if (lastMs == 0)
     {
-      return false;
+      return nowMs;
     }
-
-    const int declared = http.getSize();
-    if (declared > 0 && static_cast<size_t>(declared) <= maxBytes)
-    {
-      uint8_t *image = static_cast<uint8_t *>(malloc(static_cast<size_t>(declared)));
-      if (!image)
-      {
-        return false;
-      }
-      const size_t got = stream->readBytes(image, static_cast<size_t>(declared));
-      if (got != static_cast<size_t>(declared))
-      {
-        Serial.printf("Snapshot: short read %u/%d\n", static_cast<unsigned>(got), declared);
-        free(image);
-        return false;
-      }
-      *outBuf = image;
-      *outLen = got;
-      return true;
-    }
-
-    uint8_t *image = static_cast<uint8_t *>(malloc(maxBytes));
-    if (!image)
-    {
-      return false;
-    }
-
-    size_t got = 0;
-    unsigned long lastDataMs = millis();
-    while (got < maxBytes && (http.connected() || stream->available() > 0))
-    {
-      const size_t chunk = readAvail(stream, image + got, maxBytes - got);
-      if (chunk > 0)
-      {
-        got += chunk;
-        lastDataMs = millis();
-        continue;
-      }
-      if (!http.connected())
-      {
-        break;
-      }
-      if (millis() - lastDataMs > kStreamIdleMs)
-      {
-        break;
-      }
-      delay(1);
-    }
-
-    if (got == 0)
-    {
-      Serial.println("Snapshot: empty response body");
-      free(image);
-      return false;
-    }
-
-    uint8_t *shrunk = static_cast<uint8_t *>(realloc(image, got));
-    if (shrunk != nullptr)
-    {
-      image = shrunk;
-    }
-
-    *outBuf = image;
-    *outLen = got;
-    if (declared <= 0)
-    {
-      Serial.printf("Snapshot: read %u bytes (chunked)\n", static_cast<unsigned>(got));
-    }
-    return true;
+    const int intervalSec = intervalOrFallback(intervalSeconds, 1);
+    return lastMs + static_cast<unsigned long>(intervalSec) * 1000UL;
   }
 
-  bool fetchPlacekittenJpeg(uint8_t **outBuf, size_t *outLen)
+  unsigned long applyBackoff(unsigned long dueMs, unsigned long backoffUntilMs, unsigned long nowMs)
   {
-    *outBuf = nullptr;
-    *outLen = 0;
-
-    WiFiClientSecure client;
-    client.setInsecure();
-    HTTPClient http;
-    http.setTimeout(20000);
-    if (!http.begin(client, kPlacekittenUrl))
+    if (isBackoffActive(backoffUntilMs, nowMs) && backoffUntilMs > dueMs)
     {
-      Serial.println("Snapshot: placekittens begin failed");
-      return false;
+      return backoffUntilMs;
     }
-
-    const int code = http.GET();
-    if (code != HTTP_CODE_OK)
-    {
-      Serial.printf("Snapshot: placekittens HTTP %d\n", code);
-      http.end();
-      return false;
-    }
-
-    uint8_t *image = nullptr;
-    size_t imageLen = 0;
-    if (!readHttpResponseBody(http, &image, &imageLen, kSnapshotMaxBytes))
-    {
-      http.end();
-      return false;
-    }
-    http.end();
-
-    if (imageLen > kSnapshotMaxBytes)
-    {
-      Serial.printf("Snapshot: body too large %u\n", static_cast<unsigned>(imageLen));
-      free(image);
-      return false;
-    }
-    if (imageLen < 4 || image[0] != 0xFF || image[1] != 0xD8)
-    {
-      Serial.println("Snapshot: response is not JPEG");
-      free(image);
-      return false;
-    }
-
-    *outBuf = image;
-    *outLen = imageLen;
-    Serial.printf("Snapshot: placekitten %u bytes\n", static_cast<unsigned>(imageLen));
-    return true;
-  }
-
-  bool postSnapshot(int &httpCode, String &responseHeaders)
-  {
-    if (!ensureWifi() || !g_cfg.hasCamera)
-    {
-      return false;
-    }
-
-    uint8_t *image = nullptr;
-    size_t imageLen = 0;
-    if (!fetchPlacekittenJpeg(&image, &imageLen))
-    {
-      return false;
-    }
-
-    const String boundary = "----AquaponicsBoundary7d4f";
-    const String meta = String("{\"deviceId\":\"") + g_cfg.deviceId + "\",\"timestamp\":\"" + iso8601Utc() + "\"}";
-
-    String head = "--" + boundary + "\r\n";
-    head += "Content-Disposition: form-data; name=\"metadata\"\r\n\r\n";
-    head += meta + "\r\n";
-    head += "--" + boundary + "\r\n";
-    head += "Content-Disposition: form-data; name=\"image\"; filename=\"snap.jpg\"\r\n";
-    head += "Content-Type: image/jpeg\r\n\r\n";
-
-    const String tail = "\r\n--" + boundary + "--\r\n";
-    const size_t totalLen = head.length() + imageLen + tail.length();
-
-    uint8_t *buf = static_cast<uint8_t *>(malloc(totalLen));
-    if (!buf)
-    {
-      free(image);
-      return false;
-    }
-    size_t off = 0;
-    memcpy(buf + off, head.c_str(), head.length());
-    off += head.length();
-    memcpy(buf + off, image, imageLen);
-    off += imageLen;
-    memcpy(buf + off, tail.c_str(), tail.length());
-    free(image);
-
-    WiFiClient plain;
-    WiFiClientSecure secure;
-    HTTPClient http;
-    const String url = g_cfg.apiOrigin + "/ingest/snapshot";
-    const bool https = g_cfg.apiOrigin.startsWith("https://");
-
-    bool began = false;
-    if (https)
-    {
-      secure.setInsecure();
-      began = http.begin(secure, url);
-    }
-    else
-    {
-      began = http.begin(plain, url);
-    }
-    if (!began)
-    {
-      free(buf);
-      return false;
-    }
-
-    http.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
-    http.addHeader("x-api-key", g_cfg.apiKey);
-    httpCode = http.POST(buf, totalLen);
-    responseHeaders = http.header("Retry-After").length() ? String("Retry-After: ") + http.header("Retry-After") : "";
-    http.end();
-    free(buf);
-    return httpCode > 0;
+    return dueMs;
   }
 
   bool shouldCheckin(unsigned long nowMs)
   {
+    if (isBackoffActive(g_checkinBackoffUntilMs, nowMs))
+    {
+      return false;
+    }
     return intervalElapsed(g_lastCheckinMs, g_checkinIntervalSeconds, nowMs);
   }
 
   bool shouldSendTelemetry(unsigned long nowMs)
   {
+    if (isBackoffActive(g_telemetryBackoffUntilMs, nowMs))
+    {
+      return false;
+    }
     if (g_sendTelemetryNow)
     {
       return true;
@@ -487,37 +363,41 @@ namespace
     return intervalElapsed(g_lastReportMs, g_reportIntervalSeconds, nowMs);
   }
 
-  bool shouldSendSnapshot(unsigned long nowMs)
+  unsigned long nextWakeMs(unsigned long nowMs)
   {
-    if (!g_cfg.hasCamera)
+    unsigned long next = applyBackoff(
+        deadlineFromLast(g_lastCheckinMs, g_checkinIntervalSeconds, nowMs), g_checkinBackoffUntilMs, nowMs);
+
+    const unsigned long reportDue =
+        g_sendTelemetryNow ? nowMs : deadlineFromLast(g_lastReportMs, g_reportIntervalSeconds, nowMs);
+    const unsigned long reportWake = applyBackoff(reportDue, g_telemetryBackoffUntilMs, nowMs);
+    if (reportWake < next)
     {
-      g_captureImageNow = false;
-      return false;
+      next = reportWake;
     }
-    if (g_captureImageNow)
-    {
-      return true;
-    }
-    return intervalElapsed(g_lastSnapshotMs, g_snapshotIntervalSeconds, nowMs);
+    return next;
   }
 
   unsigned long sleepSeconds(unsigned long nowMs)
   {
-    unsigned long sleepSec = remainingIntervalSeconds(g_lastCheckinMs, g_checkinIntervalSeconds, nowMs);
-    const unsigned long reportSec = remainingIntervalSeconds(g_lastReportMs, g_reportIntervalSeconds, nowMs);
-    if (reportSec < sleepSec)
+    const unsigned long next = nextWakeMs(nowMs);
+    if (next <= nowMs)
     {
-      sleepSec = reportSec;
+      return 1;
     }
-    if (g_cfg.hasCamera)
+    return (next - nowMs + 999UL) / 1000UL;
+  }
+
+  void sleepForSeconds(unsigned long seconds)
+  {
+    unsigned long remainingMs = seconds * 1000UL;
+    while (remainingMs > 0)
     {
-      const unsigned long snapSec = remainingIntervalSeconds(g_lastSnapshotMs, g_snapshotIntervalSeconds, nowMs);
-      if (snapSec < sleepSec)
-      {
-        sleepSec = snapSec;
-      }
+      const unsigned long chunk = remainingMs > kSleepChunkMs ? kSleepChunkMs : remainingMs;
+      delay(chunk);
+      remainingMs -= chunk;
+      maybeWeeklyReboot();
     }
-    return sleepSec < 1 ? 1 : sleepSec;
   }
 
 } // namespace
@@ -541,7 +421,10 @@ void setup()
   Serial.print(" API ");
   Serial.println(g_cfg.apiOrigin);
   Serial.printf("Sensors configured: %u\n", g_cfg.sensorCount);
+  Serial.printf("Default intervals (checkin=%ds report=%ds) until the server responds\n",
+                g_checkinIntervalSeconds, g_reportIntervalSeconds);
   Serial.flush();
+  g_configLoaded = true;
 
   initSensorDrivers(g_cfg);
 
@@ -549,6 +432,8 @@ void setup()
   logWifiCredentialsDebug();
 #endif
 
+  // Do not write Wi-Fi credentials to flash on every (re)connect.
+  WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.begin(g_cfg.wifiSsid.c_str(), g_cfg.wifiPassword.c_str());
 
@@ -564,7 +449,11 @@ void setup()
   {
     Serial.print("IP: ");
     Serial.println(WiFi.localIP());
-    syncTime();
+    g_lastNtpAttemptMs = millis();
+    if (!syncTime(kNtpBootAttempts))
+    {
+      Serial.println("NTP failed, will retry");
+    }
   }
   else
   {
@@ -575,15 +464,30 @@ void setup()
 
 void loop()
 {
+  if (!g_configLoaded)
+  {
+    // Nothing to do without a flashed config; the error was printed in setup().
+    delay(1000);
+    return;
+  }
+
+  maybeWeeklyReboot();
+
   if (!ensureWifi())
   {
     delay(500);
     return;
   }
 
+  if (!ensureClock())
+  {
+    delay(1000);
+    return;
+  }
+
   const unsigned long wakeMs = millis();
 
-  // Check-in is rate-limited to checkinIntervalSeconds. Telemetry/snapshots may be due sooner.
+  // Check-in is rate-limited to checkinIntervalSeconds. Telemetry may be due sooner.
   if (shouldCheckin(wakeMs))
   {
     String body;
@@ -592,91 +496,77 @@ void loop()
 
     if (!postCheckin(body, code, headers))
     {
-      delay(5000);
-      return;
+      g_checkinBackoffUntilMs = millis() + kCheckinFailBackoffMs;
     }
-
-    if (code == 429)
+    else if (code == 429)
     {
       const int waitSec = parseRetryAfterSeconds(headers);
       Serial.printf("Check-in rate limited, waiting %ds\n", waitSec);
-      delay(static_cast<unsigned long>(waitSec) * 1000UL);
-      return;
+      g_checkinBackoffUntilMs = millis() + static_cast<unsigned long>(waitSec) * 1000UL;
     }
-
-    if (code < 200 || code >= 300)
+    else if (code < 200 || code >= 300)
     {
       Serial.printf("Check-in HTTP %d: %s\n", code, body.c_str());
-      delay(10000);
-      return;
+      g_checkinBackoffUntilMs = millis() + kCheckinFailBackoffMs;
     }
-
-    g_lastCheckinMs = wakeMs;
-    parseCommands(body);
-    Serial.printf("Check-in OK (checkin=%ds report=%ds snapshot=%ds)\n", g_checkinIntervalSeconds,
-                  g_reportIntervalSeconds, g_snapshotIntervalSeconds);
+    else
+    {
+      g_lastCheckinMs = wakeMs;
+      g_checkinBackoffUntilMs = 0;
+      parseCommands(body);
+      Serial.printf("Check-in OK (checkin=%ds report=%ds)\n", g_checkinIntervalSeconds,
+                    g_reportIntervalSeconds);
+    }
   }
 
-  if (shouldSendTelemetry(wakeMs))
+  // Re-read the clock and intervals after check-in so a shorter report window runs now.
+  const unsigned long telemetryMs = millis();
+  if (shouldSendTelemetry(telemetryMs))
   {
     const float elapsedSec =
         g_lastReportMs == 0 ? static_cast<float>(g_reportIntervalSeconds)
-                            : static_cast<float>(wakeMs - g_lastReportMs) / 1000.0f;
+                            : static_cast<float>(telemetryMs - g_lastReportMs) / 1000.0f;
 
     String ingestBody;
     String ingestHeaders;
     int ingestCode = 0;
-    if (!postTelemetry(elapsedSec, ingestBody, ingestCode, ingestHeaders))
+    bool noReadings = false;
+    if (!postTelemetry(elapsedSec, ingestBody, ingestCode, ingestHeaders, noReadings))
     {
-      delay(5000);
-      return;
+      if (noReadings)
+      {
+        Serial.println("Telemetry skipped: no valid sensor readings");
+        g_telemetryBackoffUntilMs = millis() + kTelemetryFailBackoffMs;
+      }
+      else
+      {
+        g_telemetryBackoffUntilMs = millis() + kCheckinFailBackoffMs;
+      }
     }
-
-    if (ingestCode == 429)
+    else if (ingestCode == 429)
     {
-      delay(static_cast<unsigned long>(parseRetryAfterSeconds(ingestHeaders)) * 1000UL);
-      return;
+      const int waitSec = parseRetryAfterSeconds(ingestHeaders);
+      Serial.printf("Telemetry rate limited, retry in %ds\n", waitSec);
+      g_telemetryBackoffUntilMs = millis() + static_cast<unsigned long>(waitSec) * 1000UL;
     }
-
-    if (ingestCode >= 200 && ingestCode < 300)
+    else if (ingestCode >= 200 && ingestCode < 300)
     {
-      g_lastReportMs = wakeMs;
+      g_lastReportMs = telemetryMs;
+      g_telemetryBackoffUntilMs = 0;
+      // Fulfilled. Clear first so an unparseable response cannot leave the on-demand flag stuck on.
+      g_sendTelemetryNow = false;
       parseCommands(ingestBody);
       Serial.println("Telemetry uploaded");
     }
     else
     {
       Serial.printf("Telemetry HTTP %d: %s\n", ingestCode, ingestBody.c_str());
-      delay(10000);
-      return;
-    }
-  }
-
-  if (shouldSendSnapshot(wakeMs))
-  {
-    int snapCode = 0;
-    String snapHeaders;
-    if (postSnapshot(snapCode, snapHeaders))
-    {
-      if (snapCode == 429)
-      {
-        delay(static_cast<unsigned long>(parseRetryAfterSeconds(snapHeaders)) * 1000UL);
-      }
-      else if (snapCode >= 200 && snapCode < 300)
-      {
-        g_lastSnapshotMs = wakeMs;
-        g_captureImageNow = false;
-        Serial.println("Snapshot uploaded");
-      }
-      else
-      {
-        Serial.printf("Snapshot HTTP %d\n", snapCode);
-      }
+      g_telemetryBackoffUntilMs = millis() + kTelemetryFailBackoffMs;
     }
   }
 
   const unsigned long waitSec = sleepSeconds(millis());
-  Serial.printf("Next wake in %lus (checkin=%ds report=%ds snapshot=%ds)\n", waitSec,
-                g_checkinIntervalSeconds, g_reportIntervalSeconds, g_snapshotIntervalSeconds);
-  delay(waitSec * 1000UL);
+  Serial.printf("Next wake in %lus (checkin=%ds report=%ds, %s)\n", waitSec, g_checkinIntervalSeconds,
+                g_reportIntervalSeconds, g_intervalsFromServer ? "from server" : "default");
+  sleepForSeconds(waitSec);
 }

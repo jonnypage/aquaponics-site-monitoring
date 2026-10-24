@@ -262,9 +262,13 @@ export function AdminDeviceInstallPageContent() {
     ) {
       return;
     }
+    // Site reporting spans every device on the site; only this device's sensors belong here.
+    const thisDeviceReporting = assignedSite?.sensorReporting?.filter(
+      (r) => r.deviceId === device.deviceId,
+    );
     setSensorRows(
       buildInitialSensorRows(
-        assignedSite?.sensorReporting,
+        thisDeviceReporting,
         catalogRows,
         device.siteId == null,
         devicePinMap,

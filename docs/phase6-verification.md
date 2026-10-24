@@ -172,7 +172,7 @@ Re-flash after any `firmware/esp-8266-d1-mini` change. Serial monitor (**115200*
 pnpm firmware:monitor -- -p /dev/cu.usbserial-XXXX
 ```
 
-**Snapshot download:** placekittens.com may use chunked encoding (no `Content-Length`). Expect `Snapshot: read N bytes (chunked)` then `Snapshot: placekitten N bytes` and `Snapshot uploaded` — not `Snapshot: unexpected size -1`.
+**Snapshots:** the ESP8266 D1 mini firmware has no camera or snapshot code. Verify snapshots with an ESP32-S3 CAM device (`Snapshot: captured N bytes` then `Snapshot uploaded`), or with the `curl` upload in §3/§4. Expect `Check-in OK`, `Sensor <key> (<type>): …` and `Telemetry uploaded` from the D1 mini.
 
 | Check | Pass? | Notes |
 |-------|-------|-------|

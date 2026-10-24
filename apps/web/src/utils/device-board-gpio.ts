@@ -61,12 +61,12 @@ export interface DeviceBoardGpioProfile {
   forbidden: Readonly<Record<number, GpioBlockReason>>;
 }
 
-/** WeMos D1 mini / NodeMCU — GPIO numbers (not D-labels). */
+/** WeMos D1 mini / NodeMCU — GPIO numbers (not D-labels). Telemetry only, no camera. */
 const ESP8266_PROFILE: DeviceBoardGpioProfile = {
   id: "esp8266",
   labelKey: "admin.devices.installBoardEsp8266",
   installSupported: true,
-  supportsCamera: true,
+  supportsCamera: false,
   firmwarePublicPath: "/firmware/esp8266/firmware.bin",
   chipFamily: "ESP8266",
   manifestName: "esp-8266-d1-mini",

@@ -61,7 +61,7 @@ Uses shared [`firmware/shared/aquaponics-core/`](../firmware/shared/aquaponics-c
 When **Has camera** is enabled (flashed config or check-in/ingest `commands`):
 
 - Captures **VGA JPEG** from the onboard OV3660
-- Uploads on `snapshotIntervalSeconds` or when `captureImageNow` is set (same API contract as ESP8266)
+- Uploads on `snapshotIntervalSeconds` or when `captureImageNow` is set (same API contract the ESP8266 used to share before it dropped camera support)
 - Requires object storage configured on the API (`OBJECT_STORAGE_*`)
 
 If camera init fails at boot (wrong pinout or no PSRAM), firmware logs a warning and continues **without** snapshots.
@@ -102,5 +102,5 @@ See [`docs/esp8266-usb-macos.md`](esp8266-usb-macos.md) for general serial troub
 
 ## Related
 
-- ESP8266 (real sensors, optional placekitten snapshots): [`firmware/esp-8266-d1-mini/`](../firmware/esp-8266-d1-mini/)
+- ESP8266 (real sensors, no camera): [`firmware/esp-8266-d1-mini/`](../firmware/esp-8266-d1-mini/)
 - ESP32 CYD (deferred): [`docs/esp32-cyd-roadmap.md`](esp32-cyd-roadmap.md)
