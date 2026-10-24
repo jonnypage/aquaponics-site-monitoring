@@ -11,7 +11,9 @@ Unplug the board. Plug it in and look at the small IC near the USB connector (of
 | **CP2102**, **CP2104**, Silicon Labs | CP210x |
 | **CH340**, **CH341**, **CH9102** | WCH CH34x |
 
-NodeMCU / D1 mini clones vary — check the chip, not the board name.
+| **FT232R**, FTDI | Built into macOS — no install |
+
+NodeMCU / D1 mini clones vary — check the chip, not the board name. Windows and chip-by-chip reference: [`docs/usb-serial-drivers.md`](usb-serial-drivers.md).
 
 ## 2. Install the matching driver
 
@@ -27,7 +29,7 @@ NodeMCU / D1 mini clones vary — check the chip, not the board name.
 2. Run the `.pkg` installer.
 3. If blocked: **Privacy & Security → Allow** for Jiangsu Qinheng / WCH → **restart Mac** (required for many versions).
 
-macOS does **not** include CH340 drivers by default. CP210x sometimes works without a separate install on newer macOS, but installing the official package is still recommended if no port appears.
+Recent macOS versions often include CH340 and CP210x drivers, so try the board first. Older macOS versions and some chip revisions need the official package — install it if no port appears.
 
 ## 3. Verify macOS sees the port
 

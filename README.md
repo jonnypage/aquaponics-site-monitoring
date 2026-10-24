@@ -116,6 +116,7 @@ End-to-end flow: build a firmware image → serve it from the web app → flash 
 - **Dashboard** at **`http://localhost:3333`** (secure-enough context for Web Serial)
 - **API** running at `http://localhost:4000` and reachable from the ESP on Wi‑Fi (often your Mac’s LAN IP via `VITE_DEVICE_API_ORIGIN`)
 - **USB data cable** + serial driver on macOS if the port does not appear — [`docs/esp8266-usb-macos.md`](docs/esp8266-usb-macos.md)
+- **Windows + CH343 USB chip (common on ESP32 boards):** the install page flash step links a bundled driver served from `apps/web/public/drivers/ch343-ser.zip` (`/drivers/ch343-ser.zip`). Chip-by-chip driver reference: [`docs/usb-serial-drivers.md`](docs/usb-serial-drivers.md)
 
 ### 1. Build and publish `firmware.bin`
 

@@ -334,6 +334,8 @@
       "installFlashTitle": "Flash the device",
       "installFlashHint": "Connect the device over USB, then click Connect and flash firmware.",
       "installFlashMacSerialHint": "In Terminal you may see /dev/cu.usbserial-…. In Chrome’s picker, choose the matching USB serial entry (not Bluetooth-Incoming-Port or debug-console).",
+      "installFlashWindowsDriverHint": "Windows only: if your board does not show up in the port picker (ESP32 boards with a CH343 USB chip), install the CH343 USB serial driver (unzip, then run SETUP.EXE in the Driver folder).",
+      "installFlashWindowsDriverLink": "Download CH343 driver (.zip)",
       "installConnectFlash": "Connect and flash firmware",
       "installConnectMissing": "The install control did not load. Hard refresh (Cmd+Shift+R) and try again.",
       "installFlashEspToolsLabel": "Firmware install (blue Connect button)",

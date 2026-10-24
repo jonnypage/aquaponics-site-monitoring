@@ -68,7 +68,7 @@ The ESP8266 image at `apps/web/public/firmware/esp8266/firmware.bin` is **gitign
 pnpm firmware:build
 ```
 
-Re-copy after any C++ change before USB flash. USB install flow: [`docs/esp8266-usb-macos.md`](esp8266-usb-macos.md).
+Re-copy after any C++ change before USB flash. USB install flow: [`docs/esp8266-usb-macos.md`](esp8266-usb-macos.md). USB-serial drivers (Windows + macOS, bundled CH343 zip at `apps/web/public/drivers/ch343-ser.zip`): [`docs/usb-serial-drivers.md`](usb-serial-drivers.md).
 
 GPIO pins on the install form are validated per board profile in `apps/web/src/utils/device-board-gpio.ts` (ESP8266 allowlist: 4, 5, 12, 13, 14, 17; flash/boot/serial pins error). Add profiles when new boards ship.
 

@@ -34,6 +34,7 @@ Concise context for AI coding agents and developers who need orientation before 
 | `apps/web/public/firmware/esp8266/`| Gitignored `firmware.bin` + README; `pnpm firmware:build` / `firmware:ensure` |
 | `apps/web/public/firmware/esp32-s3/`| Gitignored merged `firmware.bin`; `pnpm firmware:build:esp32:s3` |
 | `apps/web/public/firmware/esp32-s3-cam/`| Gitignored merged `firmware.bin`; `pnpm firmware:build:esp32:s3:cam` |
+| `apps/web/public/drivers/ch343-ser.zip` | Bundled WCH CH343 Windows USB-serial driver; linked from the install wizard flash step (all boards) |
 | `scripts/build-firmware.mjs` | `pnpm firmware:build` (all) / `firmware:build:esp32` / `firmware:build:esp32:s3` / `firmware:build:esp32:s3:cam` |
 | `scripts/generate-firmware-placeholder.mjs` | Placeholder `firmware.bin` |
 | `scripts/ensure-or-build-firmware.mjs` | `predev:web` / `prebuild:web` — placeholder locally, `pio` build on CI/Railway |
