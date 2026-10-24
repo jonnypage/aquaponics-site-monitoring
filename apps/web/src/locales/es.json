@@ -334,6 +334,8 @@
       "installFlashTitle": "Flashear el dispositivo",
       "installFlashHint": "Conecta el dispositivo por USB y luego haz clic en Conectar y flashear firmware.",
       "installFlashMacSerialHint": "En Terminal puede aparecer /dev/cu.usbserial-…. En el selector de Chrome, elige ese puerto USB (no Bluetooth-Incoming-Port ni debug-console).",
+      "installFlashWindowsDriverHint": "Solo Windows: si tu placa no aparece en el selector de puertos (placas ESP32 con chip USB CH343), instala el controlador USB serie CH343 (descomprime y ejecuta SETUP.EXE en la carpeta Driver).",
+      "installFlashWindowsDriverLink": "Descargar controlador CH343 (.zip)",
       "installConnectFlash": "Conectar y flashear firmware",
       "installConnectMissing": "El control de instalación no cargó. Haz una recarga forzada (Cmd+Shift+R) e inténtalo de nuevo.",
       "installFlashEspToolsLabel": "Instalación de firmware (botón azul Conectar)",

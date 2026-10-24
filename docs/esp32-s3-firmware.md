@@ -90,6 +90,8 @@ pnpm firmware:monitor:esp32:s3 -- -p /dev/cu.usbmodemXXXX
 
 Same port for the admin install wizard in Chrome.
 
+On **Windows**, the DevKitC-1 UART port uses a WCH **CH343** chip (Device Manager: `USB-Enhanced-SERIAL CH343`; Chrome: `USB Single Serial`). If no COM port appears, install the bundled driver from the install wizard flash step. Details: [`docs/usb-serial-drivers.md`](usb-serial-drivers.md).
+
 ## Verification checklist
 
 1. `pnpm firmware:build:esp32:s3` produces `public/firmware/esp32-s3/firmware.bin` (size ≫ placeholder)

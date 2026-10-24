@@ -719,6 +719,16 @@ export function AdminDeviceInstallPageContent() {
             <p className='text-sm text-muted-foreground'>
               {t('admin.devices.installFlashMacSerialHint')}
             </p>
+            <p className='text-sm text-muted-foreground'>
+              {t('admin.devices.installFlashWindowsDriverHint')}{' '}
+              <a
+                className='font-medium text-foreground underline underline-offset-4'
+                href='/drivers/ch343-ser.zip'
+                download
+              >
+                {t('admin.devices.installFlashWindowsDriverLink')}
+              </a>
+            </p>
             {installSupport == null ? (
               <LoadingIndicator label={t('shared.loading')} />
             ) : installSupport.ok ? (
