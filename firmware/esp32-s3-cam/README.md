@@ -73,7 +73,7 @@ Only sensors included in the flashed config are read; others are omitted from in
 
 ## Camera
 
-When `hasCamera` is true (flashed config or ingest `commands`), captures **VGA JPEG** from the onboard OV3660 and uploads via `POST /ingest/snapshot`. Respects `snapshotIntervalSeconds` and `captureImageNow` from ingest commands (same contract as ESP8266).
+When `hasCamera` is true (flashed config or ingest `commands`), captures **VGA JPEG** from the onboard OV3660 and uploads via `POST /ingest/snapshot`. Respects `snapshotIntervalSeconds` and `captureImageNow` from ingest commands (the ESP8266 D1 mini no longer has camera support).
 
 DVP pin map matches the AliExpress ESP32-S3 CAM seller pinout — see `src/camera.cpp` and the GPIO table in this README.
 

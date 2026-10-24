@@ -31,7 +31,7 @@ Hand this document to an implementing agent for **Phase 6 — Firmware installer
 | Web device edit | **`AdminDeviceRecentSnapshots`** gallery |
 | Web install wizard | esp-web-tools, Wi‑Fi, wire→GPIO, `firmware-config-patch` v2, `pin_map`; ESP32 CYD disabled + roadmap link |
 | Admin site edit | Reset measurements + clear site snapshots |
-| **`firmware/esp-8266-d1-mini/`** | Real sensor telemetry + placekittens JPEG (chunked HTTP download) + v1/v2/v3 pins |
+| **`firmware/esp-8266-d1-mini/`** | Real sensor telemetry only (no camera / snapshots) + v1/v2/v3 pins |
 | **Firmware deploy hook** | [`scripts/ensure-or-build-firmware.mjs`](../scripts/ensure-or-build-firmware.mjs) — real build on CI/Railway/`FIRMWARE_BUILD=real` |
 | **`apps/web/public/firmware/esp8266/firmware.bin`** | Gitignored; `firmware:build` or placeholder locally |
 

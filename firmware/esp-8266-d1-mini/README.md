@@ -14,7 +14,7 @@ If you run `pio device monitor` from the wrong directory, PlatformIO defaults to
 
 ## Debug WiFi credentials on serial
 
-`platformio.ini` sets `-DUD_WIFI_DEBUG=1` by default (temporary): boot logs print the SSID at 115200, same as the ESP32-S3 firmware. Set `-DUD_WIFI_DEBUG=0` in `build_flags` before production.
+`platformio.ini` sets `-DUD_WIFI_DEBUG=0` (production default). Set it to `1` in `build_flags` only for bench debugging: boot logs then print the Wi-Fi SSID at 115200 (never the password).
 
 ## Build
 
@@ -35,9 +35,9 @@ The admin install wizard patches a 2 KiB region between `__UD_CFG_BEGIN__` and `
 - `deviceId`, `apiKey`, `apiOrigin` (LAN IP reachable by the ESP — set via `VITE_DEVICE_API_ORIGIN` in `apps/web/.env`, not `localhost`)
 - Wi-Fi credentials and GPIO `pins` for MVP sensors
 - **`v: 3`** (preferred): per-sensor role map plus **`sensorTypes`** map; `null` disables a sensor. Legacy **`v: 2`** / **`v: 1`** still supported.
-- `hasCamera` — when true, uploads a small 16:9 JPEG from placekittens.com (320×180); when false, no snapshots (including alert-driven `captureImageNow`).
+- Camera fields (`hasCamera`, snapshot intervals, `captureImageNow`) are ignored. **This board has no camera and no snapshot code.** The install wizard hides the camera options for it.
 
-Intervals and **`hasCamera`** come from the server via `POST /checkin` and `POST /ingest` `commands` — the flashed JSON is only the initial value until the first successful check-in.
+Intervals come from the server via `POST /checkin` and `POST /ingest` `commands` — the flashed JSON is only the initial value until the first successful check-in.
 
 ## Sensor drivers
 
@@ -50,14 +50,22 @@ Real hardware drivers. Failed reads are omitted from ingest.
 | `floatSwitch` | Digital input, pull-up — LOW = 100 % water level. GPIO16 has no internal pull-up |
 | `yfs201` | Rising-edge interrupt — 450 pulses/L → L/min over the report interval. A0 and GPIO16 cannot count pulses |
 
-Boot and sensor lines match the ESP32-S3 firmware (`Sensors configured`, `Sensor <key> (<type>): …`, `Check-in OK`, `Telemetry uploaded`, `WiFi connect failed status=`). Snapshots are still a downloaded JPEG when `hasCamera` is set — this board has no camera.
+Boot and sensor lines match the ESP32-S3 firmware (`Sensors configured`, `Sensor <key> (<type>): …`, `Check-in OK`, `Telemetry uploaded`, `WiFi connect failed status=`), minus the snapshot interval since there are no snapshots.
 
-Runtime loop matches ESP32-S3:
+Runtime loop:
 
-1. Sleep until the next due check-in, telemetry, or snapshot
+1. Wait for Wi-Fi and a valid NTP clock (see below)
 2. `POST /checkin` when `checkinIntervalSeconds` elapsed (default 5 min)
 3. `POST /ingest` when `sendTelemetryNow` or `reportIntervalSeconds` elapsed (default 30 min)
-4. `POST /ingest/snapshot` when camera is enabled and a snapshot is due
+4. Sleep until the next due check-in or telemetry. Server interval changes apply on the same loop. Failed or rate-limited requests back off on their own clocks (`Retry-After` is honored).
+
+## NTP
+
+Check-ins and telemetry carry the device clock, so **nothing is sent while the clock is unset** (reads 1970). If NTP fails at boot, the firmware logs `Clock not set, retrying NTP` and retries about once a minute until it syncs, then logs `NTP synced` and carries on.
+
+## Weekly reboot
+
+The firmware restarts itself after **7 days of uptime**. No clock or timezone needed, and it cannot reboot-loop. This keeps `millis()` far from its ~49 day wrap. The check runs only between requests. After boot it checks in and sends telemetry immediately.
 
 ## HTTPS
 
